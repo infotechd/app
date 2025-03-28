@@ -1,79 +1,38 @@
-# =====================================
-# 📦 NODE
-# =====================================
+# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+
+# dependencies
 node_modules/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
 
-# =====================================
-# 📱 REACT NATIVE / EXPO
-# =====================================
+# Expo
 .expo/
-.expo-shared/
-*.apk
-*.apks
-*.ipa
-
-# Android
-android/.gradle/
-android/app/build/
-android/build/
-
-# iOS
-ios/Pods/
-ios/DerivedData/
-ios/build/
-
-# Expo config
-*.turtle*
-*.keystore
-
-# =====================================
-# 🌐 REACT WEB / NEXT.JS
-# =====================================
-web/build/
-.next/
-out/
-.cache/
 dist/
+web-build/
+expo-env.d.ts
 
-# Static export (Next.js)
-export/
+# Native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
 
-# =====================================
-# 🔒 SEGURANÇA E PRIVACIDADE
-# =====================================
-.env
-.env.*
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+# Metro
+.metro-health-check*
 
-# =====================================
-# 🧪 TESTES
-# =====================================
-coverage/
-*.lcov
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
 
-# =====================================
-# 🛠️ EDITORES / IDEs
-# =====================================
-.vscode/
-.idea/
-*.sublime-workspace
-*.sublime-project
-
-# =====================================
-# 🍎 MACOS / WINDOWS
-# =====================================
+# macOS
 .DS_Store
-Thumbs.db
+*.pem
 
-# =====================================
-# 📦 PACKAGE LOCK FILES (opcional ignorar alguns)
-# =====================================
-package-lock.json
-pnpm-lock.yaml
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+app-example
