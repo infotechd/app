@@ -1,38 +1,65 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# ================================================================
+# Arquivos e pastas que não devem ser versionados
+# ================================================================
 
-# dependencies
+# Pastas de dependências do Node.js
 node_modules/
+**/node_modules/
 
-# Expo
-.expo/
+# Arquivos de log gerados pelo NPM ou Yarn
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Diretórios de build e distribuições geradas automaticamente
 dist/
-web-build/
-expo-env.d.ts
+build/
 
-# Native
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Cache do Expo e do React Native
+.expo/
+.expo-shared/
 
-# Metro
-.metro-health-check*
+# Arquivos de ambiente que podem conter informações sensíveis
+.env
+.env.local
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# ================================================================
+# Arquivos e pastas específicos de sistemas operacionais e IDEs
+# ================================================================
 
-# macOS
+# Arquivos criados pelo macOS
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# Pastas de configurações de IDEs (JetBrains, VS Code, etc.)
+.idea/
+.vscode/
 
-# typescript
-*.tsbuildinfo
+# Arquivos de projeto do Sublime Text
+*.sublime-project
+*.sublime-workspace
 
-app-example
+# ================================================================
+# Outros caches e diretórios temporários
+# ================================================================
+
+# Relatórios de cobertura de testes
+coverage/
+
+# ================================================================
+# Arquivos de Banco de Dados (Opcional)
+# ================================================================
+*.sqlite
+*.mdf
+*.ldf
+*.mdb
+# ================================================================
+# Arquivos de Upload (Opcional)
+# ================================================================
+uploads/
+temp/
+# ================================================================
+# Arquivos de Configuração Específicos do Ambiente (Opcional)
+# ================================================================
+config/local.js
+config/development.js

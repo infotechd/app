@@ -1,0 +1,25 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\maidn\\App\\backend\\logs\\.1c9d5fe12716c24d8bb683733574cfe3e204722c-audit.json",
+    "files": [
+        {
+            "date": 1744488254759,
+            "name": "C:\\Users\\maidn\\App\\backend\\logs\\combined-2025-04-12.log",
+            "hash": "d59180d1e321b2335c95c7ccc81a7158fb6adceddb540856fc0cad2e6986e72e"
+        },
+        {
+            "date": 1744555203856,
+            "name": "C:\\Users\\maidn\\App\\backend\\logs\\combined-2025-04-13.log",
+            "hash": "e02b7044c7c0d18efb5b907ca395964754a217ef8fdf99a2ca716e63036c25e5"
+        },
+        {
+            "date": 1744654169031,
+            "name": "C:\\Users\\maidn\\App\\backend\\logs\\combined-2025-04-14.log",
+            "hash": "fe4a04e70907a7a8cdf0d5fd0d2e5fdb8145fda5ffaf5f49132ffc077a7cef80"
+        }
+    ],
+    "hashType": "sha256"
+}

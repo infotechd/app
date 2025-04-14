@@ -1,0 +1,239 @@
+// src/controllers/contratacaoController.ts
+
+import { Request, Response, NextFunction } from 'express';
+import Contratacao, { IContratacao, ContratacaoStatusEnum } from '../models/Contratacao'; // Importa modelo e interface/enum
+import OfertaServico, { IOfertaServico, OfertaStatusEnum } from '../models/OfertaServico'; // Importa modelo e interface/enum
+import { TipoUsuarioEnum } from '../models/User'; // Importa enum do User
+import mongoose, { HydratedDocument } from "mongoose"; // Para checar ObjectId válido
+
+// --- Função para Criar Contratação ---
+
+/**
+ * Cria uma nova contratação a partir de uma oferta (CU5).
+ * Apenas usuários 'comprador' podem iniciar.
+ */
+export const contratarOferta = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // Verifica se há usuário logado e se é comprador
+  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.COMPRADOR) {
+    res.status(403).json({ message: 'Acesso proibido: Apenas compradores podem contratar ofertas.' });
+    return;
+  }
+
+  const { ofertaId } = req.body; // Espera ofertaId no corpo da requisição
+
+  // Validação básica do input (idealmente feita por middleware)
+  if (!ofertaId || !mongoose.Types.ObjectId.isValid(ofertaId)) {
+    res.status(400).json({ message: 'ID da oferta inválido ou ausente.' });
+    return;
+  }
+
+  try {
+    // Busca a oferta e verifica se está disponível
+    const oferta: HydratedDocument<IOfertaServico> | null = await OfertaServico.findById(ofertaId);
+
+    // Correção: Verifica se a oferta existe e se o status é DISPONIVEL (do Enum)
+    if (!oferta || oferta.status !== OfertaStatusEnum.DISPONIVEL) {
+      res.status(400).json({ message: 'Oferta não encontrada ou não está disponível para contratação.' });
+      return;
+    }
+
+    // Verifica se o comprador não está tentando contratar a própria oferta (regra de negócio)
+    if (oferta.prestadorId.toString() === req.user.userId) {
+      res.status(400).json({ message: 'Você não pode contratar sua própria oferta.' });
+      return;
+    }
+
+    // TODO: Verificar se já existe uma contratação 'Pendente' ou 'Aceita'/'Em andamento' para esta oferta/comprador?
+
+    // Cria a nova contratação
+    const novaContratacao = new Contratacao({
+      buyerId: req.user.userId,
+      prestadorId: oferta.prestadorId, // Pega da oferta
+      ofertaId: oferta._id,
+      valorTotal: oferta.preco, // Define o valorTotal inicial com o preço da oferta
+      status: ContratacaoStatusEnum.PENDENTE // Status inicial (ou outro conforme regra)
+      // dataInicioServico e dataFimServico podem ser definidos depois (ex: pelo prestador ao aceitar)
+    });
+
+    // Salva no banco
+    const contratacaoSalva: IContratacao = await novaContratacao.save();
+
+    // TODO: Enviar notificações para o Comprador e Prestador
+
+    res.status(201).json({ message: 'Oferta contratada com sucesso. Aguardando aceite do prestador.', contratacao: contratacaoSalva });
+
+  } catch (error) {
+    next(error); // Delega para o error handler central
+  }
+};
+
+// --- Funções Faltantes (Placeholders) ---
+
+/**
+ * Lista as contratações onde o usuário logado é Comprador ou Prestador.
+ * Aceita filtros por status via query params (ex: /api/contratacoes?status=Em+andamento)
+ */
+export const listarMinhasContratacoes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Não autorizado.'});
+    return;
+  }
+  const userId = req.user.userId;
+  const { status } = req.query; // Pega filtro de status da query string
+
+  try {
+    const query: mongoose.FilterQuery<IContratacao> = {
+      $or: [{ buyerId: userId }, { prestadorId: userId }] // Onde o usuário é comprador OU prestador
+    };
+
+    if (status && typeof status === 'string' && Object.values(ContratacaoStatusEnum).includes(status as ContratacaoStatusEnum)) {
+      query.status = status as ContratacaoStatusEnum; // Adiciona filtro de status se válido
+    }
+
+    // TODO: Adicionar paginação e ordenação
+    const contratacoes = await Contratacao.find(query)
+      .populate('ofertaId', 'titulo descricao') // Popula alguns dados da oferta
+      .populate('buyerId', 'nome foto') // Popula dados do comprador
+      .populate('prestadorId', 'nome foto') // Popula dados do prestador
+      .sort({ createdAt: -1 }); // Ordena pelas mais recentes
+
+    res.status(200).json(contratacoes);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Obtém os detalhes de uma contratação específica.
+ * Requer que o usuário logado seja participante (Comprador ou Prestador).
+ */
+export const obterDetalhesContratacao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Não autorizado.'});
+    return;
+  }
+  const userId = req.user.userId;
+  const { contratacaoId } = req.params;
+
+  if (!mongoose.Types.ObjectId.isValid(contratacaoId)) {
+    res.status(400).json({ message: 'ID da contratação inválido.' });
+    return;
+  }
+
+  try {
+    const contratacao = await Contratacao.findById(contratacaoId)
+      .populate('ofertaId')
+      .populate('buyerId', 'nome email foto telefone')
+      .populate('prestadorId', 'nome email foto telefone');
+
+    if (!contratacao) {
+      res.status(404).json({ message: 'Contratação não encontrada.' });
+      return;
+    }
+
+    // --- AUTORIZAÇÃO: Verifica se o usuário logado é participante ---
+    if (contratacao.buyerId.toString() !== userId && contratacao.prestadorId.toString() !== userId) {
+      res.status(403).json({ message: 'Acesso proibido: Você não participa desta contratação.' });
+      return;
+    }
+    // --------------------------------------------------------------
+
+    res.status(200).json(contratacao);
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Atualiza o status de uma contratação.
+ * Requer que o usuário logado seja participante e tenha permissão para a mudança de status.
+ */
+export const atualizarStatusContratacao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Não autorizado.'});
+    return;
+  }
+  const userId = req.user.userId;
+  const userType = req.user.tipoUsuario;
+  const { contratacaoId } = req.params;
+  const { status: novoStatus, ...outrosDados } = req.body; // Pega novo status do corpo
+
+  if (!mongoose.Types.ObjectId.isValid(contratacaoId)) {
+    res.status(400).json({ message: 'ID da contratação inválido.' });
+    return;
+  }
+
+  // Valida o novo status
+  if (!novoStatus || !Object.values(ContratacaoStatusEnum).includes(novoStatus as ContratacaoStatusEnum)) {
+    res.status(400).json({ message: `Status inválido fornecido: ${novoStatus}` });
+    return;
+  }
+
+  try {
+    const contratacao = await Contratacao.findById(contratacaoId);
+
+    if (!contratacao) {
+      res.status(404).json({ message: 'Contratação não encontrada.' });
+      return;
+    }
+
+    // --- LÓGICA DE AUTORIZAÇÃO E TRANSIÇÃO DE STATUS ---
+    // Exemplo: Quem pode mudar para qual status?
+    const statusAtual = contratacao.status;
+    let permissaoConcedida = false;
+
+    switch (novoStatus) {
+      case ContratacaoStatusEnum.ACEITA:
+        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.PENDENTE);
+        // TODO: Ao aceitar, talvez definir dataInicioServico/dataFimServico se vierem no body?
+        break;
+      case ContratacaoStatusEnum.EM_ANDAMENTO:
+        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.ACEITA);
+        // TODO: Registrar dataInicioServico?
+        break;
+      case ContratacaoStatusEnum.CONCLUIDO: // CU16
+        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.EM_ANDAMENTO);
+        // TODO: Registrar dataFimServico? Liberar fluxo de pagamento/avaliação?
+        break;
+      case ContratacaoStatusEnum.CANCELADO_BUYER:
+        permissaoConcedida = (userType === TipoUsuarioEnum.COMPRADOR && contratacao.buyerId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo: só pode cancelar antes de iniciar
+        break;
+      case ContratacaoStatusEnum.CANCELADO_PRESTADOR:
+        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo
+        break;
+      // Adicionar lógica para DISPUTA, etc.
+      default:
+        permissaoConcedida = false;
+    }
+
+    if (!permissaoConcedida) {
+      res.status(403).json({ message: `Ação não permitida: Impossível mudar status de ${statusAtual} para ${novoStatus} ou você não tem permissão.` });
+      return;
+    }
+    // ----------------------------------------------------
+
+    // Atualiza o status (e potencialmente outras datas)
+    contratacao.status = novoStatus as ContratacaoStatusEnum;
+    if (novoStatus === ContratacaoStatusEnum.EM_ANDAMENTO && !contratacao.dataInicioServico) {
+      contratacao.dataInicioServico = new Date();
+    }
+    if (novoStatus === ContratacaoStatusEnum.CONCLUIDO && !contratacao.dataFimServico) {
+      contratacao.dataFimServico = new Date();
+    }
+    // Atualizar outros campos se vierem em 'outrosDados' e forem permitidos
+
+    const contratacaoAtualizada = await contratacao.save();
+
+    // TODO: Enviar notificação sobre mudança de status
+
+    res.status(200).json({ message: 'Status da contratação atualizado.', contratacao: contratacaoAtualizada });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
+// TODO: Implementar outras funções necessárias (aceitar, marcarConcluido, cancelar, etc.)
+// que podem ser chamadas por rotas mais específicas ou encapsuladas em atualizarStatusContratacao.
