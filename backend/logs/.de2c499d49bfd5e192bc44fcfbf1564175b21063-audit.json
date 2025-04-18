@@ -1,0 +1,20 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\.de2c499d49bfd5e192bc44fcfbf1564175b21063-audit.json",
+    "files": [
+        {
+            "date": 1744808557900,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\combined-2025-04-16.log",
+            "hash": "99e49f70c961281fc7937cd0c0217037d7cbf6ac6d553baf88d047d6a481f4ae"
+        },
+        {
+            "date": 1744889480301,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\combined-2025-04-17.log",
+            "hash": "e0ff99b6d7f901aa42bc0faa8603c161838f394019618bba5d245edf0692afdd"
+        }
+    ],
+    "hashType": "sha256"
+}

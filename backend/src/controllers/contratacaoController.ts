@@ -131,12 +131,29 @@ export const obterDetalhesContratacao = async (req: Request, res: Response, next
       res.status(404).json({ message: 'Contratação não encontrada.' });
       return;
     }
+      // Remover ISSO DEPOIS DE TESTAR CORRETO
+    // --- DEBUG --- Adicione estas linhas ---
+    console.log('--- DEBUG AUTORIZACAO CONTRATACAO ---');
+    console.log('User ID do Token (userId):', userId);
+    console.log('Tipo do userId:', typeof userId);
+    console.log('Buyer ID da Contratacao (string):', contratacao.buyerId?.toString());
+    console.log('Tipo do Buyer ID (string):', typeof contratacao.buyerId?.toString());
+    console.log('Prestador ID da Contratacao (string):', contratacao.prestadorId?.toString());
+    console.log('Tipo do Prestador ID (string):', typeof contratacao.prestadorId?.toString());
+    console.log('Match com Buyer:', contratacao.buyerId?.toString() === userId);
+    console.log('Match com Prestador:', contratacao.prestadorId?.toString() === userId);
+    console.log('--- FIM DEBUG ---');
+    // --- Fim do DEBUG ---
+
 
     // --- AUTORIZAÇÃO: Verifica se o usuário logado é participante ---
-    if (contratacao.buyerId.toString() !== userId && contratacao.prestadorId.toString() !== userId) {
+    // --- VERIFICAÇÃO DE AUTORIZAÇÃO (CORRIGIDA) ---
+    // Acessa o _id DENTRO do objeto populado antes de converter para string
+    if (contratacao.buyerId?._id?.toString() !== userId && contratacao.prestadorId?._id?.toString() !== userId) {
       res.status(403).json({ message: 'Acesso proibido: Você não participa desta contratação.' });
       return;
     }
+    // -------------------------------------------
     // --------------------------------------------------------------
 
     res.status(200).json(contratacao);

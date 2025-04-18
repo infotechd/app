@@ -14,6 +14,12 @@ import jwt, { JwtPayload } from 'jsonwebtoken'; // Importa tipos do jsonwebtoken
 import comentarioRoutes from './routes/comentarioRoutes';
 import curtidaRoutes from './routes/curtidaRoutes';
 import bloqueioAgendaRoutes from './routes/bloqueioAgendaRoutes';
+import curriculoRoutes from './routes/curriculoRoutes';
+import ofertaRoutes from './routes/ofertaRoutes';
+import contratacaoRoutes from './routes/contratacaoRoutes';
+import negociacaoRoutes from './routes/negociacaoRoutes';
+import publicacaoComunidade from './routes/publicacaoComunidadeRoutes';
+
 
 // Importa o handler de erros assíncronos (executa o código do módulo)
 import 'express-async-errors';
@@ -96,11 +102,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // 7. Configuração das Rotas da API
 // Assumindo que authRoutes é um express.Router()
 app.use('/api/auth', authRoutes);
-// Exemplo: app.use('/api/ofertas', ofertaRoutes);
+app.use('/api/ofertas', ofertaRoutes);
+app.use('/api/contratacao', contratacaoRoutes);
+app.use('/api/contratacoes', contratacaoRoutes);
 // ... registrar outras rotas aqui
 app.use('/api/comentarios', comentarioRoutes);
+app.use('/api/comentario', comentarioRoutes);
 app.use('/api/curtidas', curtidaRoutes);
 app.use('/api/bloqueios-agenda', bloqueioAgendaRoutes); // Ou o prefixo que preferir
+app.use('/api/curriculos', curriculoRoutes);
+app.use('/api/negociacoes', negociacaoRoutes);
+app.use('/api/publicacao-comunidade', publicacaoComunidade);
+app.use('/api/publicacoes-comunidade', publicacaoComunidade);
+
 // 8. Criação do Servidor HTTP e Configuração do Socket.IO
 const server = http.createServer(app); // Servidor HTTP usando o app Express
 

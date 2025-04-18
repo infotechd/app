@@ -130,6 +130,26 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
   }
 };
 
+/**
+ * Realiza o logout do usuário limpando o cookie de autenticação.
+ */
+export const logout = (req: Request, res: Response): void => {
+  // As opções aqui devem ser as mesmas usadas ao definir o cookie no login
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+    // path: '/' // Adicione se você definiu um path no login
+  });
+
+  res.status(200).json({ message: 'Logout realizado com sucesso.' });
+};
+
+
+
+
+
+
 
 /**
  * Edita o perfil do usuário logado (CU17)

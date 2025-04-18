@@ -21,7 +21,7 @@ router.post('/register', authController.register);
 router.post('/login', authController.login);
 
 // POST /api/auth/logout : (Opcional) Invalidar token/cookie no lado do servidor/cliente
-// router.post('/logout', authMiddleware, authController.logout);
+router.post('/logout', authMiddleware, authController.logout);
 
 // === ROTAS DE PERFIL (Protegidas) ===
 
