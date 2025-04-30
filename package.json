@@ -33,8 +33,6 @@
   "devDependencies": {
     "@eslint/js": "^9.24.0",
     "@types/cookie-parser": "^1.4.8",
-    "@types/react": "^18.3.20",
-    "@types/react-native": "^0.72.8",
     "@typescript-eslint/eslint-plugin": "^8.29.1",
     "@typescript-eslint/parser": "^8.29.1",
     "babel-preset-expo": "^12.0.11",
@@ -49,9 +47,14 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@react-native-async-storage/async-storage": "^2.1.2",
+    "@react-native-async-storage/async-storage": "1.23.1",
+    "@react-navigation/native": "^7.1.6",
+    "@react-navigation/native-stack": "^7.3.10",
     "cookie-parser": "^1.4.7",
     "expo-router": "^4.0.20",
+    "react-native-safe-area-context": "^5.4.0",
+    "react-native-screens": "^4.10.0",
     "stripe": "^18.0.0"
-  }
+  },
+  "packageManager": "pnpm@10.9.0+sha512.0486e394640d3c1fb3c9d43d49cf92879ff74f8516959c235308f5a8f62e2e19528a65cdc2a3058f587cde71eba3d5b56327c8c33a97e4c4051ca48a10ca2d5f"
 }

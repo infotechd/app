@@ -83,7 +83,8 @@ import {
 
 } from '../types/relatorio';
 
-
+import axios from 'axios';
+import { API_URL } from "../config/api";
 // Exemplo: import { Offer } from './api';
 // Importa a interface User (idealmente de um arquivo central de tipos, ex: src/types/user.ts)
 // Se ainda não criou um arquivo central, pode importar de AuthContext por enquanto,
@@ -142,7 +143,7 @@ export interface RegistrationResponse{
 }
 */
 // --- Constante da API ---
-const API_URL: string = "http://localhost:5000/api";
+//const API_URL: string = "http://localhost:5000/api";
 
 // --- Função de Login Tipada ---
 
@@ -154,43 +155,93 @@ const API_URL: string = "http://localhost:5000/api";
  * @throws Lança um erro com a mensagem do backend em caso de falha na autenticação ou erro de rede.
  */
 export const login = async (email: string, senha: string): Promise<LoginResponse> => {
-  const response = await fetch(`${API_URL}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json", // Boa prática adicionar o Accept header
-    },
-    body: JSON.stringify({ email, senha }),
-  });
-
-  // Verifica se a resposta da API foi bem-sucedida (status 2xx)
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try {
-      // Tenta parsear o corpo da resposta de erro
-      errorData = await response.json();
-    } catch (parseError) {
-      // Se não conseguir parsear o JSON do erro, lança erro genérico com status HTTP
-      console.error("API Login: Falha ao parsear resposta de erro", parseError);
-      throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-    }
-    // Lança um erro com a mensagem específica do backend, se disponível
-    throw new Error(errorData?.message || `Erro desconhecido: ${response.status}`);
-  }
-
-  // Se a resposta foi bem-sucedida, parseia o JSON e retorna
-  // Assume que a resposta bem-sucedida corresponde à interface LoginResponse
   try {
-    const data: LoginResponse = await response.json();
+    // Log detalhado da tentativa de login
+    console.log('=== INICIANDO TENTATIVA DE LOGIN ===');
+    console.log(`URL da API: ${API_URL}/auth/login`);
+    console.log(`Email sendo usado: ${email}`);
+    console.log('Verificando conectividade de rede...');
+
+    // Tenta fazer uma requisição simples para verificar a conectividade
+    try {
+      await axios.head('https://www.google.com', { timeout: 5000 });
+      console.log('✓ Conectividade com internet confirmada');
+    } catch (netError) {
+      console.error('✗ Falha na verificação de conectividade:', netError);
+      // Continua mesmo com falha na verificação
+    }
+
+    console.log('Enviando requisição de login...');
+    const response = await axios.post(`${API_URL}/auth/login`, 
+      { email, senha },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+        },
+        timeout: 15000, // 15 segundos de timeout
+      }
+    );
+
+    console.log('✓ Resposta recebida com sucesso:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      // Não loga a resposta completa para não expor dados sensíveis
+    });
+
+    // Axios já lança erro para status não 2xx, então se chegou aqui, é sucesso
+    const data: LoginResponse = response.data;
+
     // Validação extra opcional: verificar se data.user e data.token existem
     if (!data.user || !data.token) {
       console.error("API Login: Resposta bem-sucedida, mas dados ausentes.", data);
       throw new Error("Resposta da API inválida após login.");
     }
+
+    console.log('✓ Login realizado com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API Login: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API após login.");
+  } catch (error) {
+    console.error('=== ERRO DETALHADO NO LOGIN ===');
+
+    // Se for um erro do Axios com resposta
+    if (axios.isAxiosError(error)) {
+      console.error('Tipo: Erro do Axios');
+      console.error('Mensagem:', error.message);
+      console.error('Código:', error.code);
+      console.error('Config:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        headers: error.config?.headers,
+        timeout: error.config?.timeout
+      });
+
+      if (error.response) {
+        console.error('Resposta:', {
+          status: error.response.status,
+          statusText: error.response.statusText,
+          headers: error.response.headers,
+          data: error.response.data
+        });
+
+        const errorData = error.response.data as ApiErrorResponse;
+        throw new Error(errorData?.message || `Erro na API: ${error.response.status}`);
+      } 
+      else if (error.code === 'ECONNABORTED') {
+        console.error('Detalhe: Timeout da requisição');
+        throw new Error('Tempo limite excedido. Verifique sua conexão.');
+      }
+      else if (!error.response) {
+        console.error('Detalhe: Sem resposta do servidor');
+        throw new Error('Erro de rede. Verifique sua conexão com a internet e se o servidor está acessível.');
+      }
+    }
+    // Qualquer outro erro
+    else {
+      console.error('Tipo: Erro não-Axios');
+      console.error('Detalhes:', error);
+      throw new Error(error instanceof Error ? error.message : 'Erro desconhecido no login');
+    }
   }
 };
 
@@ -883,7 +934,7 @@ export const updateCompromissoStatus = async (
   statusData: UpdateCompromissoStatusData // Envia { status: novoStatus }
 ): Promise<UpdateAgendaResponse> => {
   // Endpoint inferido do código original
-  const url = `<span class="math-inline">\{API\_URL\}/agenda/</span>{agendaId}/compromisso/${compromissoId}`;
+  const url = `${API_URL}/agenda/${agendaId}/compromisso/${compromissoId}`;
   const response = await fetch(url, {
     method: 'PUT',
     headers: {
@@ -1377,7 +1428,7 @@ export const fetchNegociacaoByContratacaoId = async (
   contratacaoId: string
 ): Promise<{ negociacao: Negociacao | null }> => { // Retorna objeto com a negociação ou null
                                                    // Ajuste o endpoint conforme sua API (pode ser /negociacao?contratacaoId=...)
-  const url = `<span class="math-inline">\{API\_URL\}/negociacao/contratacao/</span>{contratacaoId}`; // Exemplo de rota
+  const url = `${API_URL}/negociacao/contratacao/${contratacaoId}`; // Exemplo de rota
   const response = await fetch(url, {
     method: 'GET',
     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }

@@ -174,6 +174,32 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
         scrollEnabled={false} // Desabilita rolagem própria da FlatList
       />
 
+      {/* Botões de Ação Rápida */}
+      <View style={styles.actionButtonsContainer}>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('OfertaServico')}
+        >
+          <Text style={styles.actionButtonText}>Gerenciar Minhas Ofertas</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Agenda')}
+        >
+          <Text style={styles.actionButtonText}>Minha Agenda</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('CurriculoForm')}
+        >
+          <Text style={styles.actionButtonText}>Atualizar Currículo</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Adicionar espaço no final para melhor rolagem */}
       <View style={{ height: 40 }} />
 
@@ -181,58 +207,153 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
   );
 }
 
-// Estilos (mantidos e adicionado offerPrice, errorRefreshMessage)
+// Estilos completos para o ProviderDashboardScreen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',
-    // padding: 16, // Padding agora é aplicado internamente ou via ScrollView contentContainerStyle se necessário
   },
   header: {
     marginBottom: 16,
-    paddingTop: 16, // Adicionar padding no topo/lados aqui
+    paddingTop: 16,
     paddingHorizontal: 16,
   },
-  welcomeMessage: { /* ... */ },
-  subheader: { /* ... */ },
-  loadingContainer: { /* ... */ },
-  errorContainer: { /* ... */ },
-  errorMessage: { /* ... */ },
-  errorRefreshMessage: { // Estilo para erro discreto no refresh
+  welcomeMessage: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  subheader: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#f9f9f9',
+  },
+  errorMessage: {
+    fontSize: 16,
+    color: '#e74c3c',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  errorRefreshMessage: {
     fontSize: 14,
     color: '#e74c3c',
     textAlign: 'center',
     marginTop: 10,
   },
-  retryButton: { /* ... */ },
-  retryButtonText: { /* ... */ },
+  retryButton: {
+    marginTop: 16,
+    padding: 10,
+    backgroundColor: '#007BFF',
+    borderRadius: 5,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
     marginTop: 16,
     marginBottom: 8,
-    paddingHorizontal: 16, // Padding para títulos de seção
+    paddingHorizontal: 16,
   },
-  // listContainer não é mais necessário no FlatList se ele estiver dentro de ScrollView
-  offerCard: { /* ... */ },
-  offerTitle: { /* ... */ }, // Mudar para item.descricao?
-  offerDescription: { /* ... */ }, // Remover se não usar?
-  offerStatus: { /* ... */ },
-  offerPrice: { // Adicionado
+  offerCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  offerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  offerDescription: {
     fontSize: 14,
-    color: '#16a085', // Cor diferente para preço
+    color: '#666',
+    marginVertical: 4,
+  },
+  offerStatus: {
+    fontSize: 14,
+    color: '#666',
     marginTop: 4,
   },
-  bookingCard: { /* ... */ },
-  bookingTitle: { /* ... */ }, // Mudar para algo de Contratacao?
-  bookingStatus: { /* ... */ },
-  bookingDate: { /* ... */ },
+  offerPrice: {
+    fontSize: 14,
+    color: '#16a085',
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  bookingCard: {
+    backgroundColor: '#fff',
+    padding: 16,
+    marginBottom: 12,
+    marginHorizontal: 16,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  bookingTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  bookingStatus: {
+    fontSize: 14,
+    color: '#666',
+    marginVertical: 4,
+  },
+  bookingDate: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
+  },
   emptyMessage: {
     textAlign: 'center',
     color: '#666',
     marginTop: 20,
-    marginBottom: 20, // Adicionado espaço
+    marginBottom: 20,
     paddingHorizontal: 16,
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  actionButton: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

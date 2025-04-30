@@ -152,33 +152,182 @@ export default function AdvertiserDashboardScreen({ navigation }: AdvertiserDash
         scrollEnabled={false}
       />
 
+      {/* Botões de Ação Rápida */}
+      <View style={styles.actionButtonsContainer}>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('TreinamentoCreate')}
+        >
+          <Text style={styles.actionButtonText}>Criar Novo Treinamento</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Relatorio')}
+        >
+          <Text style={styles.actionButtonText}>Ver Relatórios</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('Community')}
+        >
+          <Text style={styles.actionButtonText}>Acessar Comunidade</Text>
+        </TouchableOpacity>
+      </View>
+
       <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
 
-// Estilos (copiados do original e adaptados/adicionados)
+// Estilos completos para o AdvertiserDashboardScreen
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f9f9f9' },
-  header: { marginBottom: 16, paddingTop: 16, paddingHorizontal: 16 },
-  welcomeMessage: { fontSize: 20, fontWeight: 'bold', color: '#333' },
-  subheader: { fontSize: 14, color: '#666' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  errorMessage: { fontSize: 16, color: '#e74c3c', textAlign: 'center' },
-  errorRefreshMessage: { fontSize: 14, color: '#e74c3c', textAlign: 'center', marginTop: 10},
-  retryButton: { marginTop: 16, padding: 10, backgroundColor: '#007BFF', borderRadius: 5 },
-  retryButtonText: { color: '#fff', fontWeight: 'bold', textAlign: 'center' },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginTop: 16, marginBottom: 8, paddingHorizontal: 16 },
-  adCard: { backgroundColor: '#fff', padding: 16, marginBottom: 12, marginHorizontal:16, borderRadius: 8, elevation: 2 },
-  adTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  adDescription: { fontSize: 14, color: '#666', marginVertical: 4 },
-  adStats: { fontSize: 12, color: '#007BFF', fontWeight: 'bold', marginTop: 5 },
-  trainingCard: { backgroundColor: '#fff', padding: 16, marginBottom: 12, marginHorizontal:16, borderRadius: 8, elevation: 2 },
-  trainingTitle: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  trainingDescription: { fontSize: 14, color: '#666', marginVertical: 4 },
-  trainingStats: { fontSize: 12, color: '#007BFF', fontWeight: 'bold', marginTop: 5 },
-  emptyMessage: { textAlign: 'center', color: '#666', marginTop: 20, marginBottom: 20, paddingHorizontal: 16 },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f9f9f9' 
+  },
+  header: { 
+    marginBottom: 16, 
+    paddingTop: 16, 
+    paddingHorizontal: 16 
+  },
+  welcomeMessage: { 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    color: '#333' 
+  },
+  subheader: { 
+    fontSize: 14, 
+    color: '#666',
+    marginTop: 4 
+  },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9' 
+  },
+  errorContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    padding: 20,
+    backgroundColor: '#f9f9f9' 
+  },
+  errorMessage: { 
+    fontSize: 16, 
+    color: '#e74c3c', 
+    textAlign: 'center',
+    marginBottom: 16 
+  },
+  errorRefreshMessage: { 
+    fontSize: 14, 
+    color: '#e74c3c', 
+    textAlign: 'center', 
+    marginTop: 10
+  },
+  retryButton: { 
+    marginTop: 16, 
+    padding: 10, 
+    backgroundColor: '#007BFF', 
+    borderRadius: 5 
+  },
+  retryButtonText: { 
+    color: '#fff', 
+    fontWeight: 'bold', 
+    textAlign: 'center' 
+  },
+  sectionTitle: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#333', 
+    marginTop: 16, 
+    marginBottom: 8, 
+    paddingHorizontal: 16 
+  },
+  adCard: { 
+    backgroundColor: '#fff', 
+    padding: 16, 
+    marginBottom: 12, 
+    marginHorizontal: 16, 
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2, 
+    elevation: 2 
+  },
+  adTitle: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#333' 
+  },
+  adDescription: { 
+    fontSize: 14, 
+    color: '#666', 
+    marginVertical: 4 
+  },
+  adStats: { 
+    fontSize: 12, 
+    color: '#007BFF', 
+    fontWeight: 'bold', 
+    marginTop: 5 
+  },
+  trainingCard: { 
+    backgroundColor: '#fff', 
+    padding: 16, 
+    marginBottom: 12, 
+    marginHorizontal: 16, 
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2, 
+    elevation: 2 
+  },
+  trainingTitle: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#333' 
+  },
+  trainingDescription: { 
+    fontSize: 14, 
+    color: '#666', 
+    marginVertical: 4 
+  },
+  trainingStats: { 
+    fontSize: 12, 
+    color: '#007BFF', 
+    fontWeight: 'bold', 
+    marginTop: 5 
+  },
+  emptyMessage: { 
+    textAlign: 'center', 
+    color: '#666', 
+    marginTop: 20, 
+    marginBottom: 20, 
+    paddingHorizontal: 16 
+  },
+  actionButtonsContainer: {
+    paddingHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  actionButton: {
+    backgroundColor: '#007BFF',
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  actionButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 // Placeholder para Loading/Error (simplificado, pode usar os estilos)

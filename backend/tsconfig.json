@@ -1,0 +1,17 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2022", // Considere atualizar o target também para alinhar com Node 22
+    "module": "Node16", // <-- ALTERADO para corresponder à resolução moderna
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true
+    // moduleResolution provavelmente já vem como Node16/NodeNext do base
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,138 +1,137 @@
-// eslint.config.mjs (JavaScript ESM - Flat Config)
+// eslint.config.mjs (JavaScript ESM - Flat Config - Corrigido)
 
 // Importa configurações/plugins necessários
-import js from '@eslint/js'; // Regras recomendadas base do ESLint
-import tsParser from '@typescript-eslint/parser'; // Parser para TypeScript
-import tsPlugin from '@typescript-eslint/eslint-plugin'; // Plugin com regras TypeScript
-import reactPlugin from 'eslint-plugin-react'; // Plugin com regras React
-import jsxRuntimePlugin from 'eslint-plugin-react/configs/jsx-runtime.js'; // Config para novo JSX runtime (React 17+)
-import reactHooksPlugin from 'eslint-plugin-react-hooks'; // Plugin com regras para React Hooks
-import prettierPlugin from 'eslint-plugin-prettier'; // Plugin para integrar Prettier
-import configPrettier from 'eslint-config-prettier'; // Configuração para DESATIVAR regras ESLint conflitantes com Prettier
-import globals from 'globals'; // Pacote para definir variáveis globais (browser, node, etc.)
+import js from '@eslint/js';
+import tsParser from '@typescript-eslint/parser';
+import tsPlugin from '@typescript-eslint/eslint-plugin';
+import reactPlugin from 'eslint-plugin-react';
+// import jsxRuntimePlugin from 'eslint-plugin-react/configs/jsx-runtime.js'; // REMOVIDO - Não é mais a forma padrão
+import reactRecommendedConfig from 'eslint-plugin-react/configs/recommended.js'; // Usar a config recomendada completa
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import prettierPlugin from 'eslint-plugin-prettier';
+import configPrettier from 'eslint-config-prettier';
+import globals from 'globals';
+// import importPlugin from 'eslint-plugin-import'; // Descomente se usar e tiver instalado
 
-// NOTA: Certifique-se de ter instalado todas as dependências:
-// npm install --save-dev eslint @eslint/js typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-prettier eslint-config-prettier globals
-// ou usando yarn:
-// yarn add --dev eslint @eslint/js typescript @typescript-eslint/parser @typescript-eslint/eslint-plugin eslint-plugin-react eslint-plugin-react-hooks eslint-plugin-prettier eslint-config-prettier globals
+// Nota: Verifique se todas as dependências estão instaladas!
 
 export default [
   // 1. Configuração Global de Linguagem e Ambiente
   {
-    files: ['**/*.{js,jsx,ts,tsx}'], // Aplica a todos os arquivos JS/TS/JSX/TSX no projeto
+    files: ['**/*.{js,jsx,ts,tsx}'],
     languageOptions: {
-      parser: tsParser, // Usa o parser do TypeScript
+      parser: tsParser,
       parserOptions: {
-        ecmaVersion: 'latest', // Suporta a sintaxe mais recente do ECMAScript
-        sourceType: 'module',  // Habilita módulos ES
+        ecmaVersion: 'latest',
+        sourceType: 'module',
         ecmaFeatures: {
           jsx: true, // Habilita parsing de JSX
         },
       },
-      // Define variáveis globais comuns para diferentes ambientes
       globals: {
-        ...globals.browser, // Globais do ambiente de navegador (para frontend/web)
-        ...globals.node,    // Globais do ambiente Node.js (para backend)
-        ...globals.es2021,  // Globais do ES2021
-        // Adicione aqui quaisquer outras globais específicas do projeto, se necessário
-        // Ex: Para React Native, 'global' já pode estar coberto, mas pode precisar de outros.
+        ...globals.browser,
+        ...globals.node,
+        ...globals.es2021,
+        __DEV__: 'readonly', // Adiciona global __DEV__ comum em RN/Expo
       },
     },
-    // Configurações do plugin React (ex: versão)
     settings: {
       react: {
-        version: 'detect', // Detecta automaticamente a versão do React instalada
+        version: 'detect',
       },
     },
-  },
-
-  // 2. Aplica as regras recomendadas base
-  js.configs.recommended, // Regras recomendadas do ESLint base
-
-  // 3. Aplica regras recomendadas do TypeScript
-  // (Use tsPlugin.configs.recommended ou a variante que preferir - consulte a doc do plugin)
-  tsPlugin.configs.recommended, // Regras recomendadas do @typescript-eslint
-
-  // 4. Aplica regras recomendadas do React
-  reactPlugin.configs.recommended, // Regras recomendadas do eslint-plugin-react
-  jsxRuntimePlugin, // Configuração para o novo JSX Runtime (desativa react/react-in-jsx-scope)
-
-  // 5. Configuração específica para React Hooks
-  {
-    // Aplica apenas aos arquivos que provavelmente usarão hooks (componentes)
-    // Ajuste o padrão se seus componentes não seguirem esta convenção
-    files: ['**/*.{jsx,tsx}'],
+    // Definindo plugins que serão usados em várias configs
+    // (Embora configs importadas como recommended geralmente já os declarem)
     plugins: {
+      '@typescript-eslint': tsPlugin,
+      'react': reactPlugin,
       'react-hooks': reactHooksPlugin,
-    },
-    rules: {
-      // Regras essenciais para o uso correto de Hooks
-      'react-hooks/rules-of-hooks': 'error',
-      // Verifica dependências de hooks como useEffect, useCallback, etc.
-      'react-hooks/exhaustive-deps': 'warn',
+      'prettier': prettierPlugin,
+      // 'import': importPlugin, // Descomente se usar
     },
   },
 
-  // 6. Desativa regras ESLint conflitantes com Prettier (IMPORTANTE: vir DEPOIS das recomendações)
+  // 2. Aplica as regras recomendadas base do ESLint
+  js.configs.recommended,
+
+  // 3. Aplica regras recomendadas do TypeScript (@typescript-eslint)
+  // O objeto exportado por tsPlugin.configs.recommended já contém as regras
+  tsPlugin.configs.recommended,
+
+  // 4. Aplica regras recomendadas do React (eslint-plugin-react)
+  // Usamos o objeto recomendado que já inclui regras e parser/plugin settings
+  // Isso geralmente já configura o novo JSX Runtime automaticamente
+  reactRecommendedConfig,
+
+  // 5. Configuração específica para React Hooks (já definida acima no objeto #1 via plugins)
+  // Aplicando as regras de Hooks explicitamente aqui
+  {
+    files: ['**/*.{jsx,tsx}'], // Garante que se aplica a arquivos React
+    rules: {
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+    }
+  },
+
+
+  // 6. Desativa regras ESLint conflitantes com Prettier (IMPORTANTE: DEPOIS das configs recomendadas)
   configPrettier,
 
   // 7. Habilita o plugin Prettier para reportar diferenças como erros/avisos ESLint
-  {
-    // Aplica a todos os arquivos que o Prettier deve formatar
-    files: ['**/*.{js,jsx,ts,tsx}'],
-    plugins: {
-      prettier: prettierPlugin,
-    },
-    rules: {
-      // Avisa sobre código que não segue as regras do Prettier
-      'prettier/prettier': 'warn',
-    },
-  },
-
-  // 8. Customizações e Overrides (Opcional)
-  // Adicione aqui quaisquer regras customizadas ou overrides das regras recomendadas
+  // (As regras do Prettier já foram adicionadas ao objeto #1 via plugins)
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {
-      // Exemplo: manter o aviso para variáveis não usadas (já incluído em recommended, mas pode ser explícito)
-      '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }], // Ignora args começando com _
-
-      // Adicione outras regras específicas do seu projeto aqui
-      // Ex: 'no-console': 'warn', // Avisar sobre console.log em produção
+      'prettier/prettier': 'warn', // Avisa sobre código que não segue as regras do Prettier
     },
   },
 
-// 9. Configuração específica para Backend (Exemplo Opcional)
-// Se precisar de regras específicas para o backend (Node.js)
-/*
-{
-  files: ['backend/**/*.{js,ts}'], // Aplica apenas a arquivos no backend
-languageOptions: {
-  globals: {
-  ...globals.node,
-  ...globals.es2021,
+  // 8. Customizações e Overrides Gerais
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      // Mantém a regra padrão para variáveis não usadas, mas permite ignorar args com _
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_', // Ignora também variáveis não usadas que começam com _
+        caughtErrorsIgnorePattern: '^_', // Ignora erros capturados que começam com _
+      }],
+      'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off', // Ex: Avisar sobre console em produção
+      // Adicione outras regras customizadas aqui
+    },
+  },
+
+  // 9. Override específico para o arquivo 'App'.tsx (ou seu ponto de entrada principal)
+  {
+    files: ["./frontend/mobile/App.tsx"], // AJUSTE O CAMINHO se App.tsx estiver dentro de src/
+    rules: {
+      // Ajusta a regra @typescript-eslint/no-unused-vars especificamente para App.tsx
+      // para ignorar a variável 'App' usada no export default.
+      "@typescript-eslint/no-unused-vars": ["warn", {
+        "vars": "all",
+        "args": "after-used",
+        "ignoreRestSiblings": true,
+        "varsIgnorePattern": "^App$", // IGNORA a variável/componente chamado 'App'
+        "argsIgnorePattern": "^_",
+        "caughtErrorsIgnorePattern": "^_"
+      }],
+      // Se você também usa eslint-plugin-import e o erro persiste, descomente a linha abaixo:
+      // "import/no-unused-modules": "off",
+    }
+  },
+
+  // 10. Ignorar Arquivos (Geralmente boa prática colocar no final)
+  {
+    ignores: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/.expo/**',
+      '**/.expo-shared/**',
+      '**/coverage/**',
+      'babel.config.js',
+      'metro.config.js', // Comum em projetos RN/Expo
+      // Adicione outros padrões a ignorar
+    ]
   }
-},
-// Exemplo: adicionar plugin node
-// plugins: { node: nodePlugin },
-rules: {
-  // Regras específicas do Node.js
-  // Ex: 'node/no-missing-require': 'error',
-}
-}
-*/
-
-// 10. Ignorar Arquivos (Opcional, mas recomendado)
-{
-  ignores: [
-    '**/node_modules/**',
-    '**/dist/**',
-    '**/build/**',
-    '**/.expo/**',
-    '**/.expo-shared/**',
-    '**/coverage/**',
-    // Adicione outros padrões a ignorar, se necessário
-  ]
-}
-
-];
+]; // Fim do array principal exportado

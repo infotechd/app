@@ -1,34 +1,18 @@
 import React, { createContext, useState, useEffect, ReactNode, useContext } from 'react';
-// Import recomendado para AsyncStorage
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {User, UserRole} from '../types/user';
+import { User } from '../types/user';
 
 // --- Definição de Tipos ---
-
-// 1. Interface para o objeto do usuário autenticado
-// Baseado na Classe Usuario (docs) e campos usados em Login/Registro
-// OBS: Adapte conforme a estrutura exata retornada pelo seu backend no login
-//type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador';
-/*
-interface User {
-  idUsuario: string; // Ou number, dependendo do seu backend
-  nome: string;
-  email: string;
-  telefone?: string; // Opcional, como visto na tela de registro
-  tipoUsuario: UserRole;
-  cpfCnpj?: string;   // Visto na tela de registro
-  endereco?: string; // Visto na tela de registro
-  foto?: string;     // Visto na tela de registro
-  token: string; // Essencial para autenticação em chamadas API
-}
-*/
 
 // 2. Interface para o valor fornecido pelo Contexto
 interface AuthContextType {
   user: User | null;
   login: (userData: User) => Promise<void>;
   logout: () => Promise<void>;
-  isLoading: boolean; // Adicionado para saber quando o usuário está sendo carregado do storage
+  updateUser: (userData: Partial<User>) => Promise<void>;
+  isLoading: boolean; // Adicionado para saber quando o utilizador está sendo carregado do storage
+  isTokenValid: boolean; // Indica se o token do usuário é válido
+  refreshToken: () => Promise<boolean>; // Função para atualizar o token
 }
 
 // 3. Interface para as Props do AuthProvider
@@ -39,12 +23,15 @@ interface AuthProviderProps {
 // --- Criação do Contexto ---
 
 // Valor inicial para o contexto (pode ser undefined ou um objeto default)
-// Usar um valor default evita checagens de undefined nos componentes consumidores
+// Usar um valor 'default' evita checagens de undefined nos componentes consumidores
 const defaultAuthValue: AuthContextType = {
   user: null,
   login: async () => {},
   logout: async () => {},
+  updateUser: async () => {},
   isLoading: true, // Começa como true até tentarmos carregar o usuário
+  isTokenValid: false, // Inicialmente, não há token válido
+  refreshToken: async () => false, // Função vazia que retorna false por padrão
 };
 
 export const AuthContext = createContext<AuthContextType>(defaultAuthValue);
@@ -54,6 +41,23 @@ export const AuthContext = createContext<AuthContextType>(defaultAuthValue);
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true); // Estado para controlar o carregamento inicial
+  const [isTokenValid, setIsTokenValid] = useState<boolean>(false); // Estado para controlar a validade do token
+
+  // Função para verificar se o token é válido
+  const checkTokenValidity = (token: string): boolean => {
+    if (!token) return false;
+
+    try {
+      // Aqui você pode implementar uma lógica mais robusta para verificar a validade do token
+      // Por exemplo, decodificar um JWT e verificar a data de expiração
+
+      // Exemplo simples: verificar se o token tem pelo menos 10 caracteres
+      return token.length >= 10;
+    } catch (error) {
+      console.error('AuthProvider: Erro ao verificar validade do token:', error);
+      return false;
+    }
+  };
 
   // Ao montar, busca os dados do usuário armazenados
   useEffect(() => {
@@ -61,14 +65,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         const storedUserJson = await AsyncStorage.getItem('appUser');
         if (storedUserJson) {
-          // Assume que o JSON armazenado corresponde à interface User
+          // Assume que o JSON armazenado corresponde à 'interface' User
           const storedUser = JSON.parse(storedUserJson) as User;
-          setUser(storedUser);
+
+          // Verifica se o token é válido
+          const tokenIsValid = checkTokenValidity(storedUser.token);
+          setIsTokenValid(tokenIsValid);
+
+          // Só define o usuário se o token for válido
+          if (tokenIsValid) {
+            setUser(storedUser);
+          } else {
+            // Se o token não for válido, limpa o usuário do storage
+            console.warn('AuthProvider: Token inválido ou expirado, usuário será deslogado');
+            await AsyncStorage.removeItem('appUser');
+          }
         }
       } catch (error) {
         console.error('AuthProvider: Erro ao carregar usuário do AsyncStorage:', error);
-        // Considerar limpar o usuário em caso de erro de parsing?
+        // Limpa o usuário em caso de erro
         setUser(null);
+        setIsTokenValid(false);
         await AsyncStorage.removeItem('appUser');
       } finally {
         setIsLoading(false); // Marca que o carregamento terminou (com sucesso ou erro)
@@ -79,15 +96,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   /**
    * Realiza o login, armazenando os dados do usuário no estado e no AsyncStorage.
+   * Também verifica a validade do token.
    */
   const login = async (userData: User): Promise<void> => {
     try {
+      // Verifica se o token é válido
+      const tokenIsValid = checkTokenValidity(userData.token);
+
+      if (!tokenIsValid) {
+        throw new Error('Token inválido ou ausente');
+      }
+
+      // Atualiza os estados
       setUser(userData);
+      setIsTokenValid(true);
+
+      // Salva no AsyncStorage
       await AsyncStorage.setItem('appUser', JSON.stringify(userData));
     } catch (error) {
-      console.error('AuthProvider: Erro ao salvar usuário no AsyncStorage:', error);
-      // Lidar com erro ao salvar, talvez deslogando?
+      console.error('AuthProvider: Erro ao realizar login:', error);
+      // Limpa os estados em caso de erro
       setUser(null);
+      setIsTokenValid(false);
+      throw error; // Propaga o erro para que o componente que chamou possa tratar
     }
   };
 
@@ -96,11 +127,90 @@ export function AuthProvider({ children }: AuthProviderProps) {
    */
   const logout = async (): Promise<void> => {
     try {
+      // Limpa os estados
       setUser(null);
+      setIsTokenValid(false);
+
+      // Remove do AsyncStorage
       await AsyncStorage.removeItem('appUser');
     } catch (error) {
-      console.error('AuthProvider: Erro ao remover usuário do AsyncStorage:', error);
-      // Mesmo com erro, o estado local foi limpo.
+      console.error('AuthProvider: Erro ao realizar logout:', error);
+      // Mesmo com erro, garantimos que os estados locais foram limpos
+      setUser(null);
+      setIsTokenValid(false);
+      throw error; // Propaga o erro para que o componente que chamou possa tratar
+    }
+  };
+
+  /**
+   * Atualiza os dados do usuário no estado e no AsyncStorage.
+   * Útil para atualizar informações de perfil sem precisar fazer login novamente.
+   */
+  const updateUser = async (userData: Partial<User>): Promise<void> => {
+    try {
+      if (!user) {
+        throw new Error('Nenhum usuário logado para atualizar');
+      }
+
+      // Cria um novo objeto de usuário com os dados atualizados
+      const updatedUser = { ...user, ...userData };
+
+      // Se o token foi atualizado, verifica sua validade
+      if (userData.token) {
+        const tokenIsValid = checkTokenValidity(userData.token);
+        if (!tokenIsValid) {
+          throw new Error('Token atualizado é inválido');
+        }
+        setIsTokenValid(tokenIsValid);
+      }
+
+      // Atualiza o estado
+      setUser(updatedUser);
+
+      // Salva no AsyncStorage
+      await AsyncStorage.setItem('appUser', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error('AuthProvider: Erro ao atualizar dados do usuário:', error);
+      throw error; // Propaga o erro para que o componente que chamou possa tratar
+    }
+  };
+
+  /**
+   * Tenta renovar o token de autenticação.
+   * Esta função deve ser chamada quando o token expirar ou for invalidado.
+   * 
+   * Nota: A implementação real depende da API do seu backend.
+   * Este é apenas um exemplo que simula uma renovação bem-sucedida.
+   */
+  const refreshToken = async (): Promise<boolean> => {
+    try {
+      if (!user) {
+        throw new Error('Nenhum usuário logado para renovar o token');
+      }
+
+      // Aqui você deve implementar a chamada real à sua API para renovar o token
+      // Exemplo:
+      // const response = await api.post('/auth/refresh-token', { 
+      //   refreshToken: user.refreshToken 
+      // });
+      // const newToken = response.data.token;
+
+      // Simulação de um novo token (em produção, isso viria da API)
+      const newToken = `new_token_${Date.now()}`;
+
+      // Atualiza o usuário com o novo token
+      await updateUser({ token: newToken });
+
+      // Verifica e atualiza o estado de validade do token
+      const tokenIsValid = checkTokenValidity(newToken);
+      setIsTokenValid(tokenIsValid);
+
+      return tokenIsValid;
+    } catch (error) {
+      console.error('AuthProvider: Erro ao renovar token:', error);
+      // Em caso de erro na renovação, deslogamos o usuário
+      await logout();
+      return false;
     }
   };
 
@@ -109,7 +219,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     user,
     login,
     logout,
+    updateUser,
     isLoading,
+    isTokenValid,
+    refreshToken,
   };
 
   return (

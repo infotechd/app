@@ -9,24 +9,13 @@ import { login as apiLogin } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList} from '../navigation/types';
 
-/*
-// 3. Definir a lista de parâmetros para o Stack Navigator
-//    (Idealmente, mova isso para um arquivo central de tipos de navegação)
-type RootStackParamList = {
-  Onboarding: undefined;
-  Login: undefined;
-  Registration: undefined;
-  ResetPassword?: undefined;
-  Home: undefined;
-  // Adicione outras telas e seus parâmetros aqui
-};
-*/
+
 // 4. Definir o tipo das props para LoginScreen
 type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
 
 /**
- * Tela de login.
- * Coleta email e senha, chama a API de login e atualiza o AuthContext.
+ * Tela de 'login'.
+ * Coleta email e senha, chama a API de 'login' e atualiza o AuthContext.
  */
 export default function LoginScreen({ navigation }: LoginScreenProps) {
   // 5. Tipar o estado local
@@ -45,41 +34,51 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
 
     setIsLoggingIn(true); // Ativa o indicador de carregamento
+    // Dentro da função handleLogin em LoginScreen.tsx
 
     try {
-      // Chama a função da API tipada
-      const loginResponse = await apiLogin(email, senha);
+      console.log(`[Login Mobile] Tentando enviar para: ${process.env.EXPO_PUBLIC_API_URL}/auth/login`); // Confirme a URL
+      console.log(`[Login Mobile] Enviando email: ${email}`); // Evite logar senha se possível
 
-      // Prepara o objeto User para o contexto
-      // A interface User em AuthContext deve corresponder a loginResponse.user
-      // Se AuthContext espera o token dentro do objeto User, combine-os:
+      // Chama a função da API tipada
+      const loginResponse = await apiLogin(email, senha); // apiLogin vem de '../services/api'
+
+      console.log('[Login Mobile] Resposta da API recebida:', loginResponse);
+
+      // Prepara o objeto User para o contexto (ajuste conforme sua interface User no AuthContext)
       const userForContext = {
         ...loginResponse.user,
-        token: loginResponse.token // Garanta que o token está aqui se AuthContext.User o incluir
+        token: loginResponse.token
       };
-      // Se AuthContext.User NÃO inclui token, passe apenas loginResponse.user
 
-      // Chama a função login do AuthContext para atualizar o estado global
+      // Chama a função login do AuthContext
       await contextLogin(userForContext);
 
-      // Alert.alert('Sucesso', 'Login realizado.'); // Opcional: Navegação implica sucesso
-
-      // Navega para Home SEM passar parâmetros, pois o estado é global
-      // A navegação pode ser gerenciada de forma diferente dependendo da sua config
-      // (ex: um listener no AuthProvider que redireciona)
-      // Mas a navegação direta após o login bem-sucedido é comum.
-      // Se a navegação for gerenciada centralmente, esta linha pode ser removida.
+      console.log('[Login Mobile] Contexto atualizado. Navegando para Home...');
       navigation.navigate('Home');
 
-    } catch (error) {
-      // Trata o erro lançado pela função da API (apiLogin)
+    } catch (error: any) { // Captura qualquer tipo de erro
+      console.error('--- ERRO DETALHADO NO LOGIN MOBILE ---');
+      // Loga diferentes propriedades do erro que podem existir
+      if (error instanceof Error) {
+        console.error('Mensagem de Erro:', error.message);
+        console.error('Nome do Erro:', error.name);
+        console.error('Stack Trace:', error.stack);
+      } else {
+        // Se não for um objeto Error padrão
+        console.error('Objeto de Erro Completo:', error);
+      }
+      console.error('--------------------------------------');
+
+      // Exibe o alerta para o usuário
       Alert.alert(
         'Erro no Login',
-        error instanceof Error ? error.message : 'Ocorreu um erro desconhecido.'
+        error instanceof Error ? error.message : 'Ocorreu um erro desconhecido. Verifique os logs.'
       );
     } finally {
       setIsLoggingIn(false); // Desativa o indicador de carregamento
     }
+
   };
 
   return (

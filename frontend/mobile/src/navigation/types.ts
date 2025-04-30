@@ -18,7 +18,7 @@ export type RootStackParamList = {
   Login: undefined;
   Registration: undefined;
   ResetPassword?: undefined; // Tela opcional (?)
-  Home: undefined;
+  Home:  undefined ;
   EditProfile: undefined;
   // Telas adicionais identificadas na sua estrutura src/screens/
   TreinamentoList: undefined;

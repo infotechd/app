@@ -1,0 +1,9 @@
+# pnpm-workspace.yaml
+packages:
+  # Inclui os pacotes dentro da pasta frontend (mobile e web)
+  - 'frontend/*'
+  # Inclui o pacote backend
+  - 'backend'
+  # Descomente a linha abaixo APENAS SE a pasta 'common'
+  # também for um pacote independente com seu próprio package.json
+  # - 'common'
