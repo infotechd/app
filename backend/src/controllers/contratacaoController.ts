@@ -97,7 +97,7 @@ export const listarMinhasContratacoes = async (req: Request, res: Response, next
       .populate('prestadorId', 'nome foto') // Popula dados do prestador
       .sort({ createdAt: -1 }); // Ordena pelas mais recentes
 
-    res.status(200).json(contratacoes);
+    res.status(200).json({ contratacoes });
 
   } catch (error) {
     next(error);

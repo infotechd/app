@@ -30,7 +30,7 @@ export type RootStackParamList = {
   OfferDetail: { offerId: string};
   ContratacaoDetalhe: { contratacaoId: string};
   Pagamento: { contratacaoId: string }; // { token: string; contratacaoId: string };
-  OfertaServico: undefined; // { token: string };
+  OfertaServico: { offerId: string; mode: string }; // Parâmetros para visualização/edição de oferta
   Notificacao: undefined; // { token: string };
   Negociacao: { contratacaoId: string; providerId: string }; // { token: string; contratacaoId: string; providerId: string };
   // Exemplo de refatoração: Buscar user/token do context dentro da tela

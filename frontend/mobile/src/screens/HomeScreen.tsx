@@ -91,7 +91,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           <>
             <TouchableOpacity 
               style={styles.button} 
-              onPress={() => navigation.navigate('OfertaServico')}
+              onPress={() => navigation.navigate('OfertaServico', { offerId: '', mode: 'list' })}
             >
               <Text style={styles.buttonText}>Minhas Ofertas</Text>
             </TouchableOpacity>

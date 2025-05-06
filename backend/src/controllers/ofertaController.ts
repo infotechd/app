@@ -85,10 +85,10 @@ export const listOfertasByPrestador = async (req: Request, res: Response, next: 
     ]);
 
     res.status(200).json({
-      ofertas,
+      offers: ofertas,
       totalPages: Math.ceil(total / limit),
       currentPage: page,
-      totalOfertas: total
+      totalOffers: total
     });
 
   } catch (error) {

@@ -11,6 +11,7 @@ import mongoose from 'mongoose';
 import http from 'http';
 import { Server, Socket } from 'socket.io'; // Importa tipos do Socket.IO
 import jwt, { JwtPayload } from 'jsonwebtoken'; // Importa tipos do jsonwebtoken
+import { TipoUsuarioEnum } from './models/User'; // Importa o enum de tipos de usuário
 import comentarioRoutes from './routes/comentarioRoutes';
 import curtidaRoutes from './routes/curtidaRoutes';
 import bloqueioAgendaRoutes from './routes/bloqueioAgendaRoutes';
@@ -19,6 +20,11 @@ import ofertaRoutes from './routes/ofertaRoutes';
 import contratacaoRoutes from './routes/contratacaoRoutes';
 import negociacaoRoutes from './routes/negociacaoRoutes';
 import publicacaoComunidade from './routes/publicacaoComunidadeRoutes';
+import notificacaoRoutes from './routes/notificacaoRoutes';
+import relatorioRoutes from './routes/relatorioRoutes';
+import treinamentoRoutes from './routes/treinamentoRoutes';
+import agendaRoutes from './routes/agendaRoutes';
+import errorMiddleware from './middlewares/errorMiddleware';
 
 
 // Importa o handler de erros assíncronos (executa o código do módulo)
@@ -34,10 +40,10 @@ import authRoutes from './routes/authRoutes';
 // Exemplo: import ofertaRoutes from './routes/ofertaRoutes';
 // ... outras rotas
 
-// Define uma interface para o payload decodificado do JWT (adicione outros campos se houver)
+// Define uma interface para o payload decodificado do JWT
 export interface DecodedUserToken extends JwtPayload {
   userId: string;
-  role: string; // Exemplo
+  tipoUsuario: TipoUsuarioEnum;
 }
 
 // Estende a interface do Socket para incluir nossa propriedade 'user'
@@ -114,6 +120,10 @@ app.use('/api/curriculos', curriculoRoutes);
 app.use('/api/negociacoes', negociacaoRoutes);
 app.use('/api/publicacao-comunidade', publicacaoComunidade);
 app.use('/api/publicacoes-comunidade', publicacaoComunidade);
+app.use('/api/notificacoes', notificacaoRoutes);
+app.use('/api/relatorios', relatorioRoutes);
+app.use('/api/treinamentos', treinamentoRoutes);
+app.use('/api/agenda', agendaRoutes);
 
 // 8. Criação do Servidor HTTP e Configuração do Socket.IO
 const server = http.createServer(app); // Servidor HTTP usando o app Express
@@ -150,15 +160,7 @@ initializeSocketIO(io);
 
 // 9. Middleware de Tratamento de Erros Centralizado com tipos
 // Precisa estar depois das rotas e antes do server.listen
-const errorHandler: ErrorRequestHandler = (err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error("ERRO NÃO TRATADO:", err.stack || err);
-
-  const statusCode = err.status || err.statusCode || 500;
-  const message = err.message || 'Ocorreu um erro interno no servidor.';
-
-  res.status(statusCode).json({ message });
-};
-app.use(errorHandler);
+app.use(errorMiddleware);
 
 
 // 10. Inicialização do Servidor

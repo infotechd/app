@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,9 +14,13 @@ import {
 
 // 1. Imports de tipos e API
 import { Offer, FetchOffersParams } from '../types/offer';
-import { fetchPublicOffers as apiFetchPublicOffers } from '../services/api';
+import { 
+  fetchPublicOffers as apiFetchPublicOffers,
+  fetchAuthenticatedOffers as apiFetchAuthenticatedOffers
+} from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../navigation/types';
+import { useAuth } from '../context/AuthContext';
 
 // 2. Tipo das Props da Tela
 type BuscarOfertasScreenProps = NativeStackScreenProps<RootStackParamList, 'BuscarOfertas'>;
@@ -32,6 +36,9 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   const [ofertas, setOfertas] = useState<Offer[]>([]);
   const [loading, setLoading] = useState<boolean>(false); // Inicia como false, busca é manual
   const [error, setError] = useState<string | null>(null);
+
+  // Acessa o contexto de autenticação
+  const { user, isTokenValid } = useAuth();
 
   // 4. Refatorar handleSearch
   const handleSearch = useCallback(async () => {
@@ -54,10 +61,26 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
       Alert.alert("Aviso", "Preço máximo inválido, buscando sem limite de preço.");
     }
 
-
     try {
-      const response = await apiFetchPublicOffers(params);
+      let response;
+
+      // Verifica se o usuário está autenticado e tem um token válido
+      if (user && user.token && isTokenValid) {
+        console.log('Buscando ofertas com autenticação');
+        // Usa a função de busca autenticada
+        response = await apiFetchAuthenticatedOffers(user.token, params);
+      } else {
+        console.log('Buscando ofertas públicas (sem autenticação)');
+        // Usa a função de busca pública
+        response = await apiFetchPublicOffers(params);
+      }
+
       setOfertas(response.offers);
+
+      // Se não encontrou ofertas, mostra uma mensagem
+      if (response.offers.length === 0) {
+        Alert.alert("Informação", "Nenhuma oferta encontrada com estes critérios.");
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
       setError(errorMessage);
@@ -65,20 +88,27 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     } finally {
       setLoading(false);
     }
-  }, [textoPesquisa, precoMax]); // Depende dos filtros
+  }, [textoPesquisa, precoMax, user, isTokenValid]); // Depende dos filtros e do estado de autenticação
 
   // 5. Tipar renderItem
   const renderItem = ({ item }: ListRenderItemInfo<Offer>): JSX.Element => (
-    // 7. Adicionar TouchableOpacity para navegação futura
+    // 7. Navegação para detalhes da oferta
     <TouchableOpacity
       style={styles.itemContainer}
-      // onPress={() => navigation.navigate('OfferDetail', { offerId: item._id })} // Exemplo futuro
-      onPress={() => Alert.alert("Navegação", `Ir para detalhes da oferta ${item._id}`)} // Placeholder
+      onPress={() => {
+        // Navega para a tela de detalhes da oferta
+        navigation.navigate('OfertaServico', { 
+          offerId: item._id,
+          mode: 'view' // Modo de visualização
+        });
+      }}
     >
       <Text style={styles.itemTitle} numberOfLines={1}>{item.descricao}</Text>
       <Text style={styles.itemDetail}>Preço: R$ {item.preco.toFixed(2)}</Text>
       <Text style={styles.itemDetail}>Disponibilidade: {item.disponibilidade}</Text>
-      {/* Adicionar mais infos se desejar (nome prestador, avaliação, etc.) */}
+      {item.prestadorId && (
+        <Text style={styles.itemDetail}>ID do Prestador: {item.prestadorId}</Text>
+      )}
     </TouchableOpacity>
   );
 
@@ -92,10 +122,30 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     </View>
   );
 
+  // Efeito para buscar ofertas automaticamente ao montar o componente ou quando o estado de autenticação mudar
+  useEffect(() => {
+    // Só executa a busca automática se não estiver já carregando
+    if (!loading) {
+      console.log('Executando busca automática devido a mudança no estado de autenticação');
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isTokenValid]); // Dependências: estado de autenticação
+
   return (
     <View style={styles.screenContainer}>
       <View style={styles.searchContainer}>
         <Text style={styles.title}>Buscar Ofertas</Text>
+
+        {/* Indicador de estado de autenticação */}
+        <View style={styles.authStatusContainer}>
+          <Text style={styles.authStatusText}>
+            {user && isTokenValid 
+              ? "Modo: Autenticado ✓" 
+              : "Modo: Visitante (não autenticado)"}
+          </Text>
+        </View>
+
         <TextInput
           placeholder="Digite um texto de pesquisa..."
           value={textoPesquisa}
@@ -162,7 +212,21 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20, // Maior
     fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  authStatusContainer: {
+    backgroundColor: '#f0f0f0',
+    padding: 8,
+    borderRadius: 5,
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  authStatusText: {
+    fontSize: 14,
+    color: '#555',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   input: {
     borderWidth: 1,

@@ -94,7 +94,7 @@ export interface FetchOffersResponse {
 
 /** Resposta da API ao criar/atualizar uma oferta */
 export interface OfferMutationResponse {
-  message: string;
+  message: string , success: boolean;
   offer?: Offer; // Pode retornar a oferta criada/atualizada
 }
 

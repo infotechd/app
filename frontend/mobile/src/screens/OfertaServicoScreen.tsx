@@ -12,7 +12,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity, // Para botões de status
-  ListRenderItemInfo
+  ListRenderItemInfo,
+  RefreshControl // Para pull-to-refresh na lista
 } from 'react-native';
 
 // 1. Imports
@@ -35,9 +36,11 @@ const validStatuses: OfferStatus[] = ['draft', 'ready'];
  * Tela que permite ao prestador criar e gerenciar suas ofertas de serviço.
  * Usa as rotas do backend: /api/oferta (POST, GET)
  */
-export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenProps) {
-  // 3. Obter usuário (para token)
+export default function OfertaServicoScreen({ navigation, route }: OfertaServicoScreenProps) {
+  // 3. Obter usuário (para token) e parâmetros da rota
   const { user } = useAuth();
+  // Extrair parâmetros da rota (offerId e mode)
+  const { offerId, mode } = route.params;
 
   // 4. Tipar Estados
   // Estados do Formulário
@@ -52,7 +55,7 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
   const [loadingList, setLoadingList] = useState<boolean>(true); // Loading para lista
   const [error, setError] = useState<string | null>(null);
 
-  // 5. Refatorar fetchOfertas
+  // 5. Refatorar fetchOfertas com melhor tratamento de erros
   const fetchOfertas = useCallback(async () => {
     if (!user?.token) {
       // Não deveria acontecer se a tela for protegida, mas é bom verificar
@@ -64,12 +67,29 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
     setError(null);
     try {
       // Passa o token para buscar apenas as ofertas do usuário logado
+      // A função apiFetchMyOffers agora retorna { offers: [] } em caso de erro 404
       const response = await apiFetchMyOffers(user.token);
-      setOfertas(response.offers);
+
+      // Verifica se a resposta contém ofertas
+      if (response && Array.isArray(response.offers)) {
+        setOfertas(response.offers);
+        // Se a lista estiver vazia, podemos mostrar uma mensagem amigável
+        if (response.offers.length === 0) {
+          console.log('Nenhuma oferta encontrada para este usuário.');
+          // Não definimos erro aqui, pois lista vazia não é um erro
+        }
+      } else {
+        // Este caso não deve ocorrer com as melhorias na API, mas mantemos por segurança
+        console.warn('Resposta da API não contém array de ofertas.');
+        setOfertas([]);
+      }
     } catch (err) {
+      // Mesmo com as melhorias na API, ainda pode haver outros tipos de erros
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('Erro ao buscar ofertas:', msg);
       setError(msg);
-      Alert.alert('Erro ao Buscar Ofertas', msg);
+      // Não mostramos o Alert para não incomodar o usuário, apenas registramos o erro
+      // e mostramos na interface de forma menos intrusiva
     } finally {
       setLoadingList(false);
     }
@@ -80,7 +100,7 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
     fetchOfertas();
   }, [fetchOfertas]);
 
-  // 6. Refatorar handleCreateOffer
+  // 6. Refatorar handleCreateOffer com melhor tratamento de erros
   const handleCreateOffer = async () => {
     if (!user?.token) {
       Alert.alert('Erro', 'Autenticação necessária.');
@@ -107,18 +127,34 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
     };
 
     try {
+      // A função apiCreateOffer agora tem melhor tratamento de erros
       const response = await apiCreateOffer(user.token, offerData);
-      Alert.alert('Sucesso', response.message);
-      // Limpar formulário
-      setDescricao('');
-      setPreco('');
-      setDisponibilidade('');
-      setStatus('draft');
-      // Recarregar a lista de ofertas
-      fetchOfertas();
+
+      // Verifica se a resposta indica sucesso
+      if (response && response.sucesss !== false) {
+        Alert.alert('Sucesso', response.message || 'Oferta criada com sucesso!');
+        // Limpar formulário
+        setDescricao('');
+        setPreco('');
+        setDisponibilidade('');
+        setStatus('draft');
+        // Recarregar a lista de ofertas
+        fetchOfertas();
+      } else {
+        // Este caso não deve ocorrer com as melhorias na API, mas mantemos por segurança
+        console.warn('Resposta da API indica falha ao criar oferta:', response);
+        Alert.alert('Aviso', response.message || 'Não foi possível confirmar se a oferta foi criada. Verifique sua lista de ofertas.');
+      }
     } catch (err) {
+      // Mesmo com as melhorias na API, ainda pode haver outros tipos de erros
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      Alert.alert('Erro ao Criar Oferta', msg);
+      console.error('Erro ao criar oferta:', msg);
+
+      // Mensagem mais amigável para o usuário
+      Alert.alert(
+        'Erro ao Criar Oferta', 
+        'Não foi possível criar a oferta no momento. Por favor, tente novamente mais tarde.'
+      );
     } finally {
       setIsCreating(false);
     }
@@ -137,10 +173,19 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
 
   const keyExtractor = (item: Offer): string => item._id;
 
-  // Componente para lista vazia
+  // Componente para lista vazia com mensagem mais informativa
   const renderEmptyList = () => (
     <View style={styles.centerContainer}>
-      <Text>Você ainda não criou nenhuma oferta.</Text>
+      <Text style={styles.emptyListText}>Você ainda não criou nenhuma oferta.</Text>
+      <Text style={styles.emptyListSubText}>
+        Use o formulário acima para criar sua primeira oferta de serviço.
+      </Text>
+      <TouchableOpacity 
+        style={styles.refreshButton}
+        onPress={fetchOfertas}
+      >
+        <Text style={styles.refreshButtonText}>Atualizar Lista</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -209,18 +254,34 @@ export default function OfertaServicoScreen({ navigation }: OfertaServicoScreenP
           {loadingList ? (
             <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }}/>
           ) : error ? (
-            <Text style={styles.errorText}>Erro ao carregar ofertas: {error}</Text>
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>
+                {error.includes('404') ? 
+                  'Não foi possível conectar ao serviço de ofertas. Tente novamente mais tarde.' : 
+                  `Erro ao carregar ofertas: ${error}`}
+              </Text>
+              <TouchableOpacity 
+                style={styles.retryButton}
+                onPress={fetchOfertas}
+              >
+                <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <FlatList
               data={ofertas}
               keyExtractor={keyExtractor}
               renderItem={renderItem}
               ListEmptyComponent={renderEmptyList}
-              // Se a lista puder ser grande, evite renderizar dentro de ScrollView
-              // Ou use SectionList se for agrupar por status, etc.
-              // Para listas pequenas, pode funcionar.
-              // Considerar adicionar um refresh control:
-              // refreshControl={<RefreshControl refreshing={loadingList} onRefresh={fetchOfertas} />}
+              // Adicionando refresh control para permitir ao usuário atualizar a lista
+              refreshControl={
+                <RefreshControl 
+                  refreshing={loadingList} 
+                  onRefresh={fetchOfertas}
+                  colors={['#0000ff']}
+                  tintColor="#0000ff"
+                />
+              }
             />
           )}
         </View>
@@ -310,10 +371,57 @@ const styles = StyleSheet.create({
     marginTop: 30,
     alignItems: 'center',
     justifyContent: 'center',
+    padding: 20,
+  },
+  emptyListText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptyListSubText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  refreshButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+  },
+  refreshButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   errorText: {
     marginTop: 20,
     color: 'red',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  errorContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 15,
+    backgroundColor: '#fff8f8',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ffdddd',
+  },
+  retryButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    marginTop: 10,
+  },
+  retryButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
     textAlign: 'center',
   },
 });

@@ -4,6 +4,8 @@ import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import User, { IUser, TipoUsuarioEnum } from '../models/User'; // Importa modelo e interface/enum
+import Contratacao, { ContratacaoStatusEnum } from '../models/Contratacao';
+import { DecodedUserToken } from '../server'; // Importa a interface do payload JWT
 // import { validate as isValidEmail } from 'email-validator'; // Exemplo: usar lib de validação
 // import { validate as isValidCpfCnpj } from 'cpf-cnpj-validator'; // Exemplo: usar lib de validação
 
@@ -13,29 +15,15 @@ import User, { IUser, TipoUsuarioEnum } from '../models/User'; // Importa modelo
  * Registra um novo usuário (CU1)
  */
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Desestrutura o corpo da requisição (idealmente validado por middleware antes)
+  // Desestrutura o corpo da requisição (validado pelo middleware de validação)
   const { nome, email, senha, telefone, cpfCnpj, tipoUsuario, endereco, foto } = req.body;
 
   try {
-    // Validação básica (melhor usar middleware de validação como express-validator ou Joi)
-    if (!nome || !email || !senha || !cpfCnpj || !tipoUsuario) {
-      res.status(400).json({ message: 'Campos obrigatórios ausentes: nome, email, senha, cpfCnpj, tipoUsuario.' });
-      return;
-    }
-    // TODO: Implementar validação mais robusta de formato/regras (email, cpf/cnpj, força da senha)
-    // Exemplo: if (!isValidEmail(email)) { ... }
-
     // Verifica existência (o índice unique no Mongoose já ajuda, mas verificar antes dá msg melhor)
     const existingUser = await User.findOne({ $or: [{ email }, { cpfCnpj }] });
     if (existingUser) {
       const field = existingUser.email === email ? 'Email' : 'CPF/CNPJ';
       res.status(409).json({ message: `${field} já cadastrado.` }); // 409 Conflict
-      return;
-    }
-
-    // Valida tipoUsuario (Enum já valida no save, mas podemos checar antes)
-    if (!Object.values(TipoUsuarioEnum).includes(tipoUsuario)) {
-      res.status(400).json({ message: `Tipo de usuário inválido: ${tipoUsuario}` });
       return;
     }
     // Não é necessário fazer hash aqui, o hook pre('save') no modelo User.ts fará isso.
@@ -70,10 +58,6 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
   const { email, senha } = req.body;
 
   try {
-    if (!email || !senha) {
-      res.status(400).json({ message: 'Email e senha são obrigatórios.' });
-      return;
-    }
 
     // Busca o usuário E seleciona explicitamente a senha (devido ao select: false no modelo)
     const user = await User.findOne({ email }).select('+senha');
@@ -91,11 +75,11 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     }
 
     // Gera o token JWT
-    // Usando tipagem inline em vez de uma interface nomeada
-    const payload = {
+    // Usando a interface DecodedUserToken para tipar o payload
+    const payload: DecodedUserToken = {
       userId: String(user._id),
       tipoUsuario: user.tipoUsuario
-    } as { userId: string; tipoUsuario: TipoUsuarioEnum };
+    };
 
     const secret = process.env.JWT_SECRET as string;
     const token = jwt.sign(payload, secret, { expiresIn: '1h' }); // Ajuste a expiração conforme necessário
@@ -133,7 +117,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
 /**
  * Realiza o logout do usuário limpando o cookie de autenticação.
  */
-export const logout = (req: Request, res: Response): void => {
+export const logout = (req: Request, res: Response, next: NextFunction): void => {
   // As opções aqui devem ser as mesmas usadas ao definir o cookie no login
   res.clearCookie('token', {
     httpOnly: true,
@@ -162,14 +146,20 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
     return;
   }
   const userId = req.user.userId;
-  const allowedUpdates: Partial<Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha'>> = {}; // Campos permitidos
+
+  // Define o tipo para os campos atualizáveis
+  type UpdatableUserFields = Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha'>;
+  type UpdatableFieldKey = keyof UpdatableUserFields;
+
+  const allowedUpdates: Partial<UpdatableUserFields> = {}; // Campos permitidos
   const receivedUpdates = req.body;
 
   // Filtra apenas os campos permitidos do req.body
-  const updatableFields: (keyof typeof allowedUpdates)[] = ['nome', 'telefone', 'endereco', 'foto', 'senha'];
+  const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha'];
   updatableFields.forEach(field => {
     if (receivedUpdates[field] !== undefined) {
-      (allowedUpdates as any)[field] = receivedUpdates[field];
+      // Usando type assertion mais segura com o tipo específico
+      allowedUpdates[field] = receivedUpdates[field] as UpdatableUserFields[typeof field];
     }
   });
 
@@ -203,11 +193,6 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
     res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
 
   } catch (error) {
-    // Tratar erros de validação do Mongoose separadamente se desejar (ex: email/cpfCnpj únicos se tentar atualizar)
-    if ((error as any).code === 11000) { // Código de erro do Mongo para chave duplicada
-      res.status(409).json({ message: 'Erro de duplicação de campo único (email ou CPF/CNPJ).'});
-      return;
-    }
     next(error);
   }
 };
@@ -223,7 +208,28 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
   const userId = req.user.userId;
 
   try {
-    // TODO: Implementar verificação de pendências (contratações ativas, etc.) ANTES de deletar
+    // Verificação de pendências (contratações ativas, etc.) ANTES de deletar
+    const statusAtivos = [
+      ContratacaoStatusEnum.PENDENTE,
+      ContratacaoStatusEnum.ACEITA,
+      ContratacaoStatusEnum.EM_ANDAMENTO,
+      ContratacaoStatusEnum.DISPUTA
+    ];
+
+    // Verifica se o usuário tem contratações ativas como comprador ou prestador
+    const contratacoesPendentes = await Contratacao.countDocuments({
+      $or: [
+        { buyerId: userId, status: { $in: statusAtivos } },
+        { prestadorId: userId, status: { $in: statusAtivos } }
+      ]
+    });
+
+    if (contratacoesPendentes > 0) {
+      res.status(400).json({ 
+        message: 'Não é possível excluir sua conta enquanto você possui contratações ativas. Finalize ou cancele todas as contratações pendentes antes de excluir sua conta.' 
+      });
+      return;
+    }
 
     const deletedUser = await User.findByIdAndDelete(userId);
 
@@ -233,8 +239,8 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
       return;
     }
 
-    // TODO: Implementar lógica de logout / invalidação de cookie/token se necessário
-    res.clearCookie('token'); // Exemplo: Limpa o cookie de autenticação
+    // Implementa lógica de logout / invalidação de cookie/token
+    res.clearCookie('token'); // Limpa o cookie de autenticação
 
     res.status(200).json({ message: 'Conta excluída com sucesso.' });
 
@@ -245,7 +251,7 @@ export const deleteAccount = async (req: Request, res: Response, next: NextFunct
 
 
 /**
- * Lista todos os usuários (Apenas Admin)
+ * Lista todos os usuários (Apenas Admin) com paginação
  */
 export const listUsers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -256,12 +262,37 @@ export const listUsers = async (req: Request, res: Response, next: NextFunction)
     }
     // ---------------------------------
 
-    // Busca usuários selecionando campos específicos
-    // TODO: Adicionar paginação para muitos usuários
-    const users = await User.find({})
-      .select('nome email tipoUsuario createdAt'); // Nunca retornar senha
+    // --- IMPLEMENTAÇÃO DE PAGINAÇÃO ---
+    // Extrai parâmetros de paginação da query string
+    const page = parseInt(req.query.page as string) || 1; // Página atual, padrão: 1
+    const limit = parseInt(req.query.limit as string) || 10; // Itens por página, padrão: 10
 
-    res.status(200).json(users);
+    // Calcula o número de documentos a pular (skip)
+    const skip = (page - 1) * limit;
+
+    // Conta o total de usuários para calcular o total de páginas
+    const totalUsers = await User.countDocuments({});
+    const totalPages = Math.ceil(totalUsers / limit);
+
+    // Busca usuários com paginação
+    const users = await User.find({})
+      .select('nome email tipoUsuario createdAt') // Nunca retornar senha
+      .skip(skip) // Pula os documentos conforme a página atual
+      .limit(limit) // Limita o número de documentos retornados
+      .sort({ createdAt: -1 }); // Ordena por data de criação (mais recentes primeiro)
+
+    // Retorna os usuários com metadados de paginação
+    res.status(200).json({
+      users,
+      pagination: {
+        totalUsers,
+        totalPages,
+        currentPage: page,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      }
+    });
 
   } catch (error) {
     next(error);
