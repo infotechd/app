@@ -81,7 +81,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
   };
 
   // 7. Tipar Renderização das Listas
-  const renderOfferItem = ({ item }: ListRenderItemInfo<Offer>): JSX.Element => (
+  const renderOfferItem = ({ item }: ListRenderItemInfo<Offer>): React.ReactElement => (
     <TouchableOpacity style={styles.offerCard} onPress={() => handleOfferPress(item)}>
       {/* Usar campos da interface Offer */}
       <Text style={styles.offerTitle}>{item.descricao}</Text>
@@ -90,7 +90,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
     </TouchableOpacity>
   );
 
-  const renderBookingItem = ({ item }: ListRenderItemInfo<Contratacao>): JSX.Element => (
+  const renderBookingItem = ({ item }: ListRenderItemInfo<Contratacao>): React.ReactElement => (
     <TouchableOpacity style={styles.bookingCard} onPress={() => handleBookingPress(item)}>
       {/* Usar campos da interface Contratacao */}
       {/* Idealmente, a API traria o título da oferta ou nome do comprador */}
@@ -180,7 +180,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
 
         <TouchableOpacity 
           style={styles.actionButton}
-          onPress={() => navigation.navigate('OfertaServico')}
+          onPress={() => navigation.navigate('OfertaServico', { offerId: '', mode: 'list' })}
         >
           <Text style={styles.actionButtonText}>Gerenciar Minhas Ofertas</Text>
         </TouchableOpacity>
