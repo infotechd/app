@@ -20,15 +20,19 @@
     "ios:mobile": "pnpm run ios --filter frontend/mobile",
     "build:mobile": "pnpm run build --filter frontend/mobile",
     "build:web": "pnpm run build --filter frontend/web",
+    "build:common": "pnpm run build --filter common",
+    "build": "pnpm run build:common && pnpm run build:mobile && pnpm run build:web",
     "test:backend": "pnpm run test --filter backend",
     "test:mobile": "pnpm run test --filter frontend/mobile",
     "test:web": "pnpm run test --filter frontend/web",
-    "test": "pnpm run test:backend && pnpm run test:mobile && pnpm run test:web"
+    "test:common": "pnpm run test --filter common",
+    "test": "pnpm run test:common && pnpm run test:backend && pnpm run test:mobile && pnpm run test:web"
   },
   "workspaces": [
     "backend",
     "frontend/mobile",
-    "frontend/web"
+    "frontend/web",
+    "common"
   ],
   "devDependencies": {
     "@eslint/js": "^9.24.0",

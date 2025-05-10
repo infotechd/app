@@ -13,14 +13,14 @@ import {
 } from 'react-native';
 
 // 1. Imports de tipos e API
-import { Offer, FetchOffersParams } from '../types/offer';
+import { Offer, FetchOffersParams } from "@/types/offer";
 import { 
   fetchPublicOffers as apiFetchPublicOffers,
   fetchAuthenticatedOffers as apiFetchAuthenticatedOffers
 } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
-import { useAuth } from '../context/AuthContext';
+import { RootStackParamList } from "@/navigation/types";
+import { useAuth } from "@/context/AuthContext";
 
 // 2. Tipo das Props da Tela
 type BuscarOfertasScreenProps = NativeStackScreenProps<RootStackParamList, 'BuscarOfertas'>;
@@ -91,7 +91,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   }, [textoPesquisa, precoMax, user, isTokenValid]); // Depende dos filtros e do estado de autenticação
 
   // 5. Tipar renderItem
-  const renderItem = ({ item }: ListRenderItemInfo<Offer>): JSX.Element => (
+  const renderItem = ({ item }: ListRenderItemInfo<Offer>): React.ReactElement => (
     // 7. Navegação para detalhes da oferta
     <TouchableOpacity
       style={styles.itemContainer}
@@ -105,7 +105,9 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     >
       <Text style={styles.itemTitle} numberOfLines={1}>{item.descricao}</Text>
       <Text style={styles.itemDetail}>Preço: R$ {item.preco.toFixed(2)}</Text>
-      <Text style={styles.itemDetail}>Disponibilidade: {item.disponibilidade}</Text>
+      <Text style={styles.itemDetail}>Disponibilidade: {typeof item.disponibilidade === 'string' 
+        ? item.disponibilidade 
+        : item.disponibilidade.observacoes || 'Verificar detalhes'}</Text>
       {item.prestadorId && (
         <Text style={styles.itemDetail}>ID do Prestador: {item.prestadorId}</Text>
       )}
@@ -127,7 +129,10 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     // Só executa a busca automática se não estiver já carregando
     if (!loading) {
       console.log('Executando busca automática devido a mudança no estado de autenticação');
-      handleSearch();
+      handleSearch()
+        .catch(err => {
+          console.error('Erro na busca automática:', err);
+        });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isTokenValid]); // Dependências: estado de autenticação

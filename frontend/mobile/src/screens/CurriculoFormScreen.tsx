@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react'; // Adicionado useEffect se for buscar dados
+import React, { useState } from 'react'; // Adicionado useEffect se for buscar dados
 import {
-  View,
   Text,
   TextInput,
   Button,
@@ -13,12 +12,12 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { saveCurriculo as apiSaveCurriculo } from '../services/api'; // Importar API
 // import { getMyCurriculo as apiGetMyCurriculo } from '../services/api'; // Descomentar se for buscar
-import { CurriculoData } from '../types/curriculo'; // Importar tipo
+import { CurriculoData } from "@/types/curriculo"; // Importar tipo
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type CurriculoFormScreenProps = NativeStackScreenProps<RootStackParamList, 'CurriculoForm'>;

@@ -2,25 +2,25 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  ScrollView, // Usar ScrollView se o conteúdo puder exceder a tela
-  RefreshControl, // Para pull-to-refresh
-  ListRenderItemInfo
+  RefreshControl,
+  ListRenderItemInfo,
+  SectionList, // Usar SectionList para múltiplas seções de dados
+  SectionListRenderItemInfo
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext'; // Contexto de autenticação
+import { useAuth } from "@/context/AuthContext"; // Contexto de autenticação
 import {
   fetchMyOffers as apiFetchMyOffers,
   fetchReceivedContratacoes as apiFetchReceivedContratacoes
 } from '../services/api'; // Funções da API tipadas
-import { Offer } from '../types/offer'; // Tipo Offer
-import { Contratacao } from '../types/contratacao'; // Tipo Contratacao
+import { Offer } from "@/types/offer"; // Tipo Offer
+import { Contratacao } from "@/types/contratacao"; // Tipo Contratacao
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types'; // Tipos de Navegação
+import { RootStackParamList } from "@/navigation/types"; // Tipos de Navegação
 
 // 2. Tipo das Props
 type ProviderDashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'ProviderDashboard'>;
@@ -66,7 +66,17 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
 
   // Busca inicial
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      try {
+        await loadDashboardData();
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+    };
+
+    fetchData().catch(error => {
+      console.error('Failed to fetch dashboard data:', error);
+    });
   }, [loadDashboardData]);
 
   // 6. Refatorar Navegação
@@ -131,79 +141,107 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
     );
   }
 
-  // Usa ScrollView para permitir rolagem se as listas ficarem grandes
-  // e para o RefreshControl funcionar corretamente.
-  return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={()=>loadDashboardData(true)} />
+  // Usando SectionList para evitar o erro de VirtualizedLists aninhadas
+  // e para melhor performance com múltiplas seções de dados
+
+  // Preparar as seções para o SectionList
+  // Define um tipo de união para todos os possíveis tipos de itens nas seções
+  type SectionItem = string | Offer | Contratacao;
+
+  // Define o tipo para as seções
+  type Section = {
+    title: string;
+    data: readonly SectionItem[];
+    renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => React.ReactElement;
+  };
+
+  const sections: readonly Section[] = [
+    {
+      title: "Cabeçalho",
+      data: ["header"] as const, // Usamos um item dummy para renderizar o cabeçalho
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
+        <View style={styles.header}>
+          <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Prestador'}!</Text>
+          <Text style={styles.subheader}>Gerencie suas ofertas e contratações</Text>
+          {/* Mostra erro discreto se ocorreu durante refresh */}
+          {error && (offers.length > 0 || bookings.length > 0) && !loading && (
+            <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
+          )}
+        </View>
+      )
+    },
+    {
+      title: "Minhas Ofertas",
+      data: (offers.length > 0 ? offers : ["empty_offers"]) as readonly SectionItem[],
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
+        const item = info.item;
+        if (item === "empty_offers") {
+          return renderListEmpty("Você ainda não criou nenhuma oferta.");
+        }
+        return renderOfferItem({item: item as Offer} as ListRenderItemInfo<Offer>);
       }
-    >
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-        <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Prestador'}!</Text>
-        <Text style={styles.subheader}>Gerencie suas ofertas e contratações</Text>
-        {/* Mostra erro discreto se ocorreu durante refresh */}
-        {error && (offers.length > 0 || bookings.length > 0) && !loading && (
-          <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
-        )}
-      </View>
+    },
+    {
+      title: "Contratações Recebidas",
+      data: (bookings.length > 0 ? bookings : ["empty_bookings"]) as readonly SectionItem[],
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
+        const item = info.item;
+        if (item === "empty_bookings") {
+          return renderListEmpty("Nenhuma contratação recebida no momento.");
+        }
+        return renderBookingItem({item: item as Contratacao} as ListRenderItemInfo<Contratacao>);
+      }
+    },
+    {
+      title: "Ações Rápidas",
+      data: ["actions"] as const,
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('OfertaServico', { offerId: '', mode: 'list' })}
+          >
+            <Text style={styles.actionButtonText}>Gerenciar Minhas Ofertas</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Ofertas */}
-      <Text style={styles.sectionTitle}>Minhas Ofertas</Text>
-      {/* Usar scrollEnabled={false} se dentro de ScrollView para evitar conflito,
-           mas FlatList dentro de ScrollView não é ideal para performance com muitos itens.
-           Alternativa: usar SectionList ou apenas View/map se as listas forem pequenas.
-           Mantendo FlatList por enquanto. */}
-      <FlatList
-        data={offers}
-        keyExtractor={(item) => item._id} // Usar _id
-        renderItem={renderOfferItem}
-        ListEmptyComponent={() => renderListEmpty("Você ainda não criou nenhuma oferta.")}
-        scrollEnabled={false} // Desabilita rolagem própria da FlatList
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Agenda')}
+          >
+            <Text style={styles.actionButtonText}>Minha Agenda</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Contratações */}
-      <Text style={styles.sectionTitle}>Contratações Recebidas</Text>
-      <FlatList
-        data={bookings}
-        keyExtractor={(item) => item._id} // Usar _id
-        renderItem={renderBookingItem}
-        ListEmptyComponent={() => renderListEmpty("Nenhuma contratação recebida no momento.")}
-        scrollEnabled={false} // Desabilita rolagem própria da FlatList
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('CurriculoForm')}
+          >
+            <Text style={styles.actionButtonText}>Atualizar Currículo</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+  ];
 
-      {/* Botões de Ação Rápida */}
-      <View style={styles.actionButtonsContainer}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('OfertaServico', { offerId: '', mode: 'list' })}
-        >
-          <Text style={styles.actionButtonText}>Gerenciar Minhas Ofertas</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Agenda')}
-        >
-          <Text style={styles.actionButtonText}>Minha Agenda</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('CurriculoForm')}
-        >
-          <Text style={styles.actionButtonText}>Atualizar Currículo</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Adicionar espaço no final para melhor rolagem */}
-      <View style={{ height: 40 }} />
-
-    </ScrollView>
+  return (
+    <SectionList<SectionItem, Section>
+      style={styles.container}
+      sections={sections}
+      keyExtractor={(item, index) => {
+        if (typeof item === 'string') return item + index;
+        return (item as any)._id || index.toString();
+      }}
+      renderSectionHeader={({section}) => (
+        section.title !== "Cabeçalho" ? (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        ) : null
+      )}
+      renderItem={(info) => info.section.renderItem(info)}
+      refreshControl={
+        <RefreshControl refreshing={loading} onRefresh={() => loadDashboardData(true)} />
+      }
+      ListFooterComponent={() => <View style={{ height: 40 }} />}
+      stickySectionHeadersEnabled={false}
+    />
   );
 }
 

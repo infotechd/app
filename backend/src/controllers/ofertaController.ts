@@ -26,7 +26,7 @@ export const createOferta = async (req: Request, res: Response, next: NextFuncti
   }
 
   // TODO: Validar robustamente o req.body (Joi, express-validator) incluindo a estrutura de disponibilidade
-  const { descricao, preco, disponibilidade } = req.body as OfertaPayload;
+  const { descricao, preco, disponibilidade, status } = req.body as OfertaPayload;
 
   try {
     // Validação básica
@@ -36,16 +36,51 @@ export const createOferta = async (req: Request, res: Response, next: NextFuncti
     }
     // TODO: Validar estrutura de disponibilidade (formato de horas, dias da semana 0-6, etc.)
 
+    // Mapeia os status do frontend para os status do backend
+    const statusMapping: Record<string, OfertaStatusEnum> = {
+      'draft': OfertaStatusEnum.RASCUNHO,
+      'ready': OfertaStatusEnum.DISPONIVEL,
+      'inactive': OfertaStatusEnum.PAUSADO,
+      'archived': OfertaStatusEnum.ENCERRADO
+    };
+
+    // Verifica se o status fornecido é válido e faz o mapeamento
+    let ofertaStatus = OfertaStatusEnum.RASCUNHO; // Default para rascunho se não for fornecido
+
+    if (status) {
+      // Se o status está no mapeamento, usa o valor mapeado
+      if (statusMapping[status]) {
+        ofertaStatus = statusMapping[status];
+      } 
+      // Se o status já é um valor válido do enum (caso de uso direto do valor do backend)
+      else if (Object.values(OfertaStatusEnum).includes(status as OfertaStatusEnum)) {
+        ofertaStatus = status as OfertaStatusEnum;
+      }
+    }
+
+    console.log('Status recebido:', status);
+    console.log('Criando oferta com status mapeado:', ofertaStatus);
+
     const novaOferta = new OfertaServico({
       prestadorId: req.user.userId,
       descricao,
       preco,
-      status: OfertaStatusEnum.RASCUNHO, // Sempre começa como rascunho
+      status: ofertaStatus, // Usa o status fornecido ou o default
       disponibilidade // Passa o objeto validado
     });
 
     const ofertaSalva = await novaOferta.save();
-    res.status(201).json({ message: 'Oferta criada como rascunho com sucesso.', oferta: ofertaSalva });
+
+    // Mensagem dinâmica baseada no status
+    const statusMessage = ofertaSalva.status === OfertaStatusEnum.RASCUNHO 
+      ? 'Oferta criada como rascunho com sucesso.' 
+      : 'Oferta criada e publicada com sucesso.';
+
+    res.status(201).json({ 
+      message: statusMessage, 
+      oferta: ofertaSalva,
+      success: true 
+    });
 
   } catch (error) {
     // Tratar erros de validação do Mongoose
@@ -140,17 +175,45 @@ export const updateOferta = async (req: Request, res: Response, next: NextFuncti
   // TODO: Validar req.body
   const receivedUpdates = req.body as Partial<OfertaPayload>; // Campos que podem vir
 
+  // Mapeia os status do frontend para os status do backend
+  const statusMapping: Record<string, OfertaStatusEnum> = {
+    'draft': OfertaStatusEnum.RASCUNHO,
+    'ready': OfertaStatusEnum.DISPONIVEL,
+    'inactive': OfertaStatusEnum.PAUSADO,
+    'archived': OfertaStatusEnum.ENCERRADO
+  };
+
   // Filtra campos permitidos para atualização pelo prestador
   const allowedUpdates: Partial<IOfertaServico> = {};
   const updatableFields: (keyof OfertaPayload)[] = ['descricao', 'preco', 'disponibilidade', 'status']; // Status pode ser mudado aqui? Ex: rascunho -> disponivel? pausado -> disponivel?
   updatableFields.forEach(field => {
     if (receivedUpdates[field] !== undefined) {
-      // Adicionar validações específicas (ex: status só pode ir para 'disponivel' ou 'pausado'?)
-      if (field === 'status' && !Object.values(OfertaStatusEnum).includes(receivedUpdates.status as OfertaStatusEnum)) {
-        // Ignora status inválido
-      } else if (field === 'preco' && (typeof receivedUpdates.preco !== 'number' || receivedUpdates.preco < 0)) {
+      // Tratamento especial para o campo status
+      if (field === 'status') {
+        const receivedStatus = receivedUpdates.status as string;
+
+        // Verifica se o status está no mapeamento
+        if (statusMapping[receivedStatus]) {
+          (allowedUpdates as any)[field] = statusMapping[receivedStatus];
+          console.log(`Status atualizado de frontend '${receivedStatus}' para backend '${statusMapping[receivedStatus]}'`);
+        } 
+        // Verifica se o status já é um valor válido do enum
+        else if (Object.values(OfertaStatusEnum).includes(receivedStatus as OfertaStatusEnum)) {
+          (allowedUpdates as any)[field] = receivedStatus;
+          console.log(`Status já é um valor válido do backend: '${receivedStatus}'`);
+        }
+        // Status inválido
+        else {
+          console.log(`Status inválido ignorado: '${receivedStatus}'`);
+        }
+      } 
+      // Validação para preço
+      else if (field === 'preco' && (typeof receivedUpdates.preco !== 'number' || receivedUpdates.preco < 0)) {
         // Ignora preço inválido
-      } else {
+        console.log('Preço inválido ignorado');
+      } 
+      // Outros campos
+      else {
         (allowedUpdates as any)[field] = receivedUpdates[field];
       }
     }

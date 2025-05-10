@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,6 @@ import {
   Platform,
   StyleSheet,
   ListRenderItemInfo,
-  ActivityIndicator,
   Alert
 } from 'react-native';
 
@@ -19,10 +18,10 @@ import { io, Socket } from 'socket.io-client';
 //import { type Socket } from 'socket.io-client';
 
 
-import { useAuth } from '../context/AuthContext';
-import { ChatMessage } from '../types/chat'; // Importa tipo da mensagem (ajuste o caminho)
+import { useAuth } from "@/context/AuthContext";
+import { ChatMessage } from "@/types/chat"; // Importa tipo da mensagem (ajuste o caminho)
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 
 // 2. Tipo das Props
@@ -48,7 +47,7 @@ export default function ChatScreen({ route }: ChatScreenProps) {
 
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
-  // 5. Lógica do Socket.IO com Tipagem
+  // 5. Lógica do 'Socket'.IO com Tipagem
   useEffect(() => {
     if (!user?.token) {
       setConnectionError("Autenticação necessária.");
@@ -153,7 +152,7 @@ export default function ChatScreen({ route }: ChatScreenProps) {
   };
 
   // 7. Tipar renderItem e keyExtractor
-  const renderItem = ({ item }: ListRenderItemInfo<ChatMessage>): JSX.Element => {
+  const renderItem = ({ item }: ListRenderItemInfo<ChatMessage>): React.ReactElement => {
     const isMyMessage = item.senderId === user?.idUsuario;
     return (
       <View style={[styles.messageBubble, isMyMessage ? styles.myMessage : styles.otherMessage]}>

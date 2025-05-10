@@ -8,19 +8,21 @@ import {
   ActivityIndicator,
   StyleSheet,
   RefreshControl,
-  ListRenderItemInfo
+  ListRenderItem
 } from 'react-native';
 
+// Import React types
+
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchNotificacoes as apiFetchNotificacoes,
   markNotificacaoAsRead as apiMarkRead,
   deleteNotificacao as apiDeleteNotificacao
 } from '../services/api';
-import { Notificacao } from '../types/notificacao';
+import { Notificacao } from "@/types/notificacao";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type NotificacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Notificacao'>;
@@ -28,7 +30,7 @@ type NotificacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Notifi
 /**
  * NotificacaoScreen – Tela para exibir e gerenciar notificações (Mobile)
  */
-export default function NotificacaoScreen({ navigation }: NotificacaoScreenProps) {
+export default function NotificacaoScreen({ }: NotificacaoScreenProps) {
   // 3. Obter usuário/token
   const { user } = useAuth();
 
@@ -60,7 +62,12 @@ export default function NotificacaoScreen({ navigation }: NotificacaoScreenProps
   }, [user?.token]);
 
   useEffect(() => {
-    loadNotifications();
+    const fetchData = async () => {
+      await loadNotifications();
+    };
+
+    // Handle the Promise properly to avoid the warning
+    void fetchData();
   }, [loadNotifications]);
 
   // 6. Refatorar handleMarkAsRead
@@ -71,7 +78,7 @@ export default function NotificacaoScreen({ navigation }: NotificacaoScreenProps
       await apiMarkRead(user.token, id);
       // Atualiza a lista localmente ou busca novamente
       // Buscar novamente é mais simples, mas pode ser menos performático
-      loadNotifications(true); // Recarrega silenciosamente
+      await loadNotifications(true); // Recarrega silenciosamente
       // Ou: Atualização otimista (mais complexo)
       /*
       setNotifications(prev =>
@@ -96,7 +103,7 @@ export default function NotificacaoScreen({ navigation }: NotificacaoScreenProps
           try {
             await apiDeleteNotificacao(user.token, id);
             // Atualiza a lista localmente ou busca novamente
-            loadNotifications(true); // Recarrega silenciosamente
+            await loadNotifications(true); // Recarrega silenciosamente
             // Ou: Atualização otimista
             // setNotifications(prev => prev.filter(n => n._id !== id));
           } catch (err) {
@@ -110,7 +117,7 @@ export default function NotificacaoScreen({ navigation }: NotificacaoScreenProps
 
 
   // 8. Tipar renderItem
-  const renderItem = ({ item }: ListRenderItemInfo<Notificacao>): JSX.Element => {
+  const renderItem: ListRenderItem<Notificacao> = ({ item }) => {
     const isActionLoading = actionLoadingId === item._id; // Verifica se este item está carregando
 
     return (

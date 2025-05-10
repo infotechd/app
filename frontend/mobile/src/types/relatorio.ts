@@ -1,7 +1,7 @@
 // src/types/relatorio.ts
 
 // Importar tipos relacionados se os IDs corresponderem exatamente (opcional, mas bom para clareza)
-import { UserRole } from './user';
+import { TipoUsuarioEnum } from './user';
 import { ContratacaoStatus } from './contratacao';
 
 /**
@@ -9,7 +9,7 @@ import { ContratacaoStatus } from './contratacao';
  * '_id' geralmente contém o valor do tipo de usuário (string).
  */
 export interface UsuariosPorTipoItem {
-  _id: UserRole | string; // O tipo de usuário (ex: 'comprador', 'prestador')
+  _id: TipoUsuarioEnum | string; // O tipo de usuário (ex: 'comprador', 'prestador')
   count: number;        // Quantidade de usuários desse tipo
 }
 

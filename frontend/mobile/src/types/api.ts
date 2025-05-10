@@ -28,7 +28,7 @@ export interface RegistrationData {
   senha: string;
   telefone?: string;
   cpfCnpj: string;
-  tipoUsuario: UserRole; // Usa o tipo UserRole importado
+  tipoUsuario: TipoUsuarioEnum; // Usa o tipo TipoUsuarioEnum importado
   endereco?: string;
   foto?: string;
 }
@@ -94,7 +94,8 @@ export interface FetchOffersResponse {
 
 /** Resposta da API ao criar/atualizar uma oferta */
 export interface OfferMutationResponse {
-  message: string , success: boolean;
+  message: string; 
+  success: boolean;
   offer?: Offer; // Pode retornar a oferta criada/atualizada
 }
 

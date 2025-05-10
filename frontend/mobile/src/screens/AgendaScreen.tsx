@@ -12,14 +12,14 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchAgenda as apiFetchAgenda,
   updateCompromissoStatus as apiUpdateCompromissoStatus
 } from '../services/api';
-import { Agenda, Compromisso, CompromissoStatus } from '../types/agenda'; // Tipos de Agenda
+import { Agenda, Compromisso, CompromissoStatus } from "@/types/agenda"; // Tipos de Agenda
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type AgendaScreenProps = NativeStackScreenProps<RootStackParamList, 'Agenda'>;
@@ -27,7 +27,7 @@ type AgendaScreenProps = NativeStackScreenProps<RootStackParamList, 'Agenda'>;
 /**
  * Tela que exibe a agenda do prestador e permite atualizar o status dos compromissos.
  */
-export default function AgendaScreen({ navigation }: AgendaScreenProps) {
+export default function AgendaScreen({}: AgendaScreenProps) {
   // 3. Obter usuário/token
   const { user } = useAuth();
 
@@ -61,7 +61,7 @@ export default function AgendaScreen({ navigation }: AgendaScreenProps) {
 
   // Carregar agenda ao montar
   useEffect(() => {
-    loadAgenda();
+    void loadAgenda();
   }, [loadAgenda]);
 
   // 6. Refatorar updateStatus
@@ -95,7 +95,7 @@ export default function AgendaScreen({ navigation }: AgendaScreenProps) {
 
 
   // 7. Tipar renderItem e keyExtractor
-  const renderItem = ({ item }: ListRenderItemInfo<Compromisso>): JSX.Element => {
+  const renderItem = ({ item }: ListRenderItemInfo<Compromisso>): React.ReactElement => {
     const isUpdating = updatingStatusId === item._id;
     const canComplete = item.status !== 'completed' && item.status !== 'paid' && item.status !== 'cancelled_buyer' && item.status !== 'cancelled_provider'; // Lógica simples, ajuste conforme necessário
 
@@ -135,7 +135,7 @@ export default function AgendaScreen({ navigation }: AgendaScreenProps) {
   const renderError = () => (
     <View style={styles.centerContainer}>
       <Text style={styles.errorText}>Erro ao carregar agenda: {error}</Text>
-      <Button title="Tentar Novamente" onPress={()=>loadAgenda()} />
+      <Button title="Tentar Novamente" onPress={()=>void loadAgenda()} />
     </View>
   );
 
@@ -165,7 +165,7 @@ export default function AgendaScreen({ navigation }: AgendaScreenProps) {
         renderItem={renderItem}
         ListEmptyComponent={renderEmptyList}
         refreshControl={ // Adiciona pull-to-refresh
-          <RefreshControl refreshing={loading} onRefresh={()=>loadAgenda(true)} />
+          <RefreshControl refreshing={loading} onRefresh={()=>void loadAgenda(true)} />
         }
       />
     </View>

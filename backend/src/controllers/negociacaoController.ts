@@ -2,7 +2,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
-import Negociacao, { INegociacao, NegociacaoStatusEnum, HistoricoNegociacaoTipoEnum } from '../models/Negociacao';
+import Negociacao, { NegociacaoStatusEnum, HistoricoNegociacaoTipoEnum } from '../models/Negociacao';
 import Contratacao, { IContratacao, ContratacaoStatusEnum } from '../models/Contratacao';
 import { TipoUsuarioEnum } from '../models/User';
 

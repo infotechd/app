@@ -43,7 +43,25 @@ export const contratarOferta = async (req: Request, res: Response, next: NextFun
       return;
     }
 
-    // TODO: Verificar se já existe uma contratação 'Pendente' ou 'Aceita'/'Em andamento' para esta oferta/comprador?
+    // Verificar se já existe uma contratação 'Pendente', 'Aceita' ou 'Em andamento' para esta oferta/comprador
+    const contratacaoExistente = await Contratacao.findOne({
+      buyerId: req.user.userId,
+      ofertaId: oferta._id,
+      status: { 
+        $in: [
+          ContratacaoStatusEnum.PENDENTE, 
+          ContratacaoStatusEnum.ACEITA, 
+          ContratacaoStatusEnum.EM_ANDAMENTO
+        ] 
+      }
+    });
+
+    if (contratacaoExistente) {
+      res.status(400).json({ 
+        message: 'Você já possui uma contratação pendente ou em andamento para esta oferta.' 
+      });
+      return;
+    }
 
     // Cria a nova contratação
     const novaContratacao = new Contratacao({
@@ -59,6 +77,7 @@ export const contratarOferta = async (req: Request, res: Response, next: NextFun
     const contratacaoSalva: IContratacao = await novaContratacao.save();
 
     // TODO: Enviar notificações para o Comprador e Prestador
+    // Isso seria implementado com um serviço de notificações
 
     res.status(201).json({ message: 'Oferta contratada com sucesso. Aguardando aceite do prestador.', contratacao: contratacaoSalva });
 
@@ -204,15 +223,23 @@ export const atualizarStatusContratacao = async (req: Request, res: Response, ne
     switch (novoStatus) {
       case ContratacaoStatusEnum.ACEITA:
         permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.PENDENTE);
-        // TODO: Ao aceitar, talvez definir dataInicioServico/dataFimServico se vierem no body?
+        // Ao aceitar, definir dataInicioServico se vier no body
+        if (novoStatus === ContratacaoStatusEnum.ACEITA && outrosDados.dataInicioServico) {
+          contratacao.dataInicioServico = new Date(outrosDados.dataInicioServico);
+        }
         break;
       case ContratacaoStatusEnum.EM_ANDAMENTO:
         permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.ACEITA);
-        // TODO: Registrar dataInicioServico?
+        // Registrar dataInicioServico se não estiver definido
+        if (!contratacao.dataInicioServico) {
+          contratacao.dataInicioServico = new Date();
+        }
         break;
       case ContratacaoStatusEnum.CONCLUIDO: // CU16
         permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.EM_ANDAMENTO);
-        // TODO: Registrar dataFimServico? Liberar fluxo de pagamento/avaliação?
+        // Registrar dataFimServico
+        contratacao.dataFimServico = new Date();
+        // TODO: Liberar fluxo de pagamento/avaliação em um serviço separado
         break;
       case ContratacaoStatusEnum.CANCELADO_BUYER:
         permissaoConcedida = (userType === TipoUsuarioEnum.COMPRADOR && contratacao.buyerId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo: só pode cancelar antes de iniciar
@@ -244,6 +271,7 @@ export const atualizarStatusContratacao = async (req: Request, res: Response, ne
     const contratacaoAtualizada = await contratacao.save();
 
     // TODO: Enviar notificação sobre mudança de status
+    // Isso seria implementado com um serviço de notificações
 
     res.status(200).json({ message: 'Status da contratação atualizado.', contratacao: contratacaoAtualizada });
 

@@ -4,6 +4,5 @@ packages:
   - 'frontend/*'
   # Inclui o pacote backend
   - 'backend'
-  # Descomente a linha abaixo APENAS SE a pasta 'common'
-  # também for um pacote independente com seu próprio package.json
-  # - 'common'
+  # Inclui o pacote common com schemas compartilhados
+  - 'common'

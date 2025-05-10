@@ -1,23 +1,21 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   TextInput,
   Button,
   Alert,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { createTraining as apiCreateTraining } from '../services/api';
-import { TrainingCreateData, TrainingFormat } from '../types/training'; // Importa tipos de treinamento
+import { TrainingCreateData, TrainingFormat } from "@/types/training"; // Importa tipos de treinamento
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props (sem parâmetros de rota agora)
 type TreinamentoCreateScreenProps = NativeStackScreenProps<RootStackParamList, 'TreinamentoCreate'>;

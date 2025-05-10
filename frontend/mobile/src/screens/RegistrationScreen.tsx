@@ -3,12 +3,12 @@ import { View, Text, TextInput, Button, Alert, StyleSheet, ScrollView, KeyboardA
 
 // 1. Importar a função da API (renomeada) e tipos necessários
 import { register as apiRegister } from '../services/api';
-import { RegistrationData } from '../types/api';
-import { UserRole} from '../types/user';
+import { RegistrationData } from "@/types/api";
+import { UserRole} from "@/types/user";
 
 // Importar tipos de navegação e UserRole
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList} from '../navigation/types';
+import { RootStackParamList} from "@/navigation/types";
 
 // (Idealmente, importe de arquivos centrais de tipos)
 /*

@@ -6,7 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // 1. Importar Hook de Autenticação e Tipos de Navegação
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { RootStackParamList } from './types';
 
 // 2. Importar Componentes das Telas
@@ -41,7 +41,7 @@ import AgendaScreen from '../screens/AgendaScreen';
 import AdvertiserDashboardScreen from '../screens/AdvertiserDashboardScreen';
 
 // Telas definidas em types.ts mas que ainda não existem como arquivos
-// import OfferDetailScreen from '../screens/OfferDetailScreen';
+import OfferDetailScreen from '../screens/OfferDetailScreen';
 // import ContratacaoDetalheScreen from '../screens/ContratacaoDetalheScreen';
 // import AdDetailScreen from '../screens/AdDetailScreen';
 
@@ -108,7 +108,7 @@ export default function AppNavigation() {
             <Stack.Screen name="Relatorio" component={RelatorioScreen} options={{ title: 'Relatórios' }} />
             <Stack.Screen name="ProviderDashboard" component={ProviderDashboardScreen} options={{ title: 'Painel Prestador' }} />
             {/* Telas definidas em types.ts mas que ainda não existem como arquivos */}
-            <Stack.Screen name="OfferDetail" component={PlaceholderScreen} options={{ title: 'Detalhe da Oferta' }} />
+            <Stack.Screen name="OfferDetail" component={OfferDetailScreen} options={{ title: 'Detalhe da Oferta' }} />
             <Stack.Screen name="ContratacaoDetalhe" component={PlaceholderScreen} options={{ title: 'Detalhe Contratação' }} />
             <Stack.Screen name="Pagamento" component={PagamentoScreen} options={{ title: 'Pagamento' }} />
             <Stack.Screen name="OfertaServico" component={OfertaServicoScreen} options={{ title: 'Minhas Ofertas' }} />

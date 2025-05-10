@@ -4,6 +4,13 @@ import { Router } from 'express';
 // Importa os controladores e middlewares (assumindo conversão para .ts)
 import * as contratacaoController from '../controllers/contratacaoController';
 import authMiddleware from '../middlewares/authMiddleware';
+import { validate, validateParams, validateQuery } from '../middlewares/zodValidationMiddleware';
+import { 
+  criarContratacaoSchema, 
+  atualizarStatusContratacaoSchema, 
+  contratacaoParamsSchema,
+  listarContratacoesQuerySchema
+} from '../schemas/contratacaoSchema';
 // Exemplo: Importar middlewares de autorização específicos
 // import { isBuyer } from '../middlewares/authorizationMiddleware';
 // import { isParticipant } from '../middlewares/authorizationMiddleware'; // Verifica se é buyer OU prestador da contratação
@@ -21,6 +28,7 @@ router.post(
   '/',
   authMiddleware,
   // isBuyer, // Middleware opcional
+  validate(criarContratacaoSchema),
   contratacaoController.contratarOferta
 );
 
@@ -29,6 +37,7 @@ router.post(
 router.get(
   '/',
   authMiddleware,
+  validateQuery(listarContratacoesQuerySchema),
   contratacaoController.listarMinhasContratacoes // Função a ser criada
 );
 
@@ -38,6 +47,7 @@ router.get(
   '/:contratacaoId',
   authMiddleware,
   // isParticipant, // Middleware opcional
+  validateParams(contratacaoParamsSchema),
   contratacaoController.obterDetalhesContratacao // Função a ser criada
 );
 
@@ -49,6 +59,8 @@ router.patch(
   authMiddleware,
   // isParticipant, // Middleware opcional
   // canUpdateStatus(targetStatus), // Middleware mais complexo opcional
+  validateParams(contratacaoParamsSchema),
+  validate(atualizarStatusContratacaoSchema),
   contratacaoController.atualizarStatusContratacao // Função a ser criada
 );
 

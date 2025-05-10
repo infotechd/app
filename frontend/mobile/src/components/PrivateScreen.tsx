@@ -2,8 +2,8 @@ import React, { ReactNode } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 // 1. Importar o hook useAuth e o tipo UserRole
-import { useAuth } from '../context/AuthContext';
-import { UserRole } from '../types/user'; // Importar o tipo centralizado
+import { useAuth } from "@/context/AuthContext";
+import { UserRole } from "@/types/user"; // Importar o tipo centralizado
 
 // 2. Definir a interface para as Props do componente
 interface PrivateScreenProps {

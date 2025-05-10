@@ -7,8 +7,8 @@ import rateLimit from 'express-rate-limit';
 // Use import default ou nomeado conforme a exportação nos arquivos .ts correspondentes
 import * as authController from '../controllers/authController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Importa os middlewares de validação
-import { registerValidation, loginValidation, editProfileValidation } from '../middlewares/validationMiddleware';
+// Importa os middlewares de validação Zod
+import { validateCreateUser, validateLogin, validateUpdateUser } from '../middlewares/zodValidationMiddleware';
 // Exemplo: Importar um middleware de autorização para admin
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 
@@ -36,10 +36,10 @@ const router: Router = Router();
 // === ROTAS DE AUTENTICAÇÃO ===
 
 // POST /api/auth/register : Registrar um novo usuário (CU1)
-router.post('/register', registerLimiter, registerValidation, authController.register);
+router.post('/register', registerLimiter, validateCreateUser, authController.register);
 
 // POST /api/auth/login : Realizar login e obter token JWT
-router.post('/login', loginLimiter, loginValidation, authController.login);
+router.post('/login', loginLimiter, validateLogin, authController.login);
 
 // POST /api/auth/logout : (Opcional) Invalidar token/cookie no lado do servidor/cliente
 router.post('/logout', authMiddleware, authController.logout);
@@ -50,7 +50,7 @@ router.post('/logout', authMiddleware, authController.logout);
 router.get('/profile', authMiddleware, authController.getProfile); // Assumindo que getProfile existe no controller
 
 // PUT /api/auth/profile : Editar perfil do usuário logado (CU17)
-router.put('/profile', authMiddleware, editProfileValidation, authController.editProfile);
+router.put('/profile', authMiddleware, validateUpdateUser, authController.editProfile);
 
 // DELETE /api/auth/profile : Excluir conta do usuário logado (CU12)
 router.delete('/profile', authMiddleware, authController.deleteAccount);

@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { updateProfile as apiUpdateProfile } from '../services/api';
-import { ProfileUpdateData } from '../types/api'; // Tipo para dados da API
+import { ProfileUpdateData } from "@/types/api"; // Tipo para dados da API
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props (sem parâmetros de rota agora)
 type EditProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;

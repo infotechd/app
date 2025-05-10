@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   TextInput,
   Button,
@@ -13,11 +12,11 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { submitReview as apiSubmitReview } from '../services/api';
-import { ReviewData } from '../types/avaliacao'; // Importa tipo dos dados da avaliação
+import { ReviewData } from "@/types/avaliacao"; // Importa tipo dos dados da avaliação
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props (recebe receptorId e receptorNome via route.params)
 type AvaliacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Avaliacao'>;

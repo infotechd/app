@@ -1,10 +1,10 @@
 import React, { useEffect } from 'react';
-import { View, Text, Button, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 
 // 1. Importar hook de autenticação e tipos de navegação
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types'; // Importa a lista de parâmetros
+import { RootStackParamList } from "@/navigation/types"; // Importa a lista de parâmetros
 
 // 2. Definir tipo das props da tela
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;

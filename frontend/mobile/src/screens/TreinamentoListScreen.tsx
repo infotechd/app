@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, JSX } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,14 @@ import {
   Alert,
   ListRenderItemInfo // Tipo para renderItem
 } from 'react-native';
+// Adiciona a referência para o namespace JSX
+
 
 // 1. Imports de tipos e API
-import { Training } from '../types/training';
+import { Training } from "@/types/training";
 import { fetchTrainings as apiFetchTrainings } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props da Tela
 type TreinamentoListScreenProps = NativeStackScreenProps<RootStackParamList, 'TreinamentoList'>;
@@ -48,7 +50,14 @@ export default function TreinamentoListScreen({ navigation }: TreinamentoListScr
 
   // Busca inicial ao montar a tela
   useEffect(() => {
-    loadTrainings();
+    // Usando IIFE (Immediately Invoked Function Expression) para lidar com a Promise
+    (async () => {
+      try {
+        await loadTrainings();
+      } catch (error) {
+        console.error('Erro ao carregar treinamentos:', error);
+      }
+    })();
   }, [loadTrainings]); // Inclui loadTrainings como dependência
 
   // Renderização do indicador de carregamento

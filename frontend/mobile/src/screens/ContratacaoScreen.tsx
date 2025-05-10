@@ -2,11 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, Button, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { hireOffer as apiHireOffer } from '../services/api';
-import { ContratacaoData } from '../types/contratacao'; // Tipo para dados da API
+import { ContratacaoData } from "@/types/contratacao"; // Tipo para dados da API
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types'; // Importa ParamList atualizado
+import { RootStackParamList } from "@/navigation/types"; // Importa ParamList atualizado
 
 // 2. Tipo das Props (espera 'ofertaId' via route.params)
 type ContratacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Contratacao'>;

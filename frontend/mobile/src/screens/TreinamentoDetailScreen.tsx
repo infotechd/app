@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 
 // 1. Imports de tipos e API
-import { Training } from '../types/training'; // Importa a interface do Treinamento
+import { Training } from "@/types/training"; // Importa a interface do Treinamento
 import { fetchTrainingDetail as apiFetchTrainingDetail } from '../services/api'; // Importa a função da API
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types'; // Importa a lista de parâmetros
+import { RootStackParamList } from "@/navigation/types"; // Importa a lista de parâmetros
 
 // 2. Tipo das Props da Tela (espera 'treinamentoId' nos params)
 type TreinamentoDetailScreenProps = NativeStackScreenProps<RootStackParamList, 'TreinamentoDetail'>;
@@ -56,7 +56,13 @@ export default function TreinamentoDetailScreen({ route }: TreinamentoDetailScre
 
   // Busca inicial ao montar ou quando o ID mudar
   useEffect(() => {
-    loadTrainingDetail();
+    (async () => {
+      try {
+        await loadTrainingDetail();
+      } catch (error) {
+        console.error("Erro ao carregar detalhes do treinamento:", error);
+      }
+    })();
   }, [loadTrainingDetail]);
 
   // Renderização do indicador de carregamento

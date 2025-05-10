@@ -9,43 +9,44 @@ import {
   ProfileUpdateData,
   UpdateProfileResponse,
   DeleteAccountResponse,
-
-
+  FetchOffersResponse,
+  OfferMutationResponse,
+  ContratacaoResponse,
+  FetchContratacoesResponse
 } from '../types/api';
+
 import {
   Training,
   TrainingCreateData,
   FetchTrainingDetailResponse,
   FetchTrainingsResponse,
   TrainingMutationResponse,
-}from '../types/training';
+} from '../types/training';
 
-// --- Tipos de Oferta ---
 import {
   Offer,
   OfferData,
   FetchOffersParams
 } from '../types/offer';
 
-// --- Tipos de Contratacao ---
 import {
   Contratacao,
   ContratacaoData
 } from '../types/contratacao';
 
-// --- Tipos de Resposta API (de types/api) ---
-import {
-  FetchOffersResponse, // Adicionar
-  OfferMutationResponse, // Adicionar
-  ContratacaoResponse, // Adicionar
-  FetchContratacoesResponse // Opcional: Adicionar se for implementar fetchContratacoes
-  // ... outras respostas ...
-} from '../types/api';
+// Import Zod schemas
+import { loginResponseSchema, registrationResponseSchema, updateProfileResponseSchema, 
+  deleteAccountResponseSchema, fetchOffersResponseSchema, offerMutationResponseSchema,
+  contratacaoResponseSchema, fetchContratacoesResponseSchema } from '../schemas/api.schema';
+import { loginCredentialsSchema, registrationDataSchema, profileUpdateDataSchema } from '../schemas/user.schema';
+import { userSchema } from '../types/userSchema';
+import { offerDataSchema, fetchOffersParamsSchema } from '../schemas/offer.schema';
+import { contratacaoDataSchema, fetchContratacoesParamsSchema } from '../schemas/contratacao.schema';
+import { validateWithZod, validateWithZodSafe, validateWithZodResult } from '../utils/validation';
 
-import { PaymentData, PaymentResponse} from '../types/pagamento';
-import { ReviewData, ReviewResponse} from '../types/avaliacao';
-
-import { CurriculoData, CurriculoResponse, Curriculo} from '../types/curriculo';
+import { PaymentData, PaymentResponse } from '../types/pagamento';
+import { ReviewData, ReviewResponse } from '../types/avaliacao';
+import { CurriculoData, CurriculoResponse, Curriculo } from '../types/curriculo';
 
 import {
   Agenda,
@@ -55,13 +56,13 @@ import {
   CompromissoStatus
 } from '../types/agenda';
 
-import { FetchAdsResponse} from '../types/ad';
+import { FetchAdsResponse } from '../types/ad';
 
 import {
-  Publicacao,         // Importar tipo principal
-  PublicacaoData,     // Dados para criar
-  FetchPublicacoesResponse, // Resposta da lista
-  CreatePublicacaoResponse,  // Resposta da criação
+  Publicacao,
+  PublicacaoData,
+  FetchPublicacoesResponse,
+  CreatePublicacaoResponse,
 } from '../types/publicacao';
 
 import {
@@ -80,19 +81,137 @@ import {
 import {
   Relatorio,
   FetchRelatorioResponse
-
 } from '../types/relatorio';
 
 import axios from 'axios';
 import { API_URL } from "../config/api";
 
+// Interface para resposta de detalhes de uma oferta
+export interface FetchOfferDetailResponse {
+  success?: boolean;
+  offer?: Offer;
+  message?: string;
+}
+
+// --- API Client Utilities ---
+
 /**
- * Utility function to make API requests with retry logic
+ * Interface for API request options
+ */
+interface ApiRequestOptions {
+  method: string;
+  headers?: Record<string, string>;
+  body?: any;
+  token?: string;
+  retries?: number;
+  delay?: number;
+}
+
+/**
+ * Interface for API response
+ */
+interface ApiResponse<T> {
+  data: T;
+  status: number;
+  headers: Headers;
+}
+
+/**
+ * Checks if the environment is a test environment
+ */
+const isTestEnvironment = (): boolean => {
+  return process.env.NODE_ENV === 'test';
+};
+
+/**
+ * Checks network connectivity
+ * @returns Promise that resolves if connectivity is available
+ */
+const checkConnectivity = async (): Promise<void> => {
+  if (isTestEnvironment()) {
+    return; // Skip connectivity check in test environment
+  }
+
+  try {
+    console.log('Verificando conectividade de rede...');
+    await axios.head('https://www.google.com', { timeout: 5000 });
+    console.log('✓ Conectividade com internet confirmada');
+  } catch (error) {
+    console.error('✗ Falha na verificação de conectividade:', error);
+    // Continue even if connectivity check fails
+  }
+};
+
+/**
+ * Builds a URL with query parameters
+ * @param baseUrl - The base URL
+ * @param params - The query parameters
+ * @returns The complete URL with query parameters
+ */
+const buildUrl = (baseUrl: string, params?: Record<string, any>): string => {
+  if (!params) {
+    return baseUrl;
+  }
+
+  const queryParams = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        value.forEach(item => queryParams.append(key, String(item)));
+      } else {
+        queryParams.append(key, String(value));
+      }
+    }
+  });
+
+  const queryString = queryParams.toString();
+  return queryString ? `${baseUrl}?${queryString}` : baseUrl;
+};
+
+/**
+ * Parses the response from the API
+ * @param response - The fetch Response object
+ * @returns Promise that resolves with the parsed data
+ * @throws Error if the response cannot be parsed
+ */
+const parseResponse = async <T>(response: Response): Promise<T> => {
+  try {
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return await response.json();
+    } else {
+      return await response.text() as unknown as T;
+    }
+  } catch (error) {
+    console.error('Error parsing response:', error);
+    throw new Error('Erro ao processar resposta da API');
+  }
+};
+
+/**
+ * Handles API errors
+ * @param response - The fetch Response object
+ * @returns Promise that resolves with the error data
+ */
+const handleApiError = async (response: Response): Promise<never> => {
+  let errorData: ApiErrorResponse | null = null;
+
+  try {
+    errorData = await response.json();
+  } catch (e) {
+    // Ignore parse error
+  }
+
+  const errorMessage = errorData?.message || `Erro na API: ${response.status} ${response.statusText}`;
+  throw new Error(errorMessage);
+};
+
+/**
+ * Makes an API request with retry logic
  * @param url - The URL to fetch
- * @param options - Fetch options
- * @param retries - Number of retries (default: 3)
- * @param delay - Delay between retries in ms (default: 1000)
- * @returns Promise with the response
+ * @param options - The request options
+ * @returns Promise that resolves with the response
  */
 async function fetchWithRetry(
   url: string, 
@@ -135,67 +254,60 @@ async function fetchWithRetry(
   // This should never happen due to the throw in the loop
   throw lastError || new Error('Unknown error in fetchWithRetry');
 }
-// Exemplo: import { Offer } from './api';
-// Importa a interface User (idealmente de um arquivo central de tipos, ex: src/types/user.ts)
-// Se ainda não criou um arquivo central, pode importar de AuthContext por enquanto,
-// ou definir a interface User aqui temporariamente.
-// Assumindo que User foi exportada de AuthContext.tsx (não ideal, mas funciona por agora):
-// import { User } from '../context/AuthContext';
 
-// --- Definição de Tipos --- (Alternativa se não importar User)
-/*
-type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador';
+/**
+ * Makes an API request
+ * @param endpoint - The API endpoint
+ * @param options - The request options
+ * @returns Promise that resolves with the response data
+ */
+async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
+  const url = buildUrl(`${API_URL}${endpoint}`);
 
-interface User {
-  idUsuario: string;
-  nome: string;
-  email: string;
-  telefone?: string;
-  tipoUsuario: UserRole;
-  cpfCnpj?: string;
-  endereco?: string;
-  foto?: string;
-  token: string; // A interface User em AuthContext pode não ter o token, ajuste conforme necessário
+  // Prepare headers
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    ...options.headers || {}
+  };
+
+  // Add Content-Type header if body is present
+  if (options.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json';
+  }
+
+  // Add Authorization header if token is present
+  if (options.token) {
+    headers['Authorization'] = `Bearer ${options.token}`;
+  }
+
+  // Prepare request options
+  const fetchOptions: RequestInit = {
+    method: options.method,
+    headers,
+  };
+
+  // Add body if present
+  if (options.body) {
+    fetchOptions.body = JSON.stringify(options.body);
+  }
+
+  // Make the request
+  const response = await fetchWithRetry(
+    url, 
+    fetchOptions, 
+    options.retries || 3, 
+    options.delay || 1000
+  );
+
+  // Handle error responses
+  if (!response.ok) {
+    return handleApiError(response);
+  }
+
+  // Parse and return the response
+  return parseResponse<T>(response);
 }
-// --- Fim da Definição Alternativa ---
-
-
-// Interface para a resposta da API em caso de sucesso no login
-interface LoginResponse {
-  user: User;    // O objeto do usuário retornado
-  token: string; // O token JWT
-  message?: string; // Algumas APIs incluem msg de sucesso
-}
-
-// Interface para a resposta da API em caso de erro
-interface ApiErrorResponse {
-  message: string; // Mensagem de erro vinda do backend
-  // Pode haver outros campos de erro dependendo da sua API
-}
-
-// Interface para os dados enviados no corpo da requisição de registro
-export interface RegistrationData {
-  nome: string;
-  email: string;
-  senha: string;
-  tipoUsuario: UserRole;
-  telefone?: string;
-  cpfCnpj?: string;
-  endereco?: string;
-  foto?: string;
-}
-
-// Interface para a resposta da API em caso de sucesso no registro
-// Baseado no código original que apenas mostra data.message
-export interface RegistrationResponse{
-  message: string;
-  // Se sua API retornar o usuário criado, adicione: User?: User;
-}
-*/
-// --- Constante da API ---
-//const API_URL: string = "http://localhost:5000/api";
-
-// --- Função de Login Tipada ---
+// --- API Functions ---
 
 /**
  * Realiza a chamada de API para autenticar o usuário.
@@ -204,110 +316,43 @@ export interface RegistrationResponse{
  * @returns Uma Promise que resolve com os dados do usuário e token em caso de sucesso.
  * @throws Lança um erro com a mensagem do backend em caso de falha na autenticação ou erro de rede.
  */
-export const login = async (email: string, senha: string): Promise<LoginResponse | never> => {
+export const login = async (email: string, senha: string): Promise<LoginResponse> => {
   try {
-    // Log detalhado da tentativa de login
     console.log('=== INICIANDO TENTATIVA DE LOGIN ===');
-    console.log(`URL da API: ${API_URL}/auth/login`);
     console.log(`Email sendo usado: ${email}`);
-    console.log('Verificando conectividade de rede...');
 
-    // Tenta fazer uma requisição simples para verificar a conectividade
-    try {
-      await axios.head('https://www.google.com', { timeout: 5000 });
-      console.log('✓ Conectividade com internet confirmada');
-    } catch (netError) {
-      console.error('✗ Falha na verificação de conectividade:', netError);
-      // Continua mesmo com falha na verificação
-    }
+    // Validar credenciais de login com Zod
+    const credentials = validateWithZod(loginCredentialsSchema, { email, senha });
+
+    // Verificar conectividade
+    await checkConnectivity();
 
     console.log('Enviando requisição de login...');
-    const response = await axios.post(`${API_URL}/auth/login`, 
-      { email, senha },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json",
-        },
-        timeout: 15000, // 15 segundos de timeout
-      }
-    );
 
-    console.log('✓ Resposta recebida com sucesso:', {
-      status: response.status,
-      statusText: response.statusText,
-      headers: response.headers,
-      // Não loga a resposta completa para não expor dados sensíveis
+    const response = await apiRequest<LoginResponse>('/auth/login', {
+      method: 'POST',
+      body: credentials,
+      retries: 3,
+      delay: 1000
     });
 
-    // Axios já lança erro para status não 2xx, então se chegou aqui, é sucesso
-    const data: LoginResponse = response.data;
-
-    // Validação extra opcional: verificar se data.user e data.token existem
-    if (!data.user || !data.token) {
-      console.error("API Login: Resposta bem-sucedida, mas dados ausentes.", data);
-      throw new Error("Resposta da API inválida após login.");
-    }
+    // Validar resposta com Zod
+    const data = validateWithZod(loginResponseSchema, response);
 
     console.log('✓ Login realizado com sucesso!');
     return data;
   } catch (error) {
-    console.error('=== ERRO DETALHADO NO LOGIN ===');
+    console.error('=== ERRO NO LOGIN ===', error);
 
-    // Se for um erro do Axios com resposta
-    if (axios.isAxiosError(error)) {
-      console.error('Tipo: Erro do Axios');
-      console.error('Mensagem:', error.message);
-      console.error('Código:', error.code);
-      console.error('Config:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        headers: error.config?.headers,
-        timeout: error.config?.timeout
-      });
-
-      if (error.response) {
-        console.error('Resposta:', {
-          status: error.response.status,
-          statusText: error.response.statusText,
-          headers: error.response.headers,
-          data: error.response.data
-        });
-
-        const errorData = error.response.data as ApiErrorResponse;
-        throw new Error(errorData?.message || `Erro na API: ${error.response.status}`);
-      } 
-      else if (error.code === 'ECONNABORTED') {
-        console.error('Detalhe: Timeout da requisição');
-        throw new Error('Tempo limite excedido. Verifique sua conexão.');
-      }
-      else if (!error.response) {
-        console.error('Detalhe: Sem resposta do servidor');
-        throw new Error('Erro de rede. Verifique sua conexão com a internet e se o servidor está acessível.');
-      }
-      // Caso padrão para outros erros do Axios não tratados acima
-      else {
-        console.error('Detalhe: Outro erro do Axios não categorizado');
-        throw new Error(`Erro na requisição: ${error.message}`);
-      }
-    }
-    // Qualquer outro erro
-    else {
-      console.error('Tipo: Erro não-Axios');
-      console.error('Detalhes:', error);
-      throw new Error(error instanceof Error ? error.message : 'Erro desconhecido no login');
+    // Repassar o erro original ou criar um novo com mensagem mais amigável
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido no login');
     }
   }
 };
 
-// Adicione aqui outras funções da API conforme necessário, seguindo o mesmo padrão de tipagem e error handling.
-// Exemplo:
-// export const register = async (userData: RegistrationData): Promise<RegistrationResponse> => { ... }
-// export const fetchOffers = async (): Promise<Offer[]> => { ... }
-
-
-
-// --- Função Register Tipada ---
 /**
  * Realiza a chamada de API para registrar um novo usuário.
  * @param userData - Os dados do usuário para registro.
@@ -315,36 +360,33 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
  * @throws Lança um erro com a mensagem do backend em caso de falha no registro ou erro de rede.
  */
 export const register = async (userData: RegistrationData): Promise<RegistrationResponse> => {
-  const response = await fetch(`${API_URL}/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-    },
-    body: JSON.stringify(userData),
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try {
-      errorData = await response.json();
-    } catch (parseError) {
-      console.error("API Register: Falha ao parsear resposta de erro", parseError);
-      throw new Error(`Erro na API: ${response.status} ${response.statusText}`);
-    }
-    throw new Error(errorData?.message || `Erro desconhecido no registro: ${response.status}`);
-  }
-
   try {
-    const data: RegistrationResponse = await response.json();
-    if (!data.message) {
-      console.error("API Register: Resposta bem-sucedida, mas mensagem ausente.", data);
-      throw new Error("Resposta da API inválida após registro.");
-    }
+    console.log('=== INICIANDO REGISTRO DE USUÁRIO ===');
+
+    // Validar dados de registro com Zod
+    const validatedUserData = validateWithZod(registrationDataSchema, userData);
+
+    // Verificar conectividade
+    await checkConnectivity();
+
+    const response = await apiRequest<RegistrationResponse>('/auth/register', {
+      method: 'POST',
+      body: validatedUserData
+    });
+
+    // Validar resposta com Zod
+    const data = validateWithZod(registrationResponseSchema, response);
+
+    console.log('✓ Registro realizado com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API Register: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API após registro.");
+  } catch (error) {
+    console.error('=== ERRO NO REGISTRO ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido no registro');
+    }
   }
 };
 
@@ -357,29 +399,34 @@ export const register = async (userData: RegistrationData): Promise<Registration
  * @throws Lança um erro em caso de falha.
  */
 export const getProfile = async (token: string): Promise<GetProfileResponse> => {
-  const response = await fetch(`${API_URL}/auth/profile`, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`, // Envia o token para autenticação
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore parse error */ }
-    throw new Error(errorData?.message || `Erro ao buscar perfil: ${response.status}`);
-  }
-
   try {
-    const data: GetProfileResponse = await response.json();
+    console.log('=== BUSCANDO PERFIL DO USUÁRIO ===');
+
+    // Validar token
+    if (!token || typeof token !== 'string') {
+      throw new Error('Token inválido');
+    }
+
+    const response = await apiRequest<GetProfileResponse>('/auth/profile', {
+      method: 'GET',
+      token
+    });
+
+    // Validar resposta com Zod (GetProfileResponse é um User)
+    const data = validateWithZod(userSchema, response);
+
+    console.log('✓ Perfil obtido com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API GetProfile: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (perfil).");
+  } catch (error) {
+    console.error('=== ERRO AO BUSCAR PERFIL ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao buscar perfil');
+    }
   }
 };
-
 
 /**
  * Atualiza os dados do perfil do usuário autenticado.
@@ -389,35 +436,38 @@ export const getProfile = async (token: string): Promise<GetProfileResponse> => 
  * @throws Lança um erro em caso de falha.
  */
 export const updateProfile = async (token: string, profileData: ProfileUpdateData): Promise<UpdateProfileResponse> => {
-  const response = await fetch(`${API_URL}/auth/profile`, {
-    method: 'PUT',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify(profileData), // Envia apenas os dados a serem atualizados
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore parse error */ }
-    throw new Error(errorData?.message || `Erro ao atualizar perfil: ${response.status}`);
-  }
-
   try {
-    const data: UpdateProfileResponse = await response.json();
-    if (!data.message) {
-      console.error("API UpdateProfile: Resposta bem-sucedida, mas mensagem ausente.", data);
-      throw new Error("Resposta da API inválida após atualizar perfil.");
+    console.log('=== ATUALIZANDO PERFIL DO USUÁRIO ===');
+
+    // Validar token
+    if (!token || typeof token !== 'string') {
+      throw new Error('Token inválido');
     }
+
+    // Validar dados do perfil com Zod
+    const validatedProfileData = validateWithZod(profileUpdateDataSchema, profileData);
+
+    const response = await apiRequest<UpdateProfileResponse>('/auth/profile', {
+      method: 'PUT',
+      token,
+      body: validatedProfileData
+    });
+
+    // Validar resposta com Zod
+    const data = validateWithZod(updateProfileResponseSchema, response);
+
+    console.log('✓ Perfil atualizado com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API UpdateProfile: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (atualizar perfil).");
+  } catch (error) {
+    console.error('=== ERRO AO ATUALIZAR PERFIL ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao atualizar perfil');
+    }
   }
 };
-
 
 /**
  * Exclui a conta do usuário autenticado.
@@ -426,30 +476,32 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
  * @throws Lança um erro em caso de falha.
  */
 export const deleteAccount = async (token: string): Promise<DeleteAccountResponse> => {
-  const response = await fetch(`${API_URL}/auth/profile`, {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore parse error */ }
-    throw new Error(errorData?.message || `Erro ao excluir conta: ${response.status}`);
-  }
-
   try {
-    const data: DeleteAccountResponse = await response.json();
-    if (!data.message) {
-      console.error("API DeleteAccount: Resposta bem-sucedida, mas mensagem ausente.", data);
-      throw new Error("Resposta da API inválida após excluir conta.");
+    console.log('=== EXCLUINDO CONTA DO USUÁRIO ===');
+
+    // Validar token
+    if (!token || typeof token !== 'string') {
+      throw new Error('Token inválido');
     }
+
+    const response = await apiRequest<DeleteAccountResponse>('/auth/profile', {
+      method: 'DELETE',
+      token
+    });
+
+    // Validar resposta com Zod
+    const data = validateWithZod(deleteAccountResponseSchema, response);
+
+    console.log('✓ Conta excluída com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API DeleteAccount: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (excluir conta).");
+  } catch (error) {
+    console.error('=== ERRO AO EXCLUIR CONTA ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao excluir conta');
+    }
   }
 };
 
@@ -462,32 +514,29 @@ export const deleteAccount = async (token: string): Promise<DeleteAccountRespons
  * @throws Lança um erro em caso de falha.
  */
 export const fetchTrainings = async (): Promise<FetchTrainingsResponse> => {
-  // Nota: A tela original não parecia ter paginação, buscando todos.
-  // Adapte se sua API tiver filtros ou paginação. Ex: /api/treinamentos?status=published&page=1
-  const response = await fetch(`${API_URL}/api/treinamentos`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-    throw new Error(errorData?.message || `Erro ao buscar treinamentos: ${response.status}`);
-  }
-
   try {
-    // Assume que a API retorna um objeto { trainings: Training[] }
-    const data: FetchTrainingsResponse = await response.json();
-    // Validação simples
+    console.log('=== BUSCANDO TREINAMENTOS ===');
+
+    const data = await apiRequest<FetchTrainingsResponse>('/treinamentos', {
+      method: 'GET'
+    });
+
+    // Validação da resposta
     if (!data || !Array.isArray(data.trainings)) {
+      console.error("API fetchTrainings: Resposta inválida", data);
       throw new Error("Resposta inválida da API ao buscar treinamentos.");
     }
+
+    console.log(`✓ ${data.trainings.length} treinamentos obtidos com sucesso!`);
     return data;
-  } catch (parseError) {
-    console.error("API fetchTrainings: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (treinamentos).");
+  } catch (error) {
+    console.error('=== ERRO AO BUSCAR TREINAMENTOS ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao buscar treinamentos');
+    }
   }
 };
 
@@ -499,32 +548,33 @@ export const fetchTrainings = async (): Promise<FetchTrainingsResponse> => {
  * @throws Lança um erro em caso de falha.
  */
 export const fetchTrainingDetail = async (id: string): Promise<FetchTrainingDetailResponse> => {
-  if (!id) {
-    throw new Error("ID do treinamento é obrigatório.");
-  }
-  const response = await fetch(`${API_URL}/api/treinamentos/${id}`, {
-    method: 'GET',
-    headers: {
-      'Accept': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-    throw new Error(errorData?.message || `Erro ao buscar detalhes do treinamento: ${response.status}`);
-  }
-
   try {
-    // Assume que a API retorna um objeto { treinamento: Training }
-    const data: FetchTrainingDetailResponse = await response.json();
+    if (!id) {
+      throw new Error("ID do treinamento é obrigatório.");
+    }
+
+    console.log(`=== BUSCANDO DETALHES DO TREINAMENTO ${id} ===`);
+
+    const data = await apiRequest<FetchTrainingDetailResponse>(`/treinamentos/${id}`, {
+      method: 'GET'
+    });
+
+    // Validação da resposta
     if (!data || !data.treinamento) {
+      console.error("API fetchTrainingDetail: Resposta inválida", data);
       throw new Error("Resposta inválida da API ao buscar detalhes do treinamento.");
     }
+
+    console.log('✓ Detalhes do treinamento obtidos com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API fetchTrainingDetail: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (detalhe treinamento).");
+  } catch (error) {
+    console.error('=== ERRO AO BUSCAR DETALHES DO TREINAMENTO ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao buscar detalhes do treinamento');
+    }
   }
 };
 
@@ -536,31 +586,31 @@ export const fetchTrainingDetail = async (id: string): Promise<FetchTrainingDeta
  * @throws Lança um erro em caso de falha.
  */
 export const createTraining = async (token: string, trainingData: TrainingCreateData): Promise<TrainingMutationResponse> => {
-  const response = await fetch(`${API_URL}/api/treinamentos`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-    body: JSON.stringify(trainingData),
-  });
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-    throw new Error(errorData?.message || `Erro ao criar treinamento: ${response.status}`);
-  }
-
   try {
-    const data: TrainingMutationResponse = await response.json();
+    console.log('=== CRIANDO NOVO TREINAMENTO ===');
+
+    const data = await apiRequest<TrainingMutationResponse>('/treinamentos', {
+      method: 'POST',
+      token,
+      body: trainingData
+    });
+
+    // Validação da resposta
     if (!data.message) {
+      console.error("API createTraining: Resposta inválida", data);
       throw new Error("Resposta inválida da API após criar treinamento.");
     }
+
+    console.log('✓ Treinamento criado com sucesso!');
     return data;
-  } catch (parseError) {
-    console.error("API createTraining: Falha ao parsear resposta de sucesso", parseError);
-    throw new Error("Erro ao processar resposta da API (criar treinamento).");
+  } catch (error) {
+    console.error('=== ERRO AO CRIAR TREINAMENTO ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido ao criar treinamento');
+    }
   }
 };
 
@@ -743,8 +793,8 @@ export const fetchMyOffers = async (token: string, params?: FetchOffersParams): 
   const queryString = queryParams.toString();
 
   // Tenta ambos os endpoints possíveis para maior robustez
-  const primaryUrl = `${API_URL}/api/ofertas/my-offers${queryString ? `?${queryString}` : ''}`;
-  const fallbackUrl = `${API_URL}/api/oferta/my-offers${queryString ? `?${queryString}` : ''}`;
+  const primaryUrl = `${API_URL}/ofertas/my-offers${queryString ? `?${queryString}` : ''}`;
+  const fallbackUrl = `${API_URL}/oferta/my-offers${queryString ? `?${queryString}` : ''}`;
 
   const options = {
     method: 'GET',
@@ -801,8 +851,18 @@ export const fetchMyOffers = async (token: string, params?: FetchOffersParams): 
  */
 export const createOffer = async (token: string, offerData: OfferData): Promise<OfferMutationResponse> => {
   // Tenta ambos os endpoints possíveis para maior robustez
-  const primaryUrl = `${API_URL}/api/ofertas`;
-  const fallbackUrl = `${API_URL}/api/oferta`;
+  const primaryUrl = `${API_URL}/ofertas`;
+  const fallbackUrl = `${API_URL}/oferta`;
+
+  // Garantir que o status seja explicitamente definido no payload
+  // Isso resolve o problema de ofertas sempre sendo salvas como rascunho
+  // Forçar o status para 'ready' se não for explicitamente 'draft'
+  const offerDataWithExplicitStatus = {
+    ...offerData,
+    status: offerData.status === 'draft' ? 'draft' : 'ready' // Força 'ready' a menos que seja explicitamente 'draft'
+  };
+
+  console.log('Criando oferta com status:', offerDataWithExplicitStatus.status);
 
   const options = {
     method: 'POST',
@@ -811,7 +871,7 @@ export const createOffer = async (token: string, offerData: OfferData): Promise<
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify(offerData),
+    body: JSON.stringify(offerDataWithExplicitStatus),
   };
 
   // Tenta com o endpoint primário primeiro
@@ -837,13 +897,17 @@ export const createOffer = async (token: string, offerData: OfferData): Promise<
   }
 
   try {
-    const data: OfferMutationResponse = await response.json();
-    if (!data.message) {
-      console.warn("Resposta da API não contém mensagem após criar oferta.");
+    const data = await response.json();
+    // Verifica se a resposta contém os campos necessários
+    if (!data.message || data.success === undefined) {
+      console.warn("Resposta da API não contém campos necessários após criar oferta:", data);
       // Retorna uma resposta padrão em vez de lançar erro
-      return { message: "Oferta criada com sucesso", success: true };
+      return { 
+        message: data.message || "Oferta criada com sucesso", 
+        success: data.success !== undefined ? data.success : true 
+      };
     }
-    return data;
+    return data as OfferMutationResponse;
   } catch (parseError) {
     console.error("API createOffer: Falha ao parsear resposta de sucesso", parseError);
     // Retorna uma resposta padrão em vez de lançar erro
@@ -860,7 +924,7 @@ export const createOffer = async (token: string, offerData: OfferData): Promise<
  * @returns Promise resolvendo com a mensagem e/ou oferta atualizada.
  */
 export const updateOffer = async (token: string, offerId: string, offerUpdateData: Partial<OfferData>): Promise<OfferMutationResponse> => {
-  const response = await fetch(`${API_URL}/api/ofertas/${offerId}`, {
+  const response = await fetch(`${API_URL}/ofertas/${offerId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -894,7 +958,7 @@ export const updateOffer = async (token: string, offerId: string, offerUpdateDat
  * @returns Promise resolvendo com mensagem de sucesso.
  */
 export const deleteOffer = async (token: string, offerId: string): Promise<{ message: string }> => {
-  const response = await fetch(`${API_URL}/api/ofertas/${offerId}`, {
+  const response = await fetch(`${API_URL}/ofertas/${offerId}`, {
     method: 'DELETE',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -959,6 +1023,187 @@ export const hireOffer = async (token: string, contratacaoData: ContratacaoData)
 };
 
 // Adicione aqui fetchMyContratacoes, updateContratacaoStatus, etc., conforme necessário
+
+/**
+ * Busca detalhes de uma oferta pública específica pelo ID.
+ * Não requer autenticação, mas a oferta deve estar com status 'disponível'.
+ * @param offerId - ID da oferta a ser buscada.
+ * @returns Promise resolvendo com os detalhes da oferta.
+ */
+export const fetchPublicOfferById = async (offerId: string): Promise<FetchOfferDetailResponse> => {
+  // Tenta primeiro com o endpoint principal
+  try {
+    const response = await fetch(`${API_URL}/ofertas/public/${offerId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // Se for 404, tenta com endpoint alternativo
+      if (response.status === 404) {
+        // Tenta com endpoint alternativo
+        return await fetchPublicOfferByIdFallback(offerId);
+      }
+
+      let errorData: ApiErrorResponse | null = null;
+      try { errorData = await response.json(); } catch (e) { /* Ignore */ }
+      throw new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      offer: data,
+      message: 'Detalhes da oferta obtidos com sucesso'
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('404')) {
+      // Se o erro for 404, tenta com endpoint alternativo
+      return await fetchPublicOfferByIdFallback(offerId);
+    }
+
+    console.error("API fetchPublicOfferById: Erro na requisição", error);
+    throw error;
+  }
+};
+
+// Função de fallback que tenta endpoints alternativos
+const fetchPublicOfferByIdFallback = async (offerId: string): Promise<FetchOfferDetailResponse> => {
+  // Lista de endpoints alternativos para tentar
+  const fallbackEndpoints = [
+    `/oferta/public/${offerId}`,
+    `/ofertas/${offerId}`,
+    `/oferta/${offerId}`
+  ];
+
+  let lastError: Error | null = null;
+
+  // Tenta cada endpoint alternativo
+  for (const endpoint of fallbackEndpoints) {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          success: true,
+          offer: data,
+          message: 'Detalhes da oferta obtidos com sucesso (endpoint alternativo)'
+        };
+      }
+
+      let errorData: ApiErrorResponse | null = null;
+      try { errorData = await response.json(); } catch (e) { /* Ignore */ }
+      lastError = new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      continue; // Continua tentando outros endpoints
+    }
+  }
+
+  // Se chegou aqui, todos os endpoints falharam
+  console.error("API fetchPublicOfferById: Todos os endpoints falharam", lastError);
+  throw new Error(`Erro ao buscar detalhes da oferta ${offerId}: 404`);
+};
+
+/**
+ * Busca detalhes de uma oferta específica do prestador logado pelo ID.
+ * Requer token do Prestador.
+ * @param token - Token JWT do Prestador.
+ * @param offerId - ID da oferta a ser buscada.
+ * @returns Promise resolvendo com os detalhes da oferta.
+ */
+export const fetchMyOfferById = async (token: string, offerId: string): Promise<FetchOfferDetailResponse> => {
+  // Tenta primeiro com o endpoint principal
+  try {
+    const response = await fetch(`${API_URL}/ofertas/my-offers/${offerId}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      // Se for 404, tenta com endpoint alternativo
+      if (response.status === 404) {
+        // Tenta com endpoint alternativo
+        return await fetchMyOfferByIdFallback(token, offerId);
+      }
+
+      let errorData: ApiErrorResponse | null = null;
+      try { errorData = await response.json(); } catch (e) { /* Ignore */ }
+      throw new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return {
+      success: true,
+      offer: data,
+      message: 'Detalhes da oferta obtidos com sucesso'
+    };
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('404')) {
+      // Se o erro for 404, tenta com endpoint alternativo
+      return await fetchMyOfferByIdFallback(token, offerId);
+    }
+
+    console.error("API fetchMyOfferById: Erro na requisição", error);
+    throw error;
+  }
+};
+
+// Função de fallback que tenta endpoints alternativos para ofertas do prestador
+const fetchMyOfferByIdFallback = async (token: string, offerId: string): Promise<FetchOfferDetailResponse> => {
+  // Lista de endpoints alternativos para tentar
+  const fallbackEndpoints = [
+    `/oferta/my-offers/${offerId}`,
+    `/ofertas/my/${offerId}`,
+    `/oferta/my/${offerId}`
+  ];
+
+  let lastError: Error | null = null;
+
+  // Tenta cada endpoint alternativo
+  for (const endpoint of fallbackEndpoints) {
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          success: true,
+          offer: data,
+          message: 'Detalhes da oferta obtidos com sucesso (endpoint alternativo)'
+        };
+      }
+
+      let errorData: ApiErrorResponse | null = null;
+      try { errorData = await response.json(); } catch (e) { /* Ignore */ }
+      lastError = new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error));
+      continue; // Continua tentando outros endpoints
+    }
+  }
+
+  // Se chegou aqui, todos os endpoints falharam
+  console.error("API fetchMyOfferById: Todos os endpoints falharam", lastError);
+  throw new Error(`Erro ao buscar detalhes da oferta ${offerId}: 404`);
+};
 
 // --- Função da API de Pagamento ---
 /**
@@ -1101,7 +1346,7 @@ export const getMyCurriculo = async (token: string): Promise<{ curriculo: Curric
 
 /** Busca a agenda do prestador autenticado. */
 export const fetchAgenda = async (token: string): Promise<FetchAgendaResponse> => {
-  const response = await fetch(`${API_URL}/api/agenda`, {
+  const response = await fetch(`${API_URL}/agenda`, {
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -1134,7 +1379,7 @@ export const updateCompromissoStatus = async (
   compromissoId: string,
   statusData: UpdateCompromissoStatusData // Envia { status: novoStatus }
 ): Promise<UpdateAgendaResponse> => {
-  const response = await fetch(`${API_URL}/api/agenda/${agendaId}/compromisso/${compromissoId}`, {
+  const response = await fetch(`${API_URL}/agenda/${agendaId}/compromisso/${compromissoId}`, {
     method: 'PUT',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -1393,7 +1638,7 @@ export const createPublicacao = async (token: string, publicacaoData: Publicacao
  * @throws Lança erro em caso de falha.
  */
 export const fetchNotificacoes = async (token: string): Promise<FetchNotificacoesResponse> => {
-  const response = await fetch(`${API_URL}/api/notificacoes`, { // Endpoint correto para buscar notificações
+  const response = await fetch(`${API_URL}/notificacoes`, { // Endpoint correto para buscar notificações
     method: 'GET',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -1428,7 +1673,7 @@ export const fetchNotificacoes = async (token: string): Promise<FetchNotificacoe
  * @throws Lança erro em caso de falha.
  */
 export const markNotificacaoAsRead = async (token: string, notificationId: string): Promise<NotificacaoActionResponse> => {
-  const url = `${API_URL}/api/notificacoes/${notificationId}/read`; // Endpoint correto para marcar como lida
+  const url = `${API_URL}/notificacoes/${notificationId}/read`; // Endpoint correto para marcar como lida
   const response = await fetch(url, {
     method: 'PATCH', // Método correto para atualização parcial
     headers: {
@@ -1465,7 +1710,7 @@ export const markNotificacaoAsRead = async (token: string, notificationId: strin
  * @throws Lança erro em caso de falha.
  */
 export const deleteNotificacao = async (token: string, notificationId: string): Promise<NotificacaoActionResponse> => {
-  const url = `${API_URL}/api/notificacoes/${notificationId}`; // Endpoint correto para excluir notificação
+  const url = `${API_URL}/notificacoes/${notificationId}`; // Endpoint correto para excluir notificação
   const response = await fetch(url, {
     method: 'DELETE',
     headers: {

@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { View, Text, Button, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { deleteAccount as apiDeleteAccount } from '../services/api';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props (sem parâmetros de rota)
 type DeleteAccountScreenProps = NativeStackScreenProps<RootStackParamList, 'DeleteAccount'>;
@@ -15,7 +15,7 @@ type DeleteAccountScreenProps = NativeStackScreenProps<RootStackParamList, 'Dele
  * Solicita confirmação do usuário, chama a API de exclusão
  * e realiza logout do contexto em caso de sucesso.
  */
-export default function DeleteAccountScreen({ navigation }: DeleteAccountScreenProps) {
+export default function DeleteAccountScreen({}: DeleteAccountScreenProps) {
   // 3. Obter usuário (para token) e função logout do contexto
   const { user, logout: contextLogout } = useAuth();
   const [isLoading, setIsLoading] = useState<boolean>(false);

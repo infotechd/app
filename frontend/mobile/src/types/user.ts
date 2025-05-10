@@ -8,6 +8,17 @@
 export type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador';
 
 /**
+ * Enum para os tipos de usuário
+ * Mantém compatibilidade com o backend
+ */
+export enum TipoUsuarioEnum {
+  COMPRADOR = 'comprador',
+  PRESTADOR = 'prestador',
+  ANUNCIANTE = 'anunciante',
+  ADMIN = 'admin'
+}
+
+/**
  * Representa a estrutura do objeto de um usuário autenticado ou de perfil.
  * Esta interface será usada no AuthContext, nas respostas da API,
  * e em vários componentes e telas.
@@ -17,9 +28,10 @@ export type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador
  */
 export interface User {
   idUsuario: string; // Identificador único (ex: ID do banco de dados)
+  id?: string;      // Identificador alternativo que pode vir da API
   nome: string;
   email: string;
-  tipoUsuario: UserRole;
+  tipoUsuario: TipoUsuarioEnum | 'comprador' | 'prestador' | 'anunciante' | 'admin' | 'administrador';
 
   // O token é frequentemente incluído no objeto do usuário gerenciado pelo AuthContext
   // ou retornado junto com o usuário no login. Essencial para chamadas API autenticadas.

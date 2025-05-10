@@ -5,17 +5,16 @@ import {
   ActivityIndicator,
   ScrollView,
   StyleSheet,
-  Alert,
   RefreshControl,
   Button // Para botão de tentar novamente
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { fetchRelatorio as apiFetchRelatorio } from '../services/api';
-import { Relatorio, UsuariosPorTipoItem, ContratacoesPorStatusItem } from '../types/relatorio'; // Importa tipos
+import { Relatorio, UsuariosPorTipoItem, ContratacoesPorStatusItem } from "@/types/relatorio"; // Importa tipos
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type RelatorioScreenProps = NativeStackScreenProps<RootStackParamList, 'Relatorio'>;
@@ -24,7 +23,7 @@ type RelatorioScreenProps = NativeStackScreenProps<RootStackParamList, 'Relatori
  * RelatorioScreen – Tela de Relatórios e Indicadores (Mobile)
  * Busca e exibe indicadores agregados da plataforma.
  */
-export default function RelatorioScreen({ navigation }: RelatorioScreenProps) {
+export default function RelatorioScreen({ }: RelatorioScreenProps) {
   // 3. Obter usuário/token
   const { user } = useAuth();
 
@@ -55,13 +54,19 @@ export default function RelatorioScreen({ navigation }: RelatorioScreenProps) {
   }, [user?.token]);
 
   useEffect(() => {
-    loadReport();
+    (async () => {
+      try {
+        await loadReport();
+      } catch (error) {
+        console.error("Error loading report:", error);
+      }
+    })();
   }, [loadReport]);
 
   // --- Funções Auxiliares de Renderização ---
 
   // Renderiza um item da lista de usuários por tipo
-  const renderUsuarioItem = (item: UsuariosPorTipoItem): JSX.Element => (
+  const renderUsuarioItem = (item: UsuariosPorTipoItem): React.ReactElement => (
     <View key={String(item._id)} style={styles.listItem}>
       <Text style={styles.listItemLabel}>{item._id}:</Text>
       <Text style={styles.listItemValue}>{item.count}</Text>
@@ -69,7 +74,7 @@ export default function RelatorioScreen({ navigation }: RelatorioScreenProps) {
   );
 
   // Renderiza um item da lista de contratações por status
-  const renderContratacaoItem = (item: ContratacoesPorStatusItem): JSX.Element => (
+  const renderContratacaoItem = (item: ContratacoesPorStatusItem): React.ReactElement => (
     <View key={String(item._id)} style={styles.listItem}>
       <Text style={styles.listItemLabel}>{item._id}:</Text>
       <Text style={styles.listItemValue}>{item.count}</Text>

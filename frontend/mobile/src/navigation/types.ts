@@ -1,5 +1,5 @@
 // src/navigation/types.ts
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+
 // Importe User se precisar passar o objeto User como parâmetro (embora geralmente não recomendado)
 // import { User } from '../types/user';
 

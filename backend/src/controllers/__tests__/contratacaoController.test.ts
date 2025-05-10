@@ -71,6 +71,9 @@ describe('Contratacao Controller', () => {
         }
       });
 
+      // Mock para verificar se já existe contratação
+      (Contratacao.findOne as jest.Mock).mockResolvedValue(null);
+
       const saveMock = jest.fn().mockResolvedValue(mockContratacao);
       (Contratacao as unknown as jest.Mock).mockImplementation(() => ({
         save: saveMock
@@ -82,6 +85,17 @@ describe('Contratacao Controller', () => {
       // Assert
       expect(mongoose.Types.ObjectId.isValid).toHaveBeenCalledWith(ofertaId);
       expect(OfertaServico.findById).toHaveBeenCalledWith(ofertaId);
+      expect(Contratacao.findOne).toHaveBeenCalledWith({
+        buyerId: buyerId,
+        ofertaId: mockOferta._id,
+        status: { 
+          $in: [
+            ContratacaoStatusEnum.PENDENTE, 
+            ContratacaoStatusEnum.ACEITA, 
+            ContratacaoStatusEnum.EM_ANDAMENTO
+          ] 
+        }
+      });
       expect(Contratacao).toHaveBeenCalledWith({
         buyerId,
         prestadorId: mockOferta.prestadorId,
@@ -225,6 +239,52 @@ describe('Contratacao Controller', () => {
       expect(OfertaServico.findById).toHaveBeenCalledWith(ofertaId);
       expect(res.status).toHaveBeenCalledWith(400);
       expect(res.json).toHaveBeenCalledWith({ message: 'Você não pode contratar sua própria oferta.' });
+      expect(Contratacao.findOne).not.toHaveBeenCalled();
+      expect(Contratacao).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 if buyer already has a pending or active contract for the offer', async () => {
+      // Arrange
+      req.user = { userId: buyerId, tipoUsuario: TipoUsuarioEnum.COMPRADOR };
+      req.body = { ofertaId };
+      (mongoose.Types.ObjectId.isValid as jest.Mock).mockReturnValue(true);
+      (OfertaServico.findById as jest.Mock).mockResolvedValue({
+        ...mockOferta,
+        prestadorId: {
+          toString: () => prestadorId
+        }
+      });
+
+      // Mock para simular que já existe uma contratação
+      (Contratacao.findOne as jest.Mock).mockResolvedValue({
+        _id: new mongoose.Types.ObjectId().toString(),
+        buyerId,
+        prestadorId,
+        ofertaId,
+        status: ContratacaoStatusEnum.PENDENTE
+      });
+
+      // Act
+      await contratacaoController.contratarOferta(req as Request, res as Response, next);
+
+      // Assert
+      expect(OfertaServico.findById).toHaveBeenCalledWith(ofertaId);
+      expect(Contratacao.findOne).toHaveBeenCalledWith({
+        buyerId: buyerId,
+        ofertaId: mockOferta._id,
+        status: { 
+          $in: [
+            ContratacaoStatusEnum.PENDENTE, 
+            ContratacaoStatusEnum.ACEITA, 
+            ContratacaoStatusEnum.EM_ANDAMENTO
+          ] 
+        }
+      });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({ 
+        message: 'Você já possui uma contratação pendente ou em andamento para esta oferta.' 
+      });
       expect(Contratacao).not.toHaveBeenCalled();
       expect(next).not.toHaveBeenCalled();
     });
@@ -566,7 +626,7 @@ describe('Contratacao Controller', () => {
       // Arrange
       req.user = { userId: prestadorId, tipoUsuario: TipoUsuarioEnum.PRESTADOR };
       req.params = { contratacaoId };
-      req.body = { status: ContratacaoStatusEnum.ACEITA };
+      req.body = { status: ContratacaoStatusEnum.ACEITA, dataInicioServico: '2025-05-15T10:00:00Z' };
 
       (mongoose.Types.ObjectId.isValid as jest.Mock).mockReturnValue(true);
       (Contratacao.findById as jest.Mock).mockResolvedValue({
@@ -594,7 +654,7 @@ describe('Contratacao Controller', () => {
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should update contract status from ACEITA to EM_ANDAMENTO when user is provider', async () => {
+    it('should update contract status from ACEITA to EM_ANDAMENTO when user is provider and set dataInicioServico if not defined', async () => {
       // Arrange
       req.user = { userId: prestadorId, tipoUsuario: TipoUsuarioEnum.PRESTADOR };
       req.params = { contratacaoId };
@@ -604,6 +664,7 @@ describe('Contratacao Controller', () => {
       (Contratacao.findById as jest.Mock).mockResolvedValue({
         ...mockContratacao,
         status: ContratacaoStatusEnum.ACEITA,
+        dataInicioServico: null,
         prestadorId: {
           toString: () => prestadorId
         },
@@ -618,11 +679,43 @@ describe('Contratacao Controller', () => {
       // Assert
       expect(Contratacao.findById).toHaveBeenCalledWith(contratacaoId);
       expect(mockContratacao.save).toHaveBeenCalled();
+      expect(mockContratacao.dataInicioServico).toBeInstanceOf(Date);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(next).not.toHaveBeenCalled();
     });
 
-    it('should update contract status from EM_ANDAMENTO to CONCLUIDO when user is provider', async () => {
+    it('should update contract status from ACEITA to EM_ANDAMENTO when user is provider and keep existing dataInicioServico', async () => {
+      // Arrange
+      const existingDate = new Date('2025-05-10T10:00:00Z');
+      req.user = { userId: prestadorId, tipoUsuario: TipoUsuarioEnum.PRESTADOR };
+      req.params = { contratacaoId };
+      req.body = { status: ContratacaoStatusEnum.EM_ANDAMENTO };
+
+      (mongoose.Types.ObjectId.isValid as jest.Mock).mockReturnValue(true);
+      (Contratacao.findById as jest.Mock).mockResolvedValue({
+        ...mockContratacao,
+        status: ContratacaoStatusEnum.ACEITA,
+        dataInicioServico: existingDate,
+        prestadorId: {
+          toString: () => prestadorId
+        },
+        buyerId: {
+          toString: () => buyerId
+        }
+      });
+
+      // Act
+      await contratacaoController.atualizarStatusContratacao(req as Request, res as Response, next);
+
+      // Assert
+      expect(Contratacao.findById).toHaveBeenCalledWith(contratacaoId);
+      expect(mockContratacao.save).toHaveBeenCalled();
+      expect(mockContratacao.dataInicioServico).toBe(existingDate);
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should update contract status from EM_ANDAMENTO to CONCLUIDO when user is provider and set dataFimServico', async () => {
       // Arrange
       req.user = { userId: prestadorId, tipoUsuario: TipoUsuarioEnum.PRESTADOR };
       req.params = { contratacaoId };
@@ -632,6 +725,7 @@ describe('Contratacao Controller', () => {
       (Contratacao.findById as jest.Mock).mockResolvedValue({
         ...mockContratacao,
         status: ContratacaoStatusEnum.EM_ANDAMENTO,
+        dataFimServico: null,
         prestadorId: {
           toString: () => prestadorId
         },
@@ -646,6 +740,7 @@ describe('Contratacao Controller', () => {
       // Assert
       expect(Contratacao.findById).toHaveBeenCalledWith(contratacaoId);
       expect(mockContratacao.save).toHaveBeenCalled();
+      expect(mockContratacao.dataFimServico).toBeInstanceOf(Date);
       expect(res.status).toHaveBeenCalledWith(200);
       expect(next).not.toHaveBeenCalled();
     });

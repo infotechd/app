@@ -6,21 +6,21 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
   RefreshControl,
-  ListRenderItemInfo
+  ListRenderItemInfo,
+  SectionList // Adicionar SectionList para resolver o problema de nesting
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchPublicOffers as apiFetchPublicOffers,
   fetchMyHiredContratacoes as apiFetchMyHiredContratacoes
 } from '../services/api';
-import { Offer, FetchOffersParams } from '../types/offer';
-import { Contratacao } from '../types/contratacao';
+import { Offer, FetchOffersParams } from "@/types/offer";
+import { Contratacao } from "@/types/contratacao";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type BuyerDashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'BuyerDashboard'>;
@@ -37,7 +37,7 @@ export default function BuyerDashboardScreen({ navigation }: BuyerDashboardScree
 
   // 5. Refatorar Fetching de Dados
   const loadDashboardData = useCallback(async (isRefreshing = false) => {
-    if (!user?.token) { // Precisa do token para buscar contratações
+    if (!user?.token) { // Precisa do 'token' para buscar contratações
       setError("Autenticação necessária.");
       if (!isRefreshing) setLoading(false);
       return;
@@ -66,7 +66,14 @@ export default function BuyerDashboardScreen({ navigation }: BuyerDashboardScree
   }, [user?.token]);
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      await loadDashboardData();
+    };
+
+    // Handle the promise properly to avoid "Promise returned from fetchData is ignored" warning
+    fetchData().catch(err => {
+      console.error("Error in fetchData:", err);
+    });
   }, [loadDashboardData]);
 
   // 6. Refatorar Navegação
@@ -79,7 +86,7 @@ export default function BuyerDashboardScreen({ navigation }: BuyerDashboardScree
   };
 
   // 7. Tipar Renderização das Listas
-  const renderOfferItem = ({ item }: ListRenderItemInfo<Offer>): JSX.Element => (
+  const renderOfferItem = ({ item }: ListRenderItemInfo<Offer>): React.ReactElement => (
     <TouchableOpacity style={styles.offerCard} onPress={() => handleOfferPress(item)}>
       <Text style={styles.offerTitle} numberOfLines={1}>{item.descricao}</Text>
       <Text style={styles.offerPrice}>R$ {item.preco.toFixed(2)}</Text>
@@ -88,7 +95,7 @@ export default function BuyerDashboardScreen({ navigation }: BuyerDashboardScree
     </TouchableOpacity>
   );
 
-  const renderHiredContractItem = ({ item }: ListRenderItemInfo<Contratacao>): JSX.Element => (
+  const renderHiredContractItem = ({ item }: ListRenderItemInfo<Contratacao>): React.ReactElement => (
     <TouchableOpacity style={styles.bookingCard} onPress={() => handleContractPress(item)}>
       {/* Idealmente, a API traria o título da oferta original */}
       <Text style={styles.bookingTitle}>Contrato: {item._id}</Text>
@@ -126,74 +133,112 @@ export default function BuyerDashboardScreen({ navigation }: BuyerDashboardScree
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={()=>loadDashboardData(true)} />
+  // Usando SectionList para evitar o erro de VirtualizedLists aninhadas
+
+  // Componente para renderizar a lista horizontal de ofertas
+  const OffersHorizontalList = () => (
+    <FlatList
+      data={offers}
+      keyExtractor={(item) => item._id}
+      renderItem={renderOfferItem}
+      ListEmptyComponent={() => renderListEmpty("Nenhuma oferta disponível no momento.")}
+      horizontal={true}
+      showsHorizontalScrollIndicator={false}
+      style={styles.horizontalList}
+      nestedScrollEnabled={true} // Importante para listas aninhadas
+    />
+  );
+
+  // Define um tipo de união para todos os possíveis tipos de itens nas seções
+  type SectionItem = string | Contratacao | "empty_contracts";
+
+  // Define o tipo para as seções
+  type Section = {
+    title: string;
+    data: readonly SectionItem[];
+    renderItem: (info: {item: SectionItem}) => React.ReactElement;
+  };
+
+  // Preparar as seções para o SectionList
+  const sections: readonly Section[] = [
+    {
+      title: "Header",
+      data: ["header"] as readonly SectionItem[],
+      renderItem: ({item}: {item: SectionItem}) => (
+        <View style={styles.header}>
+          <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Comprador'}!</Text>
+          <Text style={styles.subheader}>Explore ofertas e gerencie suas contratações</Text>
+          {error && (offers.length > 0 || hiredContracts.length > 0) && !loading && (
+            <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
+          )}
+        </View>
+      )
+    },
+    {
+      title: "Ofertas Disponíveis",
+      data: ["offers"] as readonly SectionItem[],
+      renderItem: ({item}: {item: SectionItem}) => <OffersHorizontalList />
+    },
+    {
+      title: "Minhas Contratações",
+      data: (hiredContracts.length > 0 ? hiredContracts : ["empty_contracts"]) as readonly SectionItem[],
+      renderItem: ({item}: {item: SectionItem}) => {
+        if (item === "empty_contracts") {
+          return renderListEmpty("Você ainda não contratou nenhum serviço.");
+        }
+        return renderHiredContractItem({item} as ListRenderItemInfo<Contratacao>);
       }
-    >
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-        <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Comprador'}!</Text>
-        <Text style={styles.subheader}>Explore ofertas e gerencie suas contratações</Text>
-        {error && (offers.length > 0 || hiredContracts.length > 0) && !loading && (
-          <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
-        )}
-      </View>
+    },
+    {
+      title: "Ações Rápidas",
+      data: ["actions"] as readonly SectionItem[],
+      renderItem: ({item}: {item: SectionItem}) => (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('BuscarOfertas')}
+          >
+            <Text style={styles.actionButtonText}>Buscar Novos Serviços</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Ofertas Disponíveis */}
-      <Text style={styles.sectionTitle}>Ofertas Disponíveis</Text>
-      <FlatList
-        data={offers}
-        keyExtractor={(item) => item._id}
-        renderItem={renderOfferItem}
-        ListEmptyComponent={() => renderListEmpty("Nenhuma oferta disponível no momento.")}
-        horizontal={true} // Exemplo: mostrar ofertas em linha horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.horizontalList}
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('TreinamentoList')}
+          >
+            <Text style={styles.actionButtonText}>Ver Treinamentos Disponíveis</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Minhas Contratações */}
-      <Text style={styles.sectionTitle}>Minhas Contratações</Text>
-      {/* FlatList normal para contratações */}
-      <FlatList
-        data={hiredContracts}
-        keyExtractor={(item) => item._id}
-        renderItem={renderHiredContractItem}
-        ListEmptyComponent={() => renderListEmpty("Você ainda não contratou nenhum serviço.")}
-        scrollEnabled={false} // Dentro de ScrollView
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Community')}
+          >
+            <Text style={styles.actionButtonText}>Acessar Comunidade</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+  ];
 
-      {/* Botões de Ação Rápida */}
-      <View style={styles.actionButtonsContainer}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('BuscarOfertas')}
-        >
-          <Text style={styles.actionButtonText}>Buscar Novos Serviços</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('TreinamentoList')}
-        >
-          <Text style={styles.actionButtonText}>Ver Treinamentos Disponíveis</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Community')}
-        >
-          <Text style={styles.actionButtonText}>Acessar Comunidade</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ height: 40 }} />
-
-    </ScrollView>
+  return (
+    <SectionList<SectionItem, Section>
+      style={styles.container}
+      sections={sections}
+      keyExtractor={(item, index) => {
+        if (typeof item === 'string') return item + index;
+        return item && typeof item === 'object' && '_id' in item ? item._id : index.toString();
+      }}
+      renderSectionHeader={({section}) => (
+        section.title !== "Header" ? (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        ) : null
+      )}
+      renderItem={({section, item}) => section.renderItem({item})}
+      refreshControl={
+        <RefreshControl refreshing={loading} onRefresh={() => loadDashboardData(true)} />
+      }
+      ListFooterComponent={() => <View style={{ height: 40 }} />}
+      stickySectionHeadersEnabled={false}
+    />
   );
 }
 

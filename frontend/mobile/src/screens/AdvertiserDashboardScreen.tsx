@@ -8,19 +8,21 @@ import {
   ActivityIndicator,
   ScrollView,
   RefreshControl,
-  ListRenderItemInfo
+  ListRenderItemInfo,
+  SectionList, // Adicionar SectionList para resolver o problema de nesting
+  SectionListRenderItemInfo
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchMyAds as apiFetchMyAds,
   fetchMyTrainings as apiFetchMyTrainings // Assumindo que esta função existe
 } from '../services/api';
-import { Ad } from '../types/ad'; // Tipo Anúncio
-import { Training } from '../types/training'; // Tipo Treinamento
+import { Ad } from "@/types/ad"; // Tipo Anúncio
+import { Training } from "@/types/training"; // Tipo Treinamento
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type AdvertiserDashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'AdvertiserDashboard'>;
@@ -61,7 +63,15 @@ export default function AdvertiserDashboardScreen({ navigation }: AdvertiserDash
   }, [user?.token]);
 
   useEffect(() => {
-    loadDashboardData();
+    const fetchData = async () => {
+      try {
+        await loadDashboardData();
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      }
+    };
+
+    void fetchData();
   }, [loadDashboardData]);
 
   // 6. Refatorar Navegação
@@ -74,7 +84,7 @@ export default function AdvertiserDashboardScreen({ navigation }: AdvertiserDash
   };
 
   // 7. Tipar Renderização
-  const renderAdItem = ({ item }: ListRenderItemInfo<Ad>): JSX.Element => (
+  const renderAdItem = ({ item }: ListRenderItemInfo<Ad>): React.ReactElement => (
     <TouchableOpacity style={styles.adCard} onPress={() => handleAdPress(item)}>
       <Text style={styles.adTitle}>{item.title}</Text>
       <Text style={styles.adDescription} numberOfLines={2}>{item.description}</Text>
@@ -84,7 +94,7 @@ export default function AdvertiserDashboardScreen({ navigation }: AdvertiserDash
     </TouchableOpacity>
   );
 
-  const renderTrainingItem = ({ item }: ListRenderItemInfo<Training>): JSX.Element => (
+  const renderTrainingItem = ({ item }: ListRenderItemInfo<Training>): React.ReactElement => (
     <TouchableOpacity style={styles.trainingCard} onPress={() => handleTrainingPress(item)}>
       <Text style={styles.trainingTitle}>{item.titulo}</Text>
       <Text style={styles.trainingDescription} numberOfLines={2}>{item.descricao}</Text>
@@ -109,77 +119,130 @@ export default function AdvertiserDashboardScreen({ navigation }: AdvertiserDash
       <View style={styles.errorContainer}>
         <Text style={styles.errorMessage}>{error}</Text>
         {/* Usar a função loadDashboardData para o botão Tentar Novamente */}
-        <TouchableOpacity onPress={() => loadDashboardData()} style={styles.retryButton}>
+        <TouchableOpacity 
+          onPress={async () => {
+            try {
+              await loadDashboardData();
+            } catch (error) {
+              console.error('Error loading dashboard data:', error);
+            }
+          }} 
+          style={styles.retryButton}
+        >
           <Text style={styles.retryButtonText}>Tentar novamente</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
-  return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={loading} onRefresh={()=>loadDashboardData(true)} />
+  // Usando SectionList para evitar o erro de VirtualizedLists aninhadas
+
+  // Preparar as seções para o SectionList
+  // Define um tipo de união para todos os possíveis tipos de itens nas seções
+  type SectionItem = string | Ad | Training;
+
+  // Define o tipo para as seções
+  type Section = {
+    title: string;
+    data: readonly SectionItem[];
+    renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => React.ReactElement;
+  };
+
+  const sections: readonly Section[] = [
+    {
+      title: "Header",
+      data: ["header"] as const,
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
+        <View style={styles.header}>
+          <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Anunciante'}!</Text>
+          <Text style={styles.subheader}>Gerencie seus anúncios e treinamentos</Text>
+          {error && (ads.length > 0 || trainings.length > 0) && !loading && (
+            <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
+          )}
+        </View>
+      )
+    },
+    {
+      title: "Meus Anúncios",
+      data: (ads.length > 0 ? ads : ["empty_ads"]) as readonly SectionItem[],
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
+        const item = info.item;
+        if (item === "empty_ads") {
+          return renderListEmpty("Você ainda não criou nenhum anúncio.");
+        }
+        return renderAdItem({item: item as Ad} as ListRenderItemInfo<Ad>);
       }
-    >
-      {/* Cabeçalho */}
-      <View style={styles.header}>
-        <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Anunciante'}!</Text>
-        <Text style={styles.subheader}>Gerencie seus anúncios e treinamentos</Text>
-        {error && (ads.length > 0 || trainings.length > 0) && !loading && (
-          <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
-        )}
-      </View>
+    },
+    {
+      title: "Meus Treinamentos",
+      data: (trainings.length > 0 ? trainings : ["empty_trainings"]) as readonly SectionItem[],
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
+        const item = info.item;
+        if (item === "empty_trainings") {
+          return renderListEmpty("Você ainda não criou nenhum treinamento.");
+        }
+        return renderTrainingItem({item: item as Training} as ListRenderItemInfo<Training>);
+      }
+    },
+    {
+      title: "Ações Rápidas",
+      data: ["actions"] as const,
+      renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('TreinamentoCreate')}
+          >
+            <Text style={styles.actionButtonText}>Criar Novo Treinamento</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Anúncios */}
-      <Text style={styles.sectionTitle}>Meus Anúncios</Text>
-      <FlatList
-        data={ads}
-        keyExtractor={(item) => item._id} // Usar _id
-        renderItem={renderAdItem}
-        ListEmptyComponent={() => renderListEmpty("Você ainda não criou nenhum anúncio.")}
-        scrollEnabled={false}
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Relatorio')}
+          >
+            <Text style={styles.actionButtonText}>Ver Relatórios</Text>
+          </TouchableOpacity>
 
-      {/* Lista de Treinamentos */}
-      <Text style={styles.sectionTitle}>Meus Treinamentos</Text>
-      <FlatList
-        data={trainings}
-        keyExtractor={(item) => item._id} // Usar _id
-        renderItem={renderTrainingItem}
-        ListEmptyComponent={() => renderListEmpty("Você ainda não criou nenhum treinamento.")}
-        scrollEnabled={false}
-      />
+          <TouchableOpacity 
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('Community')}
+          >
+            <Text style={styles.actionButtonText}>Acessar Comunidade</Text>
+          </TouchableOpacity>
+        </View>
+      )
+    }
+  ];
 
-      {/* Botões de Ação Rápida */}
-      <View style={styles.actionButtonsContainer}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('TreinamentoCreate')}
-        >
-          <Text style={styles.actionButtonText}>Criar Novo Treinamento</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Relatorio')}
-        >
-          <Text style={styles.actionButtonText}>Ver Relatórios</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.actionButton}
-          onPress={() => navigation.navigate('Community')}
-        >
-          <Text style={styles.actionButtonText}>Acessar Comunidade</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={{ height: 40 }} />
-    </ScrollView>
+  return (
+    <SectionList<SectionItem, Section>
+      style={styles.container}
+      sections={sections}
+      keyExtractor={(item, index) => {
+        if (typeof item === 'string') return item + index;
+        return item._id || index.toString();
+      }}
+      renderSectionHeader={({section}) => (
+        section.title !== "Header" ? (
+          <Text style={styles.sectionTitle}>{section.title}</Text>
+        ) : null
+      )}
+      renderItem={(info) => info.section.renderItem(info)}
+      refreshControl={
+        <RefreshControl 
+          refreshing={loading} 
+          onRefresh={async () => {
+            try {
+              await loadDashboardData(true);
+            } catch (error) {
+              console.error('Error refreshing dashboard data:', error);
+            }
+          }} 
+        />
+      }
+      ListFooterComponent={() => <View style={{ height: 40 }} />}
+      stickySectionHeadersEnabled={false}
+    />
   );
 }
 

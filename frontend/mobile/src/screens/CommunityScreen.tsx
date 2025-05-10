@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import * as ReactJSX from 'react';
 import {
   View,
   Text,
@@ -17,14 +18,14 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   fetchPublicacoes as apiFetchPublicacoes,
   createPublicacao as apiCreatePublicacao
 } from '../services/api';
-import { Publicacao, PublicacaoData, PublicacaoType } from '../types/publicacao'; // Tipos de Publicacao
+import { Publicacao, PublicacaoData, PublicacaoType } from "@/types/publicacao"; // Tipos de Publicacao
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type CommunityScreenProps = NativeStackScreenProps<RootStackParamList, 'Community'>;
@@ -33,7 +34,7 @@ type CommunityScreenProps = NativeStackScreenProps<RootStackParamList, 'Communit
  * CommunityScreen – Tela de Comunidade
  * Permite criar publicações (posts/eventos) e visualizar as aprovadas.
  */
-export default function CommunityScreen({ navigation }: CommunityScreenProps) {
+export default function CommunityScreen({ }: CommunityScreenProps) {
   // 3. Obter usuário (para token ao criar)
   const { user } = useAuth();
 
@@ -63,7 +64,12 @@ export default function CommunityScreen({ navigation }: CommunityScreenProps) {
   }, []);
 
   useEffect(() => {
-    loadPublicacoes();
+    const fetchData = async () => {
+      await loadPublicacoes();
+    };
+    fetchData().catch(err => {
+      console.error('Error fetching data:', err);
+    });
   }, [loadPublicacoes]);
 
   // 6. Refatorar handleCreatePublicacao
@@ -92,7 +98,7 @@ export default function CommunityScreen({ navigation }: CommunityScreenProps) {
       Alert.alert('Sucesso', response.message || 'Publicação criada!');
       setConteudo(''); // Limpa o campo
       // setTipo('post'); // Resetar tipo? Opcional
-      loadPublicacoes(true); // Recarrega a lista para mostrar a nova publicação (se aprovada automaticamente)
+      await loadPublicacoes(true); // Recarrega a lista para mostrar a nova publicação (se aprovada automaticamente)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido ao publicar';
       setError(msg);
@@ -103,7 +109,7 @@ export default function CommunityScreen({ navigation }: CommunityScreenProps) {
   };
 
   // 7. Tipar renderItem e keyExtractor
-  const renderItem = ({ item }: ListRenderItemInfo<Publicacao>): JSX.Element => (
+  const renderItem = ({ item }: ListRenderItemInfo<Publicacao>): ReactJSX.JSX.Element => (
     <View style={styles.itemContainer}>
       {/* Usar dados do autor se o backend retornar */}
       <Text style={styles.itemAuthor}>{item.autor?.nome || `Usuário (${item.autorId.substring(0, 6)}...)`}</Text>
@@ -139,64 +145,60 @@ export default function CommunityScreen({ navigation }: CommunityScreenProps) {
     </TouchableOpacity>
   );
 
+  // Componente para o formulário de publicação (será usado como header do FlatList)
+  const FormHeader = () => (
+    <View>
+      <View style={styles.formContainer}>
+        <Text style={styles.formTitle}>Nova Publicação</Text>
+        <TextInput
+          placeholder="Digite sua publicação..."
+          value={conteudo}
+          onChangeText={setConteudo}
+          style={[styles.input, styles.textArea]}
+          multiline
+          numberOfLines={3}
+          editable={!isCreating}
+        />
+        {/* TODO: Adicionar inputs para detalhes do evento aqui, condicionalmente */}
+        {/* Ex: if (tipo === 'evento') { ... inputs de data, local ... } */}
+
+        <View style={styles.typeButtonGroup}>
+          {renderTypeButton('post', 'Post')}
+          {renderTypeButton('evento', 'Evento')}
+        </View>
+
+        <Button
+          title={isCreating ? "Publicando..." : "Publicar"}
+          onPress={handleCreatePublicacao}
+          disabled={isCreating || loadingList}
+        />
+      </View>
+
+      <View style={styles.listSectionContainer}>
+        <Text style={styles.listTitle}>Feed da Comunidade</Text>
+        {/* Exibe erro da lista, se houver */}
+        {error && !loadingList && <Text style={styles.errorText}>{error}</Text>}
+        {/* Exibe loading da lista apenas na carga inicial */}
+        {loadingList && publicacoes.length === 0 && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }}/>}
+      </View>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-      {/* Usar ScrollView permite que o form e a lista rolem juntos */}
-      <ScrollView
+      {/* Usando FlatList com ListHeaderComponent em vez de ScrollView + FlatList aninhados */}
+      {/* Isso evita o erro "VirtualizedLists should never be nested inside plain ScrollViews" */}
+      <FlatList
         style={styles.screenContainer}
-        refreshControl={ // Pull to refresh para a lista
-          <RefreshControl refreshing={loadingList} onRefresh={()=>loadPublicacoes(true)} />
+        data={loadingList ? [] : publicacoes}
+        keyExtractor={keyExtractor}
+        renderItem={renderItem}
+        ListHeaderComponent={<FormHeader />}
+        ListEmptyComponent={!loadingList ? renderEmptyList : null}
+        refreshControl={
+          <RefreshControl refreshing={loadingList} onRefresh={() => loadPublicacoes(true)} />
         }
-      >
-        <View style={styles.formContainer}>
-          <Text style={styles.formTitle}>Nova Publicação</Text>
-          <TextInput
-            placeholder="Digite sua publicação..."
-            value={conteudo}
-            onChangeText={setConteudo}
-            style={[styles.input, styles.textArea]}
-            multiline
-            numberOfLines={3}
-            editable={!isCreating}
-          />
-          {/* TODO: Adicionar inputs para detalhes do evento aqui, condicionalmente */}
-          {/* Ex: if (tipo === 'evento') { ... inputs de data, local ... } */}
-
-          <View style={styles.typeButtonGroup}>
-            {renderTypeButton('post', 'Post')}
-            {renderTypeButton('evento', 'Evento')}
-          </View>
-
-          <Button
-            title={isCreating ? "Publicando..." : "Publicar"}
-            onPress={handleCreatePublicacao}
-            disabled={isCreating || loadingList}
-          />
-        </View>
-
-        <View style={styles.listSectionContainer}>
-          <Text style={styles.listTitle}>Feed da Comunidade</Text>
-          {/* Exibe erro da lista, se houver */}
-          {error && !loadingList && <Text style={styles.errorText}>{error}</Text>}
-          {/* Exibe loading da lista apenas na carga inicial */}
-          {loadingList && publicacoes.length === 0 && <ActivityIndicator size="large" color="#0000ff" style={{ marginTop: 20 }}/>}
-
-          {/* FlatList para exibir publicações */}
-          {/* Colocar FlatList dentro de ScrollView não é ideal para performance
-               com muitos itens. Se a lista for grande, considere separar
-               o formulário e a lista ou usar SectionList.
-               Com scrollEnabled={false}, funciona para listas menores. */}
-          {!loadingList && (
-            <FlatList
-              data={publicacoes}
-              keyExtractor={keyExtractor}
-              renderItem={renderItem}
-              ListEmptyComponent={renderEmptyList}
-              scrollEnabled={false} // Importante dentro de ScrollView
-            />
-          )}
-        </View>
-      </ScrollView>
+      />
     </KeyboardAvoidingView>
   );
 }

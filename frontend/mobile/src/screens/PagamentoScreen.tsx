@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  View,
   Text,
   TextInput,
   Button,
@@ -13,11 +12,11 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import { processPayment as apiProcessPayment } from '../services/api';
-import { PaymentData, PaymentMethod } from '../types/pagamento'; // Importa tipos de pagamento
+import { PaymentData, PaymentMethod } from "@/types/pagamento"; // Importa tipos de pagamento
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // Valores válidos para o método (para validação ou futuro Picker)
 const validPaymentMethods: PaymentMethod[] = ['cartao', 'boleto', 'pix'];

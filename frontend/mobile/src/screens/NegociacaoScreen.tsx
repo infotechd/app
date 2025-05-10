@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 
 // 1. Imports
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from "@/context/AuthContext";
 import {
   iniciarNegociacao as apiIniciarNegociacao,
   responderNegociacao as apiResponderNegociacao,
@@ -24,11 +24,10 @@ import {
   Negociacao,
   PropostaAjuste,
   NegociacaoInitiateData,
-  NegociacaoRespondData,
-  NegociacaoStatus // Importar o tipo de status
-} from '../types/negociacao';
+  NegociacaoRespondData
+} from "@/types/negociacao";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/types';
+import { RootStackParamList } from "@/navigation/types";
 
 // 2. Tipo das Props
 type NegociacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Negociacao'>;
@@ -36,7 +35,7 @@ type NegociacaoScreenProps = NativeStackScreenProps<RootStackParamList, 'Negocia
 /**
  * Tela para Gerenciar a Negociação de Ajustes (Mobile)
  */
-export default function NegociacaoScreen({ route, navigation }: NegociacaoScreenProps) {
+export default function NegociacaoScreen({ route}: NegociacaoScreenProps) {
   // 3. Extrair params e obter usuário/token/tipo
   const { contratacaoId, providerId } = route.params;
   const { user } = useAuth(); // Contém user.token e user.tipoUsuario
@@ -82,7 +81,17 @@ export default function NegociacaoScreen({ route, navigation }: NegociacaoScreen
   }, [user?.token, contratacaoId]);
 
   useEffect(() => {
-    loadNegociacao();
+    const fetchData = async () => {
+      try {
+        await loadNegociacao();
+      } catch (error) {
+        console.error("Error loading negociacao:", error);
+      }
+    };
+
+    fetchData().catch(error => {
+      console.error("Error in fetchData:", error);
+    });
   }, [loadNegociacao]);
 
 
