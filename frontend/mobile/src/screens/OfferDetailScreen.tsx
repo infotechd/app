@@ -12,7 +12,7 @@ import {
   SafeAreaView
 } from 'react-native';
 import { useAuth } from '@/context/AuthContext';
-import { fetchPublicOfferById, fetchMyOfferById } from '@/services/api';
+import { fetchPublicOfferById, fetchMyOfferById, deleteOffer } from '@/services/api';
 import { Offer, IDisponibilidade, IRecorrenciaSemanal } from '@/types/offer';
 import { TipoUsuarioEnum } from '@/types/user';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -31,6 +31,9 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
   // Obter o ID da oferta dos parâmetros da rota
   const { offerId } = route.params;
 
+  // Garantir que offerId é uma string válida
+  const offerIdString = offerId ? String(offerId) : "";
+
   // Obter informações do usuário autenticado
   const { user } = useAuth();
 
@@ -48,7 +51,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
 
   // Função para carregar os detalhes da oferta
   const loadOfferDetails = useCallback(async () => {
-    if (!offerId) {
+    if (!offerIdString) {
       setError('ID da oferta não fornecido');
       setLoading(false);
       return;
@@ -61,60 +64,65 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
       let response;
 
       // Se o usuário é um prestador, tenta buscar como oferta própria primeiro
-      if (user && isPrestador) {
-        try {
-          response = await fetchMyOfferById(user.token, offerId);
+      if (user && isPrestador && user.token) {
+        response = await fetchMyOfferById(user.token, offerIdString);
 
-          // Verificar se a resposta tem a estrutura esperada
-          if (response && typeof response === 'object') {
-            if (response.offer) {
-              setOffer(response.offer);
-              setLoading(false);
-              return;
-            }
-          } else {
-            console.error('Resposta da API (fetchMyOfferById) em formato inesperado:', response);
-            // Continua para tentar como oferta pública
+        // Verificar se a resposta tem a estrutura esperada
+        if (response && typeof response === 'object') {
+          if (response.success && response.offer) {
+            setOffer(response.offer);
+            setLoading(false);
+            return;
+          } else if (!response.success) {
+            // Se a resposta não foi bem-sucedida, mas não lançou erro, tentamos buscar como oferta pública
+            console.log('Não é uma oferta própria, tentando como oferta pública', response.message);
+            // Não definimos o erro ainda, tentamos buscar como oferta pública primeiro
           }
-        } catch (err) {
-          // Se falhar como oferta própria, tenta como oferta pública
-          console.log('Não é uma oferta própria, tentando como oferta pública', err);
-
-          // Se o erro for 404, não mostra o erro ainda, tenta como oferta pública primeiro
-          if (err instanceof Error && err.message.includes('404')) {
-            // Continua para tentar como oferta pública
-          } else {
-            // Para outros erros, podemos mostrar o erro imediatamente
-            throw err;
-          }
+        } else {
+          console.error('Resposta da API (fetchMyOfferById) em formato inesperado:', response);
+          // Continua o fluxo para tentar buscar como oferta pública
         }
       }
 
-      // Busca como oferta pública (para qualquer usuário ou se a busca como própria falhou)
-      response = await fetchPublicOfferById(offerId);
+      // Busca a oferta como pública (acessível para qualquer usuário ou quando a busca como oferta própria falhou)
+      // Se o usuário estiver autenticado, passa o token para a API
+      response = await fetchPublicOfferById(offerIdString, user?.token);
 
       // Verificar se a resposta tem a estrutura esperada
       if (response && typeof response === 'object') {
-        if (response.offer) {
+        if (response.success && response.offer) {
           setOffer(response.offer);
         } else {
-          setError('Oferta não encontrada');
+          // Se a resposta não foi bem-sucedida, definimos o erro
+          let errorMessage = response.message || 'Oferta não encontrada';
+
+          // Personalizar mensagem de erro
+          if (errorMessage.includes('não encontrada') || errorMessage.includes('404')) {
+            if (isPrestador) {
+              errorMessage = `Não foi possível encontrar a oferta ${offerIdString}. Esta oferta pode não existir ou você não tem permissão para visualizá-la.`;
+            } else {
+              errorMessage = `Não foi possível encontrar a oferta ${offerIdString}. A oferta pode ter sido removida ou não está mais disponível.`;
+            }
+          }
+
+          setError(errorMessage);
         }
       } else {
         console.error('Resposta da API em formato inesperado:', response);
         setError('Erro ao processar resposta da API. Formato inesperado.');
       }
     } catch (err) {
+      // Este bloco só será executado se houver um erro não tratado nas chamadas à API
       let errorMessage = err instanceof Error ? err.message : 'Erro ao carregar detalhes da oferta';
-      let isNotFoundError = errorMessage.includes('404');
+      let isNotFoundError = errorMessage.includes('404') || errorMessage.includes('não encontrada');
 
-      // Melhorar mensagens de erro específicas
+      // Melhora as mensagens de erro para torná-las mais específicas e amigáveis
       if (isNotFoundError) {
-        // Para erros 404, verificamos se o usuário é prestador ou não para personalizar a mensagem
+        // Para erros 404 (não encontrado), personalizamos a mensagem de acordo com o tipo de usuário
         if (isPrestador) {
-          errorMessage = `Não foi possível encontrar a oferta ${offerId}. Esta oferta pode não existir ou você não tem permissão para visualizá-la.`;
+          errorMessage = `Não foi possível encontrar a oferta ${offerIdString}. Esta oferta pode não existir ou você não tem permissão para visualizá-la.`;
         } else {
-          errorMessage = `Não foi possível encontrar a oferta ${offerId}. A oferta pode ter sido removida ou não está mais disponível.`;
+          errorMessage = `Não foi possível encontrar a oferta ${offerIdString}. A oferta pode ter sido removida ou não está mais disponível.`;
         }
       } else if (errorMessage.includes('network') || errorMessage.includes('Network')) {
         errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
@@ -128,14 +136,14 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
       setLoading(false);
       setRefreshing(false);
     }
-  }, [offerId, user, isPrestador]);
+  }, [offerIdString, user, isPrestador]);
 
   // Carregar detalhes da oferta ao montar o componente
   useEffect(() => {
     loadOfferDetails();
   }, [loadOfferDetails]);
 
-  // Função para lidar com o pull-to-refresh
+  // Função para lidar com a atualização por puxar para baixo (pull-to-refresh)
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadOfferDetails();
@@ -149,10 +157,10 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
     });
   };
 
-  // Função para formatar a disponibilidade
+  // Função para formatar a disponibilidade do prestador
   const formatDisponibilidade = (disponibilidade: IDisponibilidade | string): React.ReactNode => {
     try {
-      // Se for uma string, simplesmente exibe o texto
+      // Se a disponibilidade for uma string simples, apenas exibe o texto sem formatação adicional
       if (typeof disponibilidade === 'string') {
         return <Text style={styles.disponibilidadeText}>{disponibilidade}</Text>;
       }
@@ -187,7 +195,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
             <View style={styles.disponibilidadeItem}>
               <Text style={styles.disponibilidadeLabel}>Disponibilidade semanal:</Text>
               {disponibilidade.recorrenciaSemanal.map((recorrencia: IRecorrenciaSemanal, index: number) => {
-                // Verifica se recorrencia é válida e tem diaSemana
+                // Verifica se o objeto de recorrência é válido e se contém um dia da semana válido (0-6)
                 if (!recorrencia || typeof recorrencia.diaSemana !== 'number' || 
                     recorrencia.diaSemana < 0 || recorrencia.diaSemana > 6) {
                   return (
@@ -239,12 +247,12 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
     }
 
     // Navegar para a tela de contratação
-    navigation.navigate('Contratacao', { ofertaId: offerId });
+    navigation.navigate('Contratacao', { ofertaId: offerIdString });
   };
 
   // Função para lidar com a edição da oferta
   const handleEditarOferta = () => {
-    navigation.navigate('OfertaServico', { offerId, mode: 'edit' });
+    navigation.navigate('OfertaServico', { offerId: offerIdString, mode: 'edit' });
   };
 
   // Função para lidar com a exclusão da oferta
@@ -257,10 +265,44 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
         { 
           text: 'Excluir', 
           style: 'destructive',
-          onPress: () => {
-            // Aqui você chamaria a API para excluir a oferta
-            // Após excluir, navegaria de volta
-            Alert.alert('Funcionalidade em implementação', 'A exclusão de ofertas será implementada em breve.');
+          onPress: async () => {
+            if (!user || !user.token || !offerIdString) {
+              Alert.alert('Erro', 'Não foi possível excluir a oferta. Informações de autenticação ausentes.');
+              return;
+            }
+
+            try {
+              // Mostrar indicador de carregamento
+              setLoading(true);
+
+              // Chamar a API para excluir a oferta
+              const result = await deleteOffer(user.token, offerIdString);
+
+              // Mostrar mensagem de sucesso
+              Alert.alert(
+                'Sucesso',
+                result.message || 'Oferta excluída com sucesso!',
+                [
+                  { 
+                    text: 'OK', 
+                    onPress: () => {
+                      // Navegar de volta à tela anterior após a exclusão bem-sucedida
+                      navigation.goBack();
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              // Tratar erros
+              const errorMessage = error instanceof Error 
+                ? error.message 
+                : 'Ocorreu um erro ao excluir a oferta. Tente novamente mais tarde.';
+
+              Alert.alert('Erro', errorMessage);
+            } finally {
+              // Esconder indicador de carregamento
+              setLoading(false);
+            }
           }
         }
       ]
@@ -277,18 +319,18 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
     );
   }
 
-  // Renderizar tela de erro
+  // Renderizar tela de erro quando ocorrer algum problema
   if (error) {
-    // Personalizar a mensagem de erro para ser mais amigável
+    // Personaliza a mensagem de erro para torná-la mais amigável ao usuário
     let errorTitle = 'Erro ao carregar oferta';
     let errorMessage = error;
     let showRetryButton = true;
 
-    // Verificar se é um erro de oferta não encontrada (404)
+    // Verifica se é um erro de oferta não encontrada (código 404 ou mensagem específica)
     if (error.includes('404') || error.includes('não foi possível encontrar') || error.includes('não encontrada')) {
       errorTitle = 'Oferta não encontrada';
       errorMessage = 'A oferta que você está procurando não está disponível ou foi removida.';
-      showRetryButton = false; // Não mostrar botão de retry para ofertas não encontradas
+      showRetryButton = false; // Remove o botão de tentar novamente para casos de ofertas não encontradas
     }
 
     return (
@@ -372,9 +414,9 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Informações do Prestador</Text>
           <View style={styles.prestadorInfo}>
-            {/* Aqui você pode adicionar a foto do prestador se disponível */}
+            {/* Espaço reservado para a foto do prestador quando estiver disponível na API */}
             <Text style={styles.prestadorName}>
-              {/* Aqui você pode adicionar o nome do prestador se disponível */}
+              {/* Espaço reservado para o nome do prestador quando estiver disponível na API */}
               ID do Prestador: {offer.prestadorId || 'Não disponível'}
             </Text>
           </View>
@@ -427,7 +469,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
         {/* Botões de ação */}
         <View style={styles.actionsContainer}>
           {isOwner ? (
-            // Ações para o proprietário da oferta
+            // Botões de ação disponíveis para o proprietário da oferta (editar e excluir)
             <>
               <TouchableOpacity 
                 style={[styles.actionButton, styles.editButton]} 
@@ -446,14 +488,14 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
               </TouchableOpacity>
             </>
           ) : (
-            // Ações para compradores
+            // Botão de contratação disponível para potenciais clientes
             <TouchableOpacity 
               style={[
                 styles.actionButton, 
                 styles.contractButton,
-                // Adiciona estilo de desabilitado se o status não for 'ready'
+                // Aplica uma opacidade reduzida (visual de desabilitado) quando a oferta não está disponível
                 offer.status !== 'ready' ? { opacity: 0.5 } : {}
-              ]} 
+              ]}
               onPress={handleContratarOferta}
               disabled={offer.status !== 'ready'}
             >

@@ -27,6 +27,7 @@ export const registrationResponseSchema = z.object({
  */
 export const apiErrorResponseSchema = z.object({
   message: z.string(),
+  errorCode: z.string().optional(),
 });
 
 /**

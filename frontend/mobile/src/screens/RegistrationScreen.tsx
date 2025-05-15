@@ -4,15 +4,20 @@ import { View, Text, TextInput, Button, Alert, StyleSheet, ScrollView, KeyboardA
 // 1. Importar a função da API (renomeada) e tipos necessários
 import { register as apiRegister } from '../services/api';
 import { RegistrationData } from "@/types/api";
-import { UserRole} from "@/types/user";
+import { TipoUsuarioEnum } from "@/types/user";
 
-// Importar tipos de navegação e UserRole
+// Importar tipos de navegação e TipoUsuarioEnum
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList} from "@/navigation/types";
 
 // (Idealmente, importe de arquivos centrais de tipos)
 /*
-type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador';
+enum TipoUsuarioEnum {
+  COMPRADOR = 'comprador',
+  PRESTADOR = 'prestador',
+  ANUNCIANTE = 'anunciante',
+  ADMIN = 'admin'
+}
 
 type RootStackParamList = {
   Onboarding: undefined;
@@ -37,7 +42,7 @@ export default function RegistrationScreen({ navigation }: RegistrationScreenPro
   const [senha, setSenha] = useState<string>('');
   const [telefone, setTelefone] = useState<string>('');
   const [cpfCnpj, setCpfCnpj] = useState<string>('');
-  const [tipoUsuario, setTipoUsuario] = useState<UserRole>('comprador'); // valor padrão
+  const [tipoUsuario, setTipoUsuario] = useState<TipoUsuarioEnum>(TipoUsuarioEnum.COMPRADOR); // valor padrão
   const [endereco, setEndereco] = useState<string>('');
   const [foto, setFoto] = useState<string>(''); // URL da foto
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -83,7 +88,7 @@ export default function RegistrationScreen({ navigation }: RegistrationScreenPro
   };
 
   // Função auxiliar para botões de tipo de usuário
-  const renderTypeButton = (role: UserRole, title: string) => (
+  const renderTypeButton = (role: TipoUsuarioEnum, title: string) => (
     <Button
       title={title}
       onPress={() => setTipoUsuario(role)}
@@ -158,9 +163,9 @@ export default function RegistrationScreen({ navigation }: RegistrationScreenPro
 
         <Text style={styles.label}>Tipo de Usuário *</Text>
         <View style={styles.buttonGroup}>
-          {renderTypeButton('comprador', 'Comprador')}
-          {renderTypeButton('prestador', 'Prestador')}
-          {renderTypeButton('anunciante', 'Anunciante')}
+          {renderTypeButton(TipoUsuarioEnum.COMPRADOR, 'Comprador')}
+          {renderTypeButton(TipoUsuarioEnum.PRESTADOR, 'Prestador')}
+          {renderTypeButton(TipoUsuarioEnum.ANUNCIANTE, 'Anunciante')}
         </View>
 
         <Button

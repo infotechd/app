@@ -24,7 +24,9 @@ import notificacaoRoutes from './routes/notificacaoRoutes';
 import relatorioRoutes from './routes/relatorioRoutes';
 import treinamentoRoutes from './routes/treinamentoRoutes';
 import agendaRoutes from './routes/agendaRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 import errorMiddleware from './middlewares/errorMiddleware';
+import path from 'path';
 
 
 // Importa o handler de erros assíncronos (executa o código do módulo)
@@ -85,6 +87,8 @@ app.use(cors({
 app.use(express.json());
 // Interpreta cookies
 app.use(cookieParser());
+// Serve arquivos estáticos da pasta uploads
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Middleware simples de log de requisições com tipos
 app.use((req: Request, res: Response, next: NextFunction) => {
@@ -124,6 +128,7 @@ app.use('/api/notificacoes', notificacaoRoutes);
 app.use('/api/relatorios', relatorioRoutes);
 app.use('/api/treinamentos', treinamentoRoutes);
 app.use('/api/agenda', agendaRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 8. Criação do Servidor HTTP e Configuração do Socket.IO
 const server = http.createServer(app); // Servidor HTTP usando o app Express
@@ -163,11 +168,22 @@ initializeSocketIO(io);
 app.use(errorMiddleware);
 
 
-// 10. Inicialização do Servidor
-server.listen(parseInt(PORT, 10), () => { // Faz parse do PORT para número
-  console.log(`Servidor backend rodando na porta ${PORT}`);
-  console.log(`Frontend esperado em: ${CLIENT_URL || '(URL não definida!)'}`);
-});
+// 10. Inicialização do Servidor com tratamento para porta em uso
+const startServer = (port: number) => {
+  server.listen(port, () => {
+    console.log(`Servidor backend rodando na porta ${port}`);
+    console.log(`Frontend esperado em: ${CLIENT_URL || '(URL não definida!)'}`);
+  }).on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.warn(`Porta ${port} já está em uso, tentando porta ${port + 1}...`);
+      startServer(port + 1);
+    } else {
+      console.error('Erro ao iniciar o servidor:', err);
+    }
+  });
+};
+
+startServer(parseInt(PORT, 10));
 
 // 11. (Opcional) Tratamento para encerramento gracioso
 process.on('SIGTERM', () => {

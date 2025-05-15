@@ -708,4 +708,167 @@ describe('Auth Controller', () => {
       expect(res.json).not.toHaveBeenCalled();
     });
   });
+
+  describe('changeEmail', () => {
+    const userId = new mongoose.Types.ObjectId().toString();
+    const mockUser = {
+      _id: userId,
+      nome: 'Test User',
+      email: 'old@example.com',
+      telefone: '1234567890',
+      cpfCnpj: '12345678901',
+      tipoUsuario: TipoUsuarioEnum.COMPRADOR,
+      comparePassword: jest.fn(),
+      save: jest.fn()
+    };
+
+    beforeEach(() => {
+      req.user = { userId, tipoUsuario: TipoUsuarioEnum.COMPRADOR };
+      req.body = {
+        currentPassword: 'password123',
+        newEmail: 'new@example.com'
+      };
+      (User.findById as jest.Mock).mockReturnValue({
+        select: jest.fn().mockResolvedValue(mockUser)
+      });
+      (User.findOne as jest.Mock).mockResolvedValue(null);
+      mockUser.comparePassword.mockResolvedValue(true);
+      mockUser.save.mockResolvedValue(mockUser);
+    });
+
+    it('should change email successfully when all validations pass', async () => {
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(User.findById).toHaveBeenCalledWith(userId);
+      expect(mockUser.comparePassword).toHaveBeenCalledWith('password123');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'new@example.com' });
+      expect(mockUser.email).toBe('new@example.com');
+      expect(mockUser.save).toHaveBeenCalled();
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Email alterado com sucesso.',
+        success: true
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 401 if user is not authenticated', async () => {
+      // Arrange
+      req.user = undefined;
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Não autorizado.' });
+      expect(User.findById).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 if required fields are missing', async () => {
+      // Arrange
+      req.body = { currentPassword: 'password123' }; // Missing newEmail
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Senha atual e novo email são obrigatórios.',
+        errorCode: 'EMAIL_CHANGE_MISSING_FIELDS'
+      });
+      expect(User.findById).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 if email format is invalid', async () => {
+      // Arrange
+      req.body.newEmail = 'invalid-email';
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Formato de email inválido.',
+        errorCode: 'EMAIL_CHANGE_INVALID_EMAIL_FORMAT'
+      });
+      expect(User.findById).not.toHaveBeenCalled();
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 404 if user not found', async () => {
+      // Arrange
+      (User.findById as jest.Mock).mockReturnValue({
+        select: jest.fn().mockResolvedValue(null)
+      });
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(User.findById).toHaveBeenCalledWith(userId);
+      expect(res.status).toHaveBeenCalledWith(404);
+      expect(res.json).toHaveBeenCalledWith({ message: 'Usuário não encontrado.' });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 401 if password is incorrect', async () => {
+      // Arrange
+      mockUser.comparePassword.mockResolvedValue(false);
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(User.findById).toHaveBeenCalledWith(userId);
+      expect(mockUser.comparePassword).toHaveBeenCalledWith('password123');
+      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Senha incorreta. Por favor, verifique e tente novamente.',
+        errorCode: 'EMAIL_CHANGE_INCORRECT_PASSWORD'
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should return 400 if email is already in use', async () => {
+      // Arrange
+      (User.findOne as jest.Mock).mockResolvedValue({ _id: 'another-user-id' });
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(User.findById).toHaveBeenCalledWith(userId);
+      expect(mockUser.comparePassword).toHaveBeenCalledWith('password123');
+      expect(User.findOne).toHaveBeenCalledWith({ email: 'new@example.com' });
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json).toHaveBeenCalledWith({
+        message: 'Este email já está em uso por outra conta.',
+        errorCode: 'EMAIL_CHANGE_EMAIL_IN_USE'
+      });
+      expect(next).not.toHaveBeenCalled();
+    });
+
+    it('should call next with error if an exception occurs', async () => {
+      // Arrange
+      const error = new Error('Database error');
+      (User.findById as jest.Mock).mockReturnValue({
+        select: jest.fn().mockRejectedValue(error)
+      });
+
+      // Act
+      await authController.changeEmail(req as Request, res as Response, next);
+
+      // Assert
+      expect(next).toHaveBeenCalledWith(error);
+      expect(res.status).not.toHaveBeenCalled();
+      expect(res.json).not.toHaveBeenCalled();
+    });
+  });
 });

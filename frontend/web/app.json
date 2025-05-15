@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "App Web",
+    "slug": "app-web",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./public/aplicativo-movel.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "web": {
+      "favicon": "./public/aplicativo-movel.png",
+      "bundler": "metro"
+    },
+    "plugins": []
+  }
+}

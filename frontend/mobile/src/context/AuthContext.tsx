@@ -44,15 +44,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isTokenValid, setIsTokenValid] = useState<boolean>(false); // Estado para controlar a validade do token
 
   // Função para verificar se o token é válido
-  const checkTokenValidity = (token: string): boolean => {
-    if (!token) return false;
+  const checkTokenValidity = (token?: string): boolean => {
+    if (!token || token.trim() === '') return false;
 
     try {
+      // Verifica se o token tem um formato válido (pelo menos 10 caracteres e não contém apenas espaços)
+      if (token.trim().length < 10) {
+        console.warn('AuthProvider: Token inválido - muito curto ou contém apenas espaços');
+        return false;
+      }
+
       // Aqui você pode implementar uma lógica mais robusta para verificar a validade do token
       // Por exemplo, decodificar um JWT e verificar a data de expiração
 
-      // Exemplo simples: verificar se o token tem pelo menos 10 caracteres
-      return token.length >= 10;
+      // Verificação básica de formato JWT (deve ter 3 partes separadas por ponto)
+      const parts = token.split('.');
+      if (parts.length !== 3) {
+        console.warn('AuthProvider: Token não parece ser um JWT válido (deve ter 3 partes)');
+        return false;
+      }
+
+      // Verificação adicional: cada parte deve ser uma string não vazia
+      if (parts.some(part => !part || part.trim() === '')) {
+        console.warn('AuthProvider: Token JWT contém partes vazias');
+        return false;
+      }
+
+      return true;
     } catch (error) {
       console.error('AuthProvider: Erro ao verificar validade do token:', error);
       return false;

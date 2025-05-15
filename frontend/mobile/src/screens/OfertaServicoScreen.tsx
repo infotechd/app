@@ -21,11 +21,13 @@ import {
   Switch
 } from 'react-native';
 
-// 1. Imports
+// 1. Importações
 import { useAuth } from "@/context/AuthContext";
 import {
   fetchMyOffers as apiFetchMyOffers,
-  createOffer as apiCreateOffer
+  createOffer as apiCreateOffer,
+  fetchMyOfferById as apiFetchMyOfferById,
+  updateOffer as apiUpdateOffer
 } from '../services/api';
 import { Offer, OfferData, OfferStatus, IDisponibilidade, IRecorrenciaSemanal, IHorarioDisponivel } from "@/types/offer"; // Tipos de Oferta
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -42,6 +44,10 @@ type OfertaServicoScreenProps = NativeStackScreenProps<RootStackParamList, 'Ofer
 export default function OfertaServicoScreen({ navigation, route }: OfertaServicoScreenProps) {
   // 3. Obter usuário (para token) e parâmetros da rota
   const { user } = useAuth();
+
+  // Verificar se estamos no modo de edição
+  const isEditMode = route.params?.mode === 'edit';
+  const editOfferId = isEditMode ? route.params?.offerId : null;
 
   // Função para formatar o preço no padrão brasileiro (R$ 1.234,56)
   const formatarPrecoParaBRL = (valor: string): string => {
@@ -78,7 +84,7 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   const [descricao, setDescricao] = useState<string>('');
   const [descricaoError, setDescricaoError] = useState<string | null>(null);
 
-  const [preco, setPreco] = useState<string>(''); // Input é string
+  const [preco, setPreco] = useState<string>(''); // Entrada é string
   const [precoError, setPrecoError] = useState<string | null>(null);
 
   // Inicializa com 'ready' para que novas ofertas sejam criadas como "Pronta" por padrão
@@ -98,12 +104,14 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
   const [tempHorario, setTempHorario] = useState<IHorarioDisponivel>({ inicio: '08:00', fim: '18:00' });
 
-  const [isCreating, setIsCreating] = useState<boolean>(false); // Loading para criação
+  const [isCreating, setIsCreating] = useState<boolean>(false); // Carregando para criação
+  const [isLoadingOffer, setIsLoadingOffer] = useState<boolean>(false); // Carregando para carregamento da oferta em modo de edição
   const [formTouched, setFormTouched] = useState<boolean>(false); // Para mostrar erros apenas após interação
+  const [currentOffer, setCurrentOffer] = useState<Offer | null>(null); // Armazena a oferta atual em modo de edição
 
   // Estados da Lista
   const [ofertas, setOfertas] = useState<Offer[]>([]);
-  const [loadingList, setLoadingList] = useState<boolean>(true); // Loading para lista
+  const [loadingList, setLoadingList] = useState<boolean>(true); // Carregando para lista
   const [error, setError] = useState<string | null>(null);
 
   // 5. Refatorar fetchOfertas com melhor tratamento de erros
@@ -162,6 +170,68 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
     }
   }, [user?.token]); // Depende do token do usuário
 
+  // Função para carregar os detalhes da oferta em modo de edição
+  const fetchOfferDetails = useCallback(async () => {
+    if (!isEditMode || !editOfferId || !user?.token) {
+      return;
+    }
+
+    setIsLoadingOffer(true);
+    setError(null);
+
+    try {
+      const response = await apiFetchMyOfferById(user.token, editOfferId);
+
+      if (response && response.success && response.offer) {
+        setCurrentOffer(response.offer);
+
+        // Preencher os campos do formulário com os dados da oferta
+        setDescricao(response.offer.descricao || '');
+
+        // Formatar o preço para o formato brasileiro
+        if (response.offer.preco !== undefined) {
+          const precoFormatado = response.offer.preco.toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          });
+          setPreco(precoFormatado);
+        }
+
+        // Definir o status
+        setStatus(response.offer.status || 'ready');
+
+        // Configurar a disponibilidade
+        if (response.offer.disponibilidade) {
+          if (typeof response.offer.disponibilidade === 'object') {
+            const disp = response.offer.disponibilidade as IDisponibilidade;
+
+            setDisponibilidade({
+              recorrenciaSemanal: disp.recorrenciaSemanal || [],
+              duracaoMediaMinutos: disp.duracaoMediaMinutos,
+              observacoes: disp.observacoes || ''
+            });
+
+            // Configurar os dias selecionados para a interface
+            if (disp.recorrenciaSemanal && disp.recorrenciaSemanal.length > 0) {
+              setShowRecorrencia(true);
+              setSelectedDays(disp.recorrenciaSemanal.map(rec => rec.diaSemana));
+            }
+          }
+        }
+      } else {
+        setError(response?.message || 'Não foi possível carregar os detalhes da oferta');
+        Alert.alert('Erro', 'Não foi possível carregar os detalhes da oferta para edição');
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Erro desconhecido';
+      console.error('Erro ao carregar detalhes da oferta:', msg);
+      setError(msg);
+      Alert.alert('Erro', `Erro ao carregar detalhes da oferta: ${msg}`);
+    } finally {
+      setIsLoadingOffer(false);
+    }
+  }, [isEditMode, editOfferId, user?.token]);
+
   // Carrega as ofertas ao montar ou quando o token mudar
   useEffect(() => {
     const loadOfertas = async () => {
@@ -171,6 +241,13 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       console.error("Erro ao carregar ofertas:", error);
     });
   }, [fetchOfertas]);
+
+  // Carrega os detalhes da oferta em modo de edição
+  useEffect(() => {
+    if (isEditMode && editOfferId) {
+      fetchOfferDetails();
+    }
+  }, [isEditMode, editOfferId, fetchOfferDetails]);
 
   // Função para validar descrição
   const validateDescricao = (text: string): string | null => {
@@ -383,7 +460,7 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   };
 
   // 6. Refatorar handleCreateOffer com melhor tratamento de erros e validação aprimorada
-  const handleCreateOffer = async () => {
+  const handleSubmitOffer = async () => {
     if (!user?.token) {
       Alert.alert('Erro', 'Autenticação necessária.');
       return;
@@ -462,52 +539,67 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       disponibilidade: disponibilidadePayload,
     };
 
-    console.log('Enviando oferta com status:', offerData.status);
+    console.log(`${isEditMode ? 'Atualizando' : 'Enviando'} oferta com status:`, offerData.status);
 
     try {
-      // A função apiCreateOffer agora tem melhor tratamento de erros
-      const response = await apiCreateOffer(user.token, offerData);
+      let response;
+
+      // Verifica se estamos no modo de edição ou criação
+      if (isEditMode && editOfferId) {
+        // Atualizar oferta existente
+        response = await apiUpdateOffer(user.token, editOfferId, offerData);
+      } else {
+        // Criar nova oferta
+        response = await apiCreateOffer(user.token, offerData);
+      }
 
       // Verifica se a resposta indica sucesso
       if (response.success) {
-        console.log('Oferta criada com sucesso. Resposta:', response);
+        console.log(`Oferta ${isEditMode ? 'atualizada' : 'criada'} com sucesso. Resposta:`, response);
 
         // Mensagem de sucesso mais informativa
         const statusText = status === 'draft' ? 'rascunho' : 'pronta para publicação';
+        const actionText = isEditMode ? 'atualizada' : 'criada';
+
         Alert.alert(
           'Sucesso', 
-          `Oferta criada com sucesso como "${statusText}"! ${response.message || ''}`
+          `Oferta ${actionText} com sucesso como "${statusText}"! ${response.message || ''}`
         );
 
-        // Limpar formulário
-        setDescricao('');
-        setPreco('');
-        setDisponibilidade({
-          recorrenciaSemanal: [],
-          duracaoMediaMinutos: undefined,
-          observacoes: ''
-        });
-        setSelectedDays([]);
-        setShowRecorrencia(false);
-        // Mantém o status atual para facilitar a criação de múltiplas ofertas com o mesmo status
+        // Se estiver no modo de edição, voltar para a tela anterior
+        if (isEditMode) {
+          navigation.goBack();
+        } else {
+          // Limpar formulário apenas se estiver criando uma nova oferta
+          setDescricao('');
+          setPreco('');
+          setDisponibilidade({
+            recorrenciaSemanal: [],
+            duracaoMediaMinutos: undefined,
+            observacoes: ''
+          });
+          setSelectedDays([]);
+          setShowRecorrencia(false);
+          // Mantém o status atual para facilitar a criação de múltiplas ofertas com o mesmo status
+        }
 
         // Recarregar a lista de ofertas
         await fetchOfertas();
 
-        // Verificar se a oferta foi realmente criada com o status correto
+        // Verificar se a oferta foi realmente criada/atualizada com o status correto
         console.log('Lista de ofertas atualizada, verificando status das ofertas recentes');
       } else {
         // Este caso não deve ocorrer com as melhorias na API, mas mantemos por segurança
-        console.warn('Resposta da API indica falha ao criar oferta:', response);
+        console.warn(`Resposta da API indica falha ao ${isEditMode ? 'atualizar' : 'criar'} oferta:`, response);
         Alert.alert(
           'Aviso', 
-          response.message || 'Não foi possível confirmar se a oferta foi criada. Verifique sua lista de ofertas.'
+          response.message || `Não foi possível confirmar se a oferta foi ${isEditMode ? 'atualizada' : 'criada'}. Verifique sua lista de ofertas.`
         );
       }
     } catch (err) {
       // Tratamento de erros melhorado com mensagens mais específicas
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.error('Erro ao criar oferta:', msg);
+      console.error(`Erro ao ${isEditMode ? 'atualizar' : 'criar'} oferta:`, msg);
 
       // Verifica se é um erro de conexão
       if (msg.includes('Network') || msg.includes('timeout') || msg.includes('connection')) {
@@ -533,7 +625,7 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       // Erro genérico com mais detalhes
       else {
         Alert.alert(
-          'Erro ao Criar Oferta', 
+          `Erro ao ${isEditMode ? 'Atualizar' : 'Criar'} Oferta`, 
           'Ocorreu um erro ao processar sua solicitação. Detalhes: ' + msg
         );
       }
@@ -670,7 +762,14 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       data: ["form"] as const,
       renderItem: () => (
         <View style={styles.formContainer}>
-          <Text style={styles.formTitle}>Criar Nova Oferta</Text>
+          <Text style={styles.formTitle}>{isEditMode ? "Editar Oferta" : "Criar Nova Oferta"}</Text>
+
+          {isLoadingOffer && (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#3498db" />
+              <Text style={styles.loadingText}>Carregando dados da oferta...</Text>
+            </View>
+          )}
           <Text style={styles.label}>Descrição <Text style={styles.required}>*</Text></Text>
           <TextInput
             placeholder="Descrição detalhada do serviço"
@@ -921,13 +1020,15 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
           <TouchableOpacity
             style={[
               styles.createButton,
-              (isCreating || loadingList) && styles.createButtonDisabled
+              (isCreating || loadingList || isLoadingOffer) && styles.createButtonDisabled
             ]}
-            onPress={handleCreateOffer}
-            disabled={isCreating || loadingList}
+            onPress={handleSubmitOffer}
+            disabled={isCreating || loadingList || isLoadingOffer}
           >
             <Text style={styles.createButtonText}>
-              {isCreating ? "Criando..." : "Criar Oferta"}
+              {isCreating 
+                ? isEditMode ? "Atualizando..." : "Criando..." 
+                : isEditMode ? "Atualizar Oferta" : "Criar Oferta"}
             </Text>
           </TouchableOpacity>
 
@@ -1442,6 +1543,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
     fontStyle: 'italic',
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   // Estilos para o banner de aviso
   warningBanner: {

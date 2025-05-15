@@ -27,7 +27,9 @@ export type PublicacaoStatus = z.infer<typeof publicacaoStatusSchema>;
  * Zod schema for EventoDetails
  */
 export const eventoDetailsSchema = z.object({
-  dataEvento: z.string(),
+  dataEvento: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/, {
+    message: "Formato de data inválido. Use YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS.MSSZ"
+  }),
   local: z.string().optional(),
   tema: z.string().optional(),
 });
@@ -43,9 +45,11 @@ export const publicacaoSchema = z.object({
   conteudo: z.string().min(1, { message: "Conteúdo é obrigatório" }),
   tipo: publicacaoTypeSchema,
   status: publicacaoStatusSchema,
-  dataPostagem: z.string(),
+  dataPostagem: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/, {
+    message: "Formato de data inválido. Use YYYY-MM-DD ou YYYY-MM-DDTHH:MM:SS.MSSZ"
+  }),
   autorId: z.string(),
-  
+
   // Optional fields
   autor: z.object({
     idUsuario: z.string(),
@@ -64,17 +68,17 @@ export type Publicacao = z.infer<typeof publicacaoSchema>;
 export const publicacaoDataSchema = z.object({
   conteudo: z.string().min(1, { message: "Conteúdo é obrigatório" }),
   tipo: publicacaoTypeSchema,
-  detalhesEvento: eventoDetailsSchema.optional().superRefine((val, ctx) => {
+  detalhesEvento: eventoDetailsSchema.optional(),
+}).refine(
+  (data) => {
     // Se o tipo for 'evento', detalhesEvento é obrigatório
-    if (ctx.path[0] === 'tipo' && ctx.data.tipo === 'evento' && !val) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Detalhes do evento são obrigatórios para publicações do tipo 'evento'",
-        path: ['detalhesEvento']
-      });
-    }
-  }),
-});
+    return data.tipo !== 'evento' || (data.tipo === 'evento' && !!data.detalhesEvento);
+  },
+  {
+    message: "Detalhes do evento são obrigatórios para publicações do tipo 'evento'",
+    path: ['detalhesEvento']
+  }
+);
 
 // Type inference from the schema
 export type PublicacaoData = z.infer<typeof publicacaoDataSchema>;

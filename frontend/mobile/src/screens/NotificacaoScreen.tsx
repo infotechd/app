@@ -101,7 +101,12 @@ export default function NotificacaoScreen({ }: NotificacaoScreenProps) {
       { text: "Excluir", style: "destructive", onPress: async () => {
           setActionLoadingId(id);
           try {
-            await apiDeleteNotificacao(user.token, id);
+            // Garantir que token é uma string
+            const token = user.token;
+            if (!token) {
+              throw new Error("Token de autenticação não disponível");
+            }
+            await apiDeleteNotificacao(token, id);
             // Atualiza a lista localmente ou busca novamente
             await loadNotifications(true); // Recarrega silenciosamente
             // Ou: Atualização otimista

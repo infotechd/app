@@ -27,7 +27,7 @@ export enum TipoUsuarioEnum {
  * e no padrão comum de autenticação com token.
  */
 export interface User {
-  idUsuario: string; // Identificador único (ex: ID do banco de dados)
+  idUsuario?: string; // Identificador único (ex: ID do banco de dados)
   id?: string;      // Identificador alternativo que pode vir da API
   nome: string;
   email: string;
@@ -35,7 +35,8 @@ export interface User {
 
   // O token é frequentemente incluído no objeto do usuário gerenciado pelo AuthContext
   // ou retornado junto com o usuário no login. Essencial para chamadas API autenticadas.
-  token: string;
+  // Marcado como opcional para permitir atualizações parciais do perfil
+  token?: string;
 
   // Campos opcionais que podem ou não estar presentes dependendo do contexto
   // ou se o perfil foi completamente preenchido.

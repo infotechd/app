@@ -34,7 +34,7 @@ import {
   ContratacaoData
 } from '../types/contratacao';
 
-// Import Zod schemas
+// Importa schemas do Zod
 import { loginResponseSchema, registrationResponseSchema, updateProfileResponseSchema, 
   deleteAccountResponseSchema, fetchOffersResponseSchema, offerMutationResponseSchema,
   contratacaoResponseSchema, fetchContratacoesResponseSchema } from '../schemas/api.schema';
@@ -93,10 +93,10 @@ export interface FetchOfferDetailResponse {
   message?: string;
 }
 
-// --- API Client Utilities ---
+// --- Utilitários do Cliente API ---
 
 /**
- * Interface for API request options
+ * Interface para opções de requisição da API
  */
 interface ApiRequestOptions {
   method: string;
@@ -108,7 +108,7 @@ interface ApiRequestOptions {
 }
 
 /**
- * Interface for API response
+ * Interface para resposta da API
  */
 interface ApiResponse<T> {
   data: T;
@@ -117,19 +117,19 @@ interface ApiResponse<T> {
 }
 
 /**
- * Checks if the environment is a test environment
+ * Verifica se o ambiente é um ambiente de teste
  */
 const isTestEnvironment = (): boolean => {
   return process.env.NODE_ENV === 'test';
 };
 
 /**
- * Checks network connectivity
- * @returns Promise that resolves if connectivity is available
+ * Verifica a conectividade de rede
+ * @returns Promise que é resolvida se a conectividade estiver disponível
  */
 const checkConnectivity = async (): Promise<void> => {
   if (isTestEnvironment()) {
-    return; // Skip connectivity check in test environment
+    return; // Pula a verificação de conectividade em ambiente de teste
   }
 
   try {
@@ -138,15 +138,15 @@ const checkConnectivity = async (): Promise<void> => {
     console.log('✓ Conectividade com internet confirmada');
   } catch (error) {
     console.error('✗ Falha na verificação de conectividade:', error);
-    // Continue even if connectivity check fails
+    // Continua mesmo se a verificação de conectividade falhar
   }
 };
 
 /**
- * Builds a URL with query parameters
- * @param baseUrl - The base URL
- * @param params - The query parameters
- * @returns The complete URL with query parameters
+ * Constrói uma URL com parâmetros de consulta
+ * @param baseUrl - A URL base
+ * @param params - Os parâmetros de consulta
+ * @returns A URL completa com parâmetros de consulta
  */
 const buildUrl = (baseUrl: string, params?: Record<string, any>): string => {
   if (!params) {
@@ -170,10 +170,10 @@ const buildUrl = (baseUrl: string, params?: Record<string, any>): string => {
 };
 
 /**
- * Parses the response from the API
- * @param response - The fetch Response object
- * @returns Promise that resolves with the parsed data
- * @throws Error if the response cannot be parsed
+ * Analisa a resposta da API
+ * @param response - O objeto Response do fetch
+ * @returns Promise que é resolvida com os dados analisados
+ * @throws Erro se a resposta não puder ser analisada
  */
 const parseResponse = async <T>(response: Response): Promise<T> => {
   try {
@@ -184,15 +184,28 @@ const parseResponse = async <T>(response: Response): Promise<T> => {
       return await response.text() as unknown as T;
     }
   } catch (error) {
-    console.error('Error parsing response:', error);
+    console.error('Erro ao analisar resposta:', error);
     throw new Error('Erro ao processar resposta da API');
   }
 };
 
 /**
- * Handles API errors
- * @param response - The fetch Response object
- * @returns Promise that resolves with the error data
+ * Classe de erro personalizada para erros da API que inclui um código de erro
+ */
+export class ApiError extends Error {
+  errorCode?: string;
+
+  constructor(message: string, errorCode?: string) {
+    super(message);
+    this.name = 'ApiError';
+    this.errorCode = errorCode;
+  }
+}
+
+/**
+ * Trata erros da API
+ * @param response - O objeto Response do fetch
+ * @returns Promise que é resolvida com os dados do erro
  */
 const handleApiError = async (response: Response): Promise<never> => {
   let errorData: ApiErrorResponse | null = null;
@@ -200,18 +213,20 @@ const handleApiError = async (response: Response): Promise<never> => {
   try {
     errorData = await response.json();
   } catch (e) {
-    // Ignore parse error
+    // Ignora erro de análise
   }
 
   const errorMessage = errorData?.message || `Erro na API: ${response.status} ${response.statusText}`;
-  throw new Error(errorMessage);
+  const errorCode = errorData?.errorCode;
+
+  throw new ApiError(errorMessage, errorCode);
 };
 
 /**
- * Makes an API request with retry logic
- * @param url - The URL to fetch
- * @param options - The request options
- * @returns Promise that resolves with the response
+ * Faz uma requisição à API com lógica de novas tentativas
+ * @param url - A URL para buscar
+ * @param options - As opções da requisição
+ * @returns Promise que é resolvida com a resposta
  */
 async function fetchWithRetry(
   url: string, 
@@ -225,73 +240,73 @@ async function fetchWithRetry(
     try {
       const response = await fetch(url, options);
 
-      // If it's a 404, we might want to retry
+      // Se for um 404, podemos querer tentar novamente
       if (response.status === 404) {
-        // On last attempt, return the 404 response
+        // Na última tentativa, retorna a resposta 404
         if (attempt === retries) {
           return response;
         }
-        // Otherwise wait and retry
+        // Caso contrário, espera e tenta novamente
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
-      // For other responses, return immediately
+      // Para outras respostas, retorna imediatamente
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
 
-      // On last attempt, throw the error
+      // Na última tentativa, lança o erro
       if (attempt === retries) {
         throw lastError;
       }
 
-      // Otherwise wait and retry
+      // Caso contrário, espera e tenta novamente
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
-  // This should never happen due to the throw in the loop
-  throw lastError || new Error('Unknown error in fetchWithRetry');
+  // Isso nunca deveria acontecer devido ao lançamento de erro no loop
+  throw lastError || new Error('Erro desconhecido em fetchWithRetry');
 }
 
 /**
- * Makes an API request
- * @param endpoint - The API endpoint
- * @param options - The request options
- * @returns Promise that resolves with the response data
+ * Faz uma requisição à API
+ * @param endpoint - O endpoint da API
+ * @param options - As opções da requisição
+ * @returns Promise que é resolvida com os dados da resposta
  */
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
   const url = buildUrl(`${API_URL}${endpoint}`);
 
-  // Prepare headers
+  // Prepara os cabeçalhos
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     ...options.headers || {}
   };
 
-  // Add Content-Type header if body is present
+  // Adiciona cabeçalho Content-Type se o corpo estiver presente
   if (options.body && !headers['Content-Type']) {
     headers['Content-Type'] = 'application/json';
   }
 
-  // Add Authorization header if token is present
+  // Adiciona cabeçalho Authorization se o token estiver presente
   if (options.token) {
     headers['Authorization'] = `Bearer ${options.token}`;
   }
 
-  // Prepare request options
+  // Prepara opções da requisição
   const fetchOptions: RequestInit = {
     method: options.method,
     headers,
   };
 
-  // Add body if present
+  // Adiciona corpo se estiver presente
   if (options.body) {
     fetchOptions.body = JSON.stringify(options.body);
   }
 
-  // Make the request
+  // Faz a requisição
   const response = await fetchWithRetry(
     url, 
     fetchOptions, 
@@ -299,15 +314,15 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
     options.delay || 1000
   );
 
-  // Handle error responses
+  // Trata respostas de erro
   if (!response.ok) {
     return handleApiError(response);
   }
 
-  // Parse and return the response
+  // Analisa e retorna a resposta
   return parseResponse<T>(response);
 }
-// --- API Functions ---
+// --- Funções da API ---
 
 /**
  * Realiza a chamada de API para autenticar o usuário.
@@ -335,6 +350,13 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
       retries: 3,
       delay: 1000
     });
+
+    // Adiciona o token ao objeto user antes da validação
+    // Isso é necessário porque o backend envia o token separadamente,
+    // mas o schema espera que o token esteja dentro do objeto user
+    if (response.token && response.user) {
+      response.user.token = response.token;
+    }
 
     // Validar resposta com Zod
     const data = validateWithZod(loginResponseSchema, response);
@@ -445,7 +467,23 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
     }
 
     // Validar dados do perfil com Zod
+    console.log('Dados do perfil recebidos para atualização:', JSON.stringify(profileData, null, 2));
     const validatedProfileData = validateWithZod(profileUpdateDataSchema, profileData);
+    console.log('Dados do perfil validados:', JSON.stringify(validatedProfileData, null, 2));
+
+    // Verificar se o email está sendo alterado - isso não deve ser permitido aqui
+    // Use a função requestEmailChange para alterar o email com verificação de segurança
+    if (validatedProfileData.email) {
+      console.warn('Tentativa de atualizar email através da função updateProfile. Use requestEmailChange para isso.');
+      delete validatedProfileData.email;
+    }
+
+    // Verificar se a foto está sendo atualizada
+    if (validatedProfileData.foto) {
+      console.log('URL da foto a ser atualizada:', validatedProfileData.foto);
+    } else {
+      console.warn('Nenhuma URL de foto fornecida para atualização');
+    }
 
     const response = await apiRequest<UpdateProfileResponse>('/auth/profile', {
       method: 'PUT',
@@ -454,7 +492,21 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
     });
 
     // Validar resposta com Zod
+    console.log('Resposta recebida do servidor:', JSON.stringify(response, null, 2));
     const data = validateWithZod(updateProfileResponseSchema, response);
+    console.log('Resposta validada:', JSON.stringify(data, null, 2));
+
+    // Verificar se a resposta contém os dados do usuário atualizados
+    if (data.user) {
+      console.log('Dados do usuário retornados pelo servidor:', JSON.stringify(data.user, null, 2));
+      if (data.user.foto) {
+        console.log('URL da foto atualizada retornada pelo servidor:', data.user.foto);
+      } else {
+        console.warn('Servidor não retornou URL da foto no objeto do usuário');
+      }
+    } else {
+      console.warn('Servidor não retornou dados do usuário na resposta');
+    }
 
     console.log('✓ Perfil atualizado com sucesso!');
     return data;
@@ -465,6 +517,99 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
       throw error;
     } else {
       throw new Error('Erro desconhecido ao atualizar perfil');
+    }
+  }
+};
+
+/**
+ * Interface para os dados necessários para solicitar uma alteração de email
+ */
+export interface EmailChangeRequest {
+  currentPassword: string;
+  newEmail: string;
+}
+
+/**
+ * Interface para a resposta da solicitação de alteração de email
+ */
+export interface EmailChangeResponse {
+  message: string;
+  success: boolean;
+}
+
+/**
+ * Solicita uma alteração de email com verificação de segurança.
+ * Requer a senha atual do usuário e envia um email de verificação para o novo endereço.
+ * 
+ * @param token - O token JWT do usuário autenticado.
+ * @param data - Objeto contendo a senha atual e o novo email.
+ * @returns Uma Promise que resolve com a mensagem de sucesso.
+ * @throws Lança um erro em caso de falha.
+ */
+/**
+ * Códigos de erro específicos para a funcionalidade de alteração de email
+ */
+export enum EmailChangeErrorCode {
+  INVALID_TOKEN = 'EMAIL_CHANGE_INVALID_TOKEN',
+  MISSING_FIELDS = 'EMAIL_CHANGE_MISSING_FIELDS',
+  INVALID_EMAIL_FORMAT = 'EMAIL_CHANGE_INVALID_EMAIL_FORMAT',
+  INCORRECT_PASSWORD = 'EMAIL_CHANGE_INCORRECT_PASSWORD',
+  EMAIL_IN_USE = 'EMAIL_CHANGE_EMAIL_IN_USE',
+  FEATURE_UNAVAILABLE = 'EMAIL_CHANGE_FEATURE_UNAVAILABLE',
+  UNKNOWN_ERROR = 'EMAIL_CHANGE_UNKNOWN_ERROR'
+}
+
+export const requestEmailChange = async (token: string, data: EmailChangeRequest): Promise<EmailChangeResponse> => {
+  try {
+    console.log('=== SOLICITANDO ALTERAÇÃO DE EMAIL ===');
+
+    // Validar token
+    if (!token || typeof token !== 'string') {
+      throw new ApiError('Token inválido', EmailChangeErrorCode.INVALID_TOKEN);
+    }
+
+    // Validar dados básicos
+    if (!data.currentPassword || !data.newEmail) {
+      throw new ApiError('Senha atual e novo email são obrigatórios', EmailChangeErrorCode.MISSING_FIELDS);
+    }
+
+    // Validar formato do email básico no cliente antes de enviar ao servidor
+    if (!/\S+@\S+\.\S+/.test(data.newEmail)) {
+      throw new ApiError('Formato de email inválido', EmailChangeErrorCode.INVALID_EMAIL_FORMAT);
+    }
+
+    // Nota: As validações de senha e verificação de email já existente 
+    // agora são realizadas no backend
+
+    // Endpoint agora implementado no backend
+    console.log('✓ Enviando solicitação de alteração de email para o backend');
+
+    const response = await apiRequest<EmailChangeResponse>('/auth/change-email', {
+      method: 'POST',
+      token,
+      body: {
+        currentPassword: data.currentPassword,
+        newEmail: data.newEmail
+      }
+    });
+
+    console.log('✓ Solicitação de alteração de email enviada com sucesso!');
+    return {
+      message: response.message || 'Email alterado com sucesso.',
+      success: true
+    };
+  } catch (error) {
+    console.error('=== ERRO AO SOLICITAR ALTERAÇÃO DE EMAIL ===', error);
+
+    if (error instanceof ApiError) {
+      // Se já é um ApiError, apenas repassa
+      throw error;
+    } else if (error instanceof Error) {
+      // Converte Error comum para ApiError com código genérico
+      throw new ApiError(error.message, EmailChangeErrorCode.UNKNOWN_ERROR);
+    } else {
+      // Erro desconhecido
+      throw new ApiError('Erro desconhecido ao solicitar alteração de email', EmailChangeErrorCode.UNKNOWN_ERROR);
     }
   }
 };
@@ -1026,30 +1171,45 @@ export const hireOffer = async (token: string, contratacaoData: ContratacaoData)
 
 /**
  * Busca detalhes de uma oferta pública específica pelo ID.
- * Não requer autenticação, mas a oferta deve estar com status 'disponível'.
+ * Pode incluir autenticação opcional para usuários logados.
  * @param offerId - ID da oferta a ser buscada.
+ * @param token - Token JWT opcional para usuários autenticados.
  * @returns Promise resolvendo com os detalhes da oferta.
  */
-export const fetchPublicOfferById = async (offerId: string): Promise<FetchOfferDetailResponse> => {
+export const fetchPublicOfferById = async (offerId: string, token?: string): Promise<FetchOfferDetailResponse> => {
   // Tenta primeiro com o endpoint principal
   try {
+    // Prepara os headers com ou sem token de autenticação
+    const headers: HeadersInit = {
+      'Accept': 'application/json',
+    };
+
+    // Adiciona o token de autorização se fornecido
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_URL}/ofertas/public/${offerId}`, {
       method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-      },
+      headers,
     });
 
     if (!response.ok) {
       // Se for 404, tenta com endpoint alternativo
       if (response.status === 404) {
         // Tenta com endpoint alternativo
-        return await fetchPublicOfferByIdFallback(offerId);
+        return await fetchPublicOfferByIdFallback(offerId, token);
       }
 
       let errorData: ApiErrorResponse | null = null;
       try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-      throw new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+
+      // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+      return {
+        success: false,
+        offer: undefined,
+        message: errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`
+      };
     }
 
     const data = await response.json();
@@ -1061,21 +1221,30 @@ export const fetchPublicOfferById = async (offerId: string): Promise<FetchOfferD
   } catch (error) {
     if (error instanceof Error && error.message.includes('404')) {
       // Se o erro for 404, tenta com endpoint alternativo
-      return await fetchPublicOfferByIdFallback(offerId);
+      return await fetchPublicOfferByIdFallback(offerId, token);
     }
 
     console.error("API fetchPublicOfferById: Erro na requisição", error);
-    throw error;
+
+    // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+    return {
+      success: false,
+      offer: undefined,
+      message: error instanceof Error ? error.message : `Erro ao buscar detalhes da oferta ${offerId}`
+    };
   }
 };
 
 // Função de fallback que tenta endpoints alternativos
-const fetchPublicOfferByIdFallback = async (offerId: string): Promise<FetchOfferDetailResponse> => {
+const fetchPublicOfferByIdFallback = async (offerId: string, token?: string): Promise<FetchOfferDetailResponse> => {
   // Lista de endpoints alternativos para tentar
   const fallbackEndpoints = [
     `/oferta/public/${offerId}`,
     `/ofertas/${offerId}`,
-    `/oferta/${offerId}`
+    `/oferta/${offerId}`,
+    // Adiciona endpoints que funcionam para usuários autenticados
+    `/ofertas/${offerId}/details`,
+    `/ofertas/${offerId}/public`
   ];
 
   let lastError: Error | null = null;
@@ -1083,11 +1252,19 @@ const fetchPublicOfferByIdFallback = async (offerId: string): Promise<FetchOffer
   // Tenta cada endpoint alternativo
   for (const endpoint of fallbackEndpoints) {
     try {
+      // Prepara os headers com ou sem token de autenticação
+      const headers: HeadersInit = {
+        'Accept': 'application/json',
+      };
+
+      // Adiciona o token de autorização se fornecido
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const response = await fetch(`${API_URL}${endpoint}`, {
         method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        },
+        headers,
       });
 
       if (response.ok) {
@@ -1110,7 +1287,14 @@ const fetchPublicOfferByIdFallback = async (offerId: string): Promise<FetchOffer
 
   // Se chegou aqui, todos os endpoints falharam
   console.error("API fetchPublicOfferById: Todos os endpoints falharam", lastError);
-  throw new Error(`Erro ao buscar detalhes da oferta ${offerId}: 404`);
+
+  // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+  // Isso permite que o componente OfferDetailScreen lide com o caso de oferta não encontrada
+  return {
+    success: false,
+    offer: undefined,
+    message: `Erro ao buscar detalhes da oferta ${offerId}, verifique se a oferta existe e está disponível`
+  };
 };
 
 /**
@@ -1123,7 +1307,7 @@ const fetchPublicOfferByIdFallback = async (offerId: string): Promise<FetchOffer
 export const fetchMyOfferById = async (token: string, offerId: string): Promise<FetchOfferDetailResponse> => {
   // Tenta primeiro com o endpoint principal
   try {
-    const response = await fetch(`${API_URL}/ofertas/my-offers/${offerId}`, {
+    const response = await fetch(`${API_URL}/ofertas/${offerId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -1140,7 +1324,13 @@ export const fetchMyOfferById = async (token: string, offerId: string): Promise<
 
       let errorData: ApiErrorResponse | null = null;
       try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-      throw new Error(errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`);
+
+      // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+      return {
+        success: false,
+        offer: undefined,
+        message: errorData?.message || `Erro ao buscar detalhes da oferta ${offerId}: ${response.status}`
+      };
     }
 
     const data = await response.json();
@@ -1156,7 +1346,13 @@ export const fetchMyOfferById = async (token: string, offerId: string): Promise<
     }
 
     console.error("API fetchMyOfferById: Erro na requisição", error);
-    throw error;
+
+    // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+    return {
+      success: false,
+      offer: undefined,
+      message: error instanceof Error ? error.message : `Erro ao buscar detalhes da oferta ${offerId}`
+    };
   }
 };
 
@@ -1164,9 +1360,9 @@ export const fetchMyOfferById = async (token: string, offerId: string): Promise<
 const fetchMyOfferByIdFallback = async (token: string, offerId: string): Promise<FetchOfferDetailResponse> => {
   // Lista de endpoints alternativos para tentar
   const fallbackEndpoints = [
-    `/oferta/my-offers/${offerId}`,
-    `/ofertas/my/${offerId}`,
-    `/oferta/my/${offerId}`
+    `/oferta/${offerId}`,
+    `/ofertas/${offerId}/details`,
+    `/ofertas/${offerId}/public`
   ];
 
   let lastError: Error | null = null;
@@ -1202,7 +1398,14 @@ const fetchMyOfferByIdFallback = async (token: string, offerId: string): Promise
 
   // Se chegou aqui, todos os endpoints falharam
   console.error("API fetchMyOfferById: Todos os endpoints falharam", lastError);
-  throw new Error(`Erro ao buscar detalhes da oferta ${offerId}: 404`);
+
+  // Em vez de lançar um erro, retornamos um objeto de resposta com offer: undefined
+  // Isso permite que o componente OfferDetailScreen lide com o caso de oferta não encontrada
+  return {
+    success: false,
+    offer: undefined,
+    message: `Oferta ${offerId} não encontrada`
+  };
 };
 
 // --- Função da API de Pagamento ---

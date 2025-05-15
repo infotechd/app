@@ -1,4 +1,6 @@
 // src/controllers/anuncioController.ts
+// Controlador responsável por gerenciar todas as operações relacionadas a anúncios
+// Inclui funções para criação, edição, listagem, aprovação e exclusão de anúncios
 
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
@@ -6,6 +8,8 @@ import Anuncio, { IAnuncio, AnuncioStatusEnum } from '../models/Anuncio'; // Imp
 import User, { TipoUsuarioEnum } from '../models/User'; // Importa enum e talvez modelo do User se precisar popular
 
 // --- Funções do Controller ---
+// Este arquivo contém todas as funções de controle para gerenciamento de anúncios
+// Inclui operações para anunciantes, administradores e visualizações públicas
 
 // =============================================
 // == Funções para Anunciantes (JÁ EXISTIAM) ==
@@ -14,6 +18,7 @@ import User, { TipoUsuarioEnum } from '../models/User'; // Importa enum e talvez
 /**
  * Cria um novo anúncio com status inicial 'rascunho'.
  * Requer que o usuário seja um Anunciante. (CU7 - Criação)
+ * Esta função valida o usuário, extrai dados do corpo da requisição e cria um novo anúncio no banco de dados.
  */
 export const criarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado e é um anunciante
@@ -33,17 +38,18 @@ export const criarAnuncio = async (req: Request, res: Response, next: NextFuncti
     }
     // TODO: Adicionar mais validações (formato de datas, URL do link, estrutura da segmentação, etc.)
 
+    // Cria uma nova instância do modelo de Anúncio com os dados fornecidos
     const novoAnuncio = new Anuncio({
       anuncianteId: req.user.userId, // Associa o anúncio ao usuário logado
       titulo,
       conteudo,
-      imagens,
-      link,
-      tipoAnuncio,
-      dataInicioExibicao: dataInicioExibicao ? new Date(dataInicioExibicao) : undefined,
-      dataFimExibicao: dataFimExibicao ? new Date(dataFimExibicao) : undefined,
-      segmentacao,
-      status: AnuncioStatusEnum.RASCUNHO // Status inicial padrão
+      imagens, // Array de URLs de imagens
+      link, // Link externo opcional
+      tipoAnuncio, // Tipo/categoria do anúncio
+      dataInicioExibicao: dataInicioExibicao ? new Date(dataInicioExibicao) : undefined, // Converte string para objeto Date
+      dataFimExibicao: dataFimExibicao ? new Date(dataFimExibicao) : undefined, // Converte string para objeto Date
+      segmentacao, // Informações de segmentação do público-alvo
+      status: AnuncioStatusEnum.RASCUNHO // Status inicial sempre como rascunho
     });
 
     const anuncioSalvo = await novoAnuncio.save();
@@ -58,6 +64,7 @@ export const criarAnuncio = async (req: Request, res: Response, next: NextFuncti
 /**
  * Anunciante submete um anúncio em 'rascunho' para revisão. (Não estava nos erros, mas incluída)
  * Muda o status para 'pendente_aprovacao'.
+ * Esta função permite que um anunciante envie um anúncio em estado de rascunho para ser revisado pelos administradores.
  */
 export const submeterParaRevisao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -73,7 +80,8 @@ export const submeterParaRevisao = async (req: Request, res: Response, next: Nex
   }
 
   try {
-    // Busca o anúncio e verifica se pertence ao usuário logado
+    // Busca o anúncio no banco de dados e verifica se pertence ao usuário logado
+    // Isso garante que um anunciante só possa submeter seus próprios anúncios
     const anuncio = await Anuncio.findOne({ _id: anuncioId, anuncianteId: anuncianteId });
 
     if (!anuncio) {
@@ -81,7 +89,8 @@ export const submeterParaRevisao = async (req: Request, res: Response, next: Nex
       return;
     }
 
-    // Só pode submeter se estiver em rascunho
+    // Verifica se o anúncio está no estado correto para submissão
+    // Só permite submeter para revisão anúncios que estejam em estado de rascunho
     if (anuncio.status !== AnuncioStatusEnum.RASCUNHO) {
       res.status(400).json({ message: `Não é possível submeter para revisão um anúncio com status '${anuncio.status}'. Só anúncios em Rascunho.` });
       return;
@@ -104,6 +113,7 @@ export const submeterParaRevisao = async (req: Request, res: Response, next: Nex
 
 /**
  * Lista os anúncios pertencentes ao anunciante logado.
+ * Esta função recupera todos os anúncios criados pelo anunciante atual, ordenados por data de criação.
  */
 export const listarMeusAnuncios = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -124,6 +134,7 @@ export const listarMeusAnuncios = async (req: Request, res: Response, next: Next
 
 /**
  * Obtém detalhes de um anúncio específico pertencente ao anunciante logado.
+ * Esta função busca informações detalhadas de um anúncio específico, verificando se o anunciante tem permissão para acessá-lo.
  */
 export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -133,7 +144,7 @@ export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next:
   const { anuncioId } = req.params;
   const anuncianteId = req.user.userId;
 
-  // Valida se o ID é um ObjectId válido do MongoDB
+  // Valida se o ID fornecido é um ObjectId válido do MongoDB
   if (!mongoose.Types.ObjectId.isValid(anuncioId)) {
     res.status(400).json({ message: 'ID do anúncio inválido.' });
     return;
@@ -141,10 +152,12 @@ export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next:
 
   try {
     // Busca o anúncio pelo ID e verifica se pertence ao anunciante logado
+    // Usa uma única consulta que combina o ID do anúncio e o ID do anunciante
     const anuncio = await Anuncio.findOne({ _id: anuncioId, anuncianteId: anuncianteId });
 
     if (!anuncio) {
       // Retorna 404 se não encontrar ou se não pertencer ao usuário
+      // Não especifica qual dos dois casos ocorreu por questões de segurança
       res.status(404).json({ message: 'Anúncio não encontrado ou não pertence a você.' });
       return;
     }
@@ -160,6 +173,7 @@ export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next:
  * Atualiza os dados de um anúncio existente.
  * Geralmente permitido enquanto em 'rascunho' ou talvez 'pausado'.
  * Requer que o usuário seja o anunciante dono.
+ * Esta função permite modificar os campos de um anúncio existente, com validações de permissão e estado.
  */
 export const atualizarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -175,10 +189,10 @@ export const atualizarAnuncio = async (req: Request, res: Response, next: NextFu
     return;
   }
 
-  // Campos que podem ser atualizados (exemplo, ajuste conforme necessário)
+  // Define quais campos do anúncio podem ser atualizados pelo anunciante
   const allowedUpdates = ['titulo', 'conteudo', 'imagens', 'link', 'tipoAnuncio', 'dataInicioExibicao', 'dataFimExibicao', 'segmentacao'];
-  const receivedUpdates = Object.keys(updates);
-  const isValidOperation = receivedUpdates.every(update => allowedUpdates.includes(update));
+  const receivedUpdates = Object.keys(updates); // Obtém os campos que o anunciante está tentando atualizar
+  const isValidOperation = receivedUpdates.every(update => allowedUpdates.includes(update)); // Verifica se todos os campos são permitidos
 
   if (!isValidOperation) {
     res.status(400).json({ message: 'Atualização inválida! Campos não permitidos fornecidos.' });
@@ -225,9 +239,12 @@ export const atualizarAnuncio = async (req: Request, res: Response, next: NextFu
 // =============================================
 // == Funções Públicas (ESTAVAM FALTANDO)    ==
 // =============================================
+// Estas funções permitem acesso público aos anúncios aprovados
+// São utilizadas para exibição de anúncios aos usuários finais
 
 /**
  * Lista anúncios públicos aprovados/ativos. (CU7 - Visualização)
+ * Esta função retorna todos os anúncios que foram aprovados e estão disponíveis para visualização pública.
  */
 export const listarAnunciosPublicos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -235,11 +252,12 @@ export const listarAnunciosPublicos = async (req: Request, res: Response, next: 
     // TODO: Implementar paginação (req.query: page, limit)
     // TODO: Considerar não mostrar anúncios com data de exibição futura ou passada, se aplicável
 
+    // Define os critérios de busca para anúncios públicos
     const query = {
       status: AnuncioStatusEnum.APROVADO, // Somente anúncios aprovados
       // Opcional: Filtrar por data de exibição, se necessário
-      // dataInicioExibicao: { $lte: new Date() },
-      // dataFimExibicao: { $gte: new Date() },
+      // dataInicioExibicao: { $lte: new Date() }, // Data de início menor ou igual a agora
+      // dataFimExibicao: { $gte: new Date() }, // Data de fim maior ou igual a agora
     };
 
     const anuncios = await Anuncio.find(query)
@@ -256,6 +274,7 @@ export const listarAnunciosPublicos = async (req: Request, res: Response, next: 
 
 /**
  * Vê detalhes de um anúncio público específico.
+ * Esta função recupera informações detalhadas de um anúncio aprovado específico para visualização pública.
  */
 export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const { anuncioId } = req.params;
@@ -266,12 +285,13 @@ export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, n
   }
 
   try {
+    // Busca o anúncio no banco de dados, garantindo que esteja aprovado
     const anuncio = await Anuncio.findOne({
       _id: anuncioId,
-      status: AnuncioStatusEnum.APROVADO // Garante que só busca aprovados
+      status: AnuncioStatusEnum.APROVADO // Garante que só busca anúncios aprovados para visualização pública
     })
-      .select('-historicoStatus -rejeicaoMotivo') // Exclui campos internos
-      .populate('anuncianteId', 'nome email foto'); // Puxa dados do anunciante
+      .select('-historicoStatus -rejeicaoMotivo') // Exclui campos internos/administrativos da resposta
+      .populate('anuncianteId', 'nome email foto'); // Inclui dados básicos do anunciante na resposta
 
     if (!anuncio) {
       res.status(404).json({ message: 'Anúncio não encontrado ou não está ativo.' });
@@ -280,7 +300,7 @@ export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, n
 
     // TODO: Incrementar contador de visualizações se necessário
     // anuncio.visualizacoes = (anuncio.visualizacoes || 0) + 1;
-    // await anuncio.save(); // Cuidado com concorrência aqui
+    // await anuncio.save(); // Cuidado com problemas de concorrência aqui
 
     res.status(200).json(anuncio);
 
@@ -292,9 +312,13 @@ export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, n
 // ============================================================
 // == Funções Anunciante (Status/Delete - ESTAVAM FALTANDO) ==
 // ============================================================
+// Estas funções permitem que anunciantes gerenciem o status de seus anúncios
+// e também possam excluir anúncios quando necessário
 
 /**
  * Anunciante atualiza o status de seu anúncio (ex: pausar, reativar).
+ * Esta função permite que um anunciante altere o status de seus próprios anúncios,
+ * com validações para garantir que apenas transições permitidas sejam realizadas.
  */
 export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -317,12 +341,14 @@ export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Respon
   }
 
   // TODO: Definir quais transições de status são permitidas para o ANUNCIANTE
-  // Ex: Anunciante pode mudar de APROVADO para PAUSADO, ou de PAUSADO para APROVADO?
-  //     Anunciante pode mudar de RASCUNHO para PENDENTE? (Talvez usar submeterParaRevisao)
+  // Exemplo: Anunciante pode mudar de APROVADO para PAUSADO, ou de PAUSADO para APROVADO?
+  // Anunciante pode mudar de RASCUNHO para PENDENTE? (Talvez usar submeterParaRevisao)
+  // Define as transições de status permitidas para o anunciante
+  // Mapeia cada status atual para os status para os quais ele pode ser alterado
   const allowedTransitions: { [key in AnuncioStatusEnum]?: AnuncioStatusEnum[] } = {
-    [AnuncioStatusEnum.APROVADO]: [AnuncioStatusEnum.PAUSADO],
-    [AnuncioStatusEnum.PAUSADO]: [AnuncioStatusEnum.APROVADO], // Exemplo: permitir reativar
-    // Rascunho -> Pendente é feito por 'submeterParaRevisao'
+    [AnuncioStatusEnum.APROVADO]: [AnuncioStatusEnum.PAUSADO], // Anunciante pode pausar um anúncio ativo
+    [AnuncioStatusEnum.PAUSADO]: [AnuncioStatusEnum.APROVADO], // Anunciante pode reativar um anúncio pausado
+    // Rascunho -> Pendente é feito pela função 'submeterParaRevisao'
   };
 
   try {
@@ -360,6 +386,7 @@ export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Respon
 /**
  * Deleta um anúncio. (CU?).
  * Requer que o usuário seja o anunciante dono.
+ * Esta função permite que um anunciante exclua permanentemente um de seus anúncios do sistema.
  */
 export const deletarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
@@ -375,7 +402,8 @@ export const deletarAnuncio = async (req: Request, res: Response, next: NextFunc
   }
 
   try {
-    // Encontra e deleta o anúncio se pertencer ao usuário
+    // Busca e remove o anúncio do banco de dados em uma única operação
+    // Garante que apenas o proprietário do anúncio possa excluí-lo
     const result = await Anuncio.findOneAndDelete({ _id: anuncioId, anuncianteId: anuncianteId });
 
     if (!result) {
@@ -384,7 +412,7 @@ export const deletarAnuncio = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    // TODO: Deletar imagens associadas do S3/Cloudinary, se houver
+    // TODO: Implementar limpeza de recursos associados (imagens no S3/Cloudinary, etc)
 
     res.status(200).json({ message: 'Anúncio deletado com sucesso.' });
 
@@ -397,9 +425,12 @@ export const deletarAnuncio = async (req: Request, res: Response, next: NextFunc
 // =============================================
 // == Funções de Administração (ESTAVAM FALTANDO) ==
 // =============================================
+// Estas funções são exclusivas para administradores do sistema
+// Permitem gerenciar o processo de aprovação de anúncios
 
 /**
  * Admin lista anúncios pendentes de aprovação. (CU20)
+ * Esta função retorna todos os anúncios que estão aguardando revisão por um administrador.
  */
 export const listarAnunciosPendentes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado E é um ADMIN
@@ -410,9 +441,10 @@ export const listarAnunciosPendentes = async (req: Request, res: Response, next:
 
   try {
     // TODO: Implementar paginação (req.query: page, limit)
+    // Busca todos os anúncios com status pendente de aprovação
     const anunciosPendentes = await Anuncio.find({ status: AnuncioStatusEnum.PENDENTE_APROVACAO })
-      .populate('anuncianteId', 'nome email') // Puxa dados do anunciante para o admin ver
-      .sort({ createdAt: 1 }); // Ordena pelos mais antigos primeiro
+      .populate('anuncianteId', 'nome email') // Inclui dados do anunciante para o administrador identificar a origem
+      .sort({ createdAt: 1 }); // Ordena pelos mais antigos primeiro (fila de aprovação)
 
     res.status(200).json(anunciosPendentes);
 
@@ -423,6 +455,7 @@ export const listarAnunciosPendentes = async (req: Request, res: Response, next:
 
 /**
  * Admin aprova ou rejeita um anúncio pendente. (CU20)
+ * Esta função permite que um administrador revise um anúncio pendente e decida se ele deve ser aprovado ou rejeitado.
  */
 export const revisarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado E é um ADMIN
@@ -465,23 +498,24 @@ export const revisarAnuncio = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    // Aplica a revisão
+    // Aplica a decisão de revisão (aprovação ou rejeição)
     if (acao === 'aprovar') {
       anuncio.status = AnuncioStatusEnum.APROVADO;
-      anuncio.rejeicaoMotivo = undefined; // Limpa motivo anterior, se houver
+      anuncio.rejeicaoMotivo = undefined; // Limpa motivo de rejeição anterior, se houver
       // TODO: Definir data de aprovação se necessário: anuncio.dataAprovacao = new Date();
     } else { // acao === 'rejeitar'
       anuncio.status = AnuncioStatusEnum.REJEITADO;
-      anuncio.rejeicaoMotivo = motivo;
+      anuncio.rejeicaoMotivo = motivo; // Armazena o motivo da rejeição para feedback ao anunciante
       // TODO: Definir data de rejeição se necessário: anuncio.dataRejeicao = new Date();
     }
 
-    // Adiciona ao histórico (exemplo)
+    // Opção para adicionar ao histórico de status do anúncio
     // anuncio.historicoStatus.push({ status: anuncio.status, data: new Date(), adminId: req.user.userId });
 
+    // Salva as alterações no banco de dados
     const anuncioRevisado = await anuncio.save();
 
-    // TODO: Notificar o anunciante sobre o resultado da revisão (opcional)
+    // TODO: Implementar notificação ao anunciante sobre o resultado da revisão (opcional)
 
     res.status(200).json({ message: `Anúncio ${acao === 'aprovar' ? 'aprovado' : 'rejeitado'} com sucesso.`, anuncio: anuncioRevisado });
 

@@ -19,7 +19,7 @@ import RegistrationScreen from '../screens/RegistrationScreen';
 
 // Telas Privadas (Autenticadas)
 import HomeScreen from '../screens/HomeScreen';
-import EditProfileScreen from '../screens/EditProfileScreen';
+import EditProfileScreen from '../screens/NewEditProfileScreen';
 import TreinamentoListScreen from '../screens/TreinamentoListScreen';
 import TreinamentoDetailScreen from '../screens/TreinamentoDetailScreen';
 import TreinamentoCreateScreen from '../screens/TreinamentoCreateScreen';

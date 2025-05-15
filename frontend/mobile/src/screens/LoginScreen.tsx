@@ -28,8 +28,34 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
   // 7. Refatorar handleLogin
   const handleLogin = async () => {
-    if (!email || !senha) {
-      Alert.alert('Erro', 'Preencha email e senha.');
+    // Validação mais completa no frontend antes de enviar para a API
+    if (!email) {
+      Alert.alert('Erro', 'O email é obrigatório.');
+      return;
+    }
+
+    // Validar formato de email
+    const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Erro', 'Por favor, insira um endereço de email válido.');
+      return;
+    }
+
+    if (!senha) {
+      Alert.alert('Erro', 'A senha é obrigatória.');
+      return;
+    }
+
+    // Validar requisitos de senha
+    if (senha.length < 6) {
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+
+    // Verificar se a senha contém pelo menos uma letra maiúscula, uma minúscula e um número
+    const senhaRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
+    if (!senhaRegex.test(senha)) {
+      Alert.alert('Erro', 'A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número.');
       return;
     }
 
@@ -56,24 +82,43 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         throw new Error('ID do usuário não encontrado na resposta');
       }
 
+      // Verifica se o token está presente e não é vazio
+      if (!loginResponse.token || loginResponse.token.trim() === '') {
+        const errorMessage = 'Erro de validação: user.token: Required';
+        console.error('[Login Mobile] Token ausente ou vazio na resposta:', errorMessage);
+        Alert.alert('Erro no Login', errorMessage);
+        return; // Encerra a função sem prosseguir
+      }
+
       // Prepara o objeto User para o contexto (ajuste conforme sua interface User no AuthContext)
       const userForContext = {
         ...loginResponse.user,
-        // Garante que token esteja presente no objeto user
-        token: loginResponse.token || '',
-        // Garante que idUsuario esteja presente (o backend retorna id, não idUsuario)
-        idUsuario: loginResponse.user.id || loginResponse.user.idUsuario || ''
+        // Garante que token esteja presente no objeto user e não seja vazio
+        token: loginResponse.token,
+        // Garante que idUsuario esteja presente (o backend pode retornar id ou idUsuario)
+        idUsuario: loginResponse.user.idUsuario || loginResponse.user.id || ''
       };
 
+      // Log para diagnóstico do objeto de usuário e token
+      console.log('[Login Mobile] Objeto de usuário criado:', {
+        ...userForContext,
+        token: userForContext.token ? `${userForContext.token.substring(0, 10)}...` : 'AUSENTE', // Mostra apenas parte do token por segurança
+        temToken: !!userForContext.token,
+        tokenLength: userForContext.token ? userForContext.token.length : 0
+      });
+
       // Valida se os campos obrigatórios estão presentes (verificação extra de segurança)
-      if (!userForContext.idUsuario || !userForContext.token) {
-        let errorMessage = 'Erro de validação:';
-        if (!userForContext.idUsuario) errorMessage += ' user.idUsuario: Required';
-        if (!userForContext.token) errorMessage += ' user.token: Required';
-
+      if (!userForContext.idUsuario && !userForContext.id) {
+        const errorMessage = 'Erro de validação: user.idUsuario: Required';
         console.error('[Login Mobile] Validação falhou após construção do objeto de usuário:', errorMessage);
+        Alert.alert('Erro no Login', errorMessage);
+        return; // Encerra a função sem prosseguir
+      }
 
-        // Exibe o alerta para o usuário
+      // Verifica se o token foi corretamente adicionado ao objeto de usuário
+      if (!userForContext.token || userForContext.token.trim() === '') {
+        const errorMessage = 'Erro de validação: user.token: Required';
+        console.error('[Login Mobile] Token não foi adicionado corretamente ao objeto de usuário:', errorMessage);
         Alert.alert('Erro no Login', errorMessage);
         return; // Encerra a função sem prosseguir
       }

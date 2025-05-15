@@ -55,6 +55,9 @@ router.put('/profile', authMiddleware, validateUpdateUser, authController.editPr
 // DELETE /api/auth/profile : Excluir conta do usuário logado (CU12)
 router.delete('/profile', authMiddleware, authController.deleteAccount);
 
+// POST /api/auth/change-email : Alterar email do usuário logado com verificação de segurança
+router.post('/change-email', authMiddleware, authController.changeEmail);
+
 // === ROTAS DE ADMINISTRAÇÃO (Exemplo - Protegidas e Autorizadas) ===
 
 // GET /api/auth/users : Listar todos os usuários (Requer Admin)

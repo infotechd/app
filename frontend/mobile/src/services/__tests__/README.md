@@ -136,10 +136,43 @@ pnpm test -- --watchAll=false
        : (process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.8:3000/api');
    ```
 
+## Integration Tests
+
+The following integration tests have been implemented:
+
+### updateFieldApi.integration.test.ts
+
+This file contains integration tests for the profile update functions:
+
+- **updateNome function**
+  - Tests updating user name through the actual API
+  - Verifies the API response and updated user data
+
+- **updateTelefone function**
+  - Tests updating user phone through the actual API
+  - Verifies the API response and updated user data
+
+- **updateEndereco function**
+  - Tests updating user address through the actual API
+  - Verifies the API response and updated user data
+
+- **Error handling**
+  - Tests handling of API errors with invalid tokens
+
+These tests interact with the actual API endpoints rather than mocking them, providing true integration testing.
+
+## Running Integration Tests
+
+To run only the integration tests:
+
+```bash
+pnpm test -- -t "Integration" --watchAll=false
+```
+
 ## Future Improvements
 
 - Add more edge cases and error scenarios
 - Test with different user types (provider, buyer, etc.)
-- Add integration tests that test the actual API endpoints
+- Add integration tests for other API functions
 - Improve test environment setup to handle complex API interactions
 - Add tests for additional functions as they are added to the API service

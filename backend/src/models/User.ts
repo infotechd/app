@@ -104,7 +104,25 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
       unique: true,
       trim: true,
       index: true,
-      // Validação de formato/validade deve ocorrer na camada de serviço/controller
+      validate: {
+        validator: function(value: string) {
+          // Remove caracteres não numéricos
+          const numeroLimpo = value.replace(/\D/g, '');
+
+          // Verifica se é CPF (11 dígitos) ou CNPJ (14 dígitos)
+          if (numeroLimpo.length !== 11 && numeroLimpo.length !== 14) {
+            return false;
+          }
+
+          // Validação básica: verifica se não são todos dígitos iguais
+          if (/^(\d)\1+$/.test(numeroLimpo)) {
+            return false;
+          }
+
+          return true;
+        },
+        message: 'CPF deve ter 11 dígitos e CNPJ deve ter 14 dígitos. Não pode conter todos os dígitos iguais.'
+      }
     },
     tipoUsuario: {
       type: String,

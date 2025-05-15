@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
@@ -10,7 +9,16 @@ import BuyerDashboard from './pages/BuyerDashboard';
 import ProviderDashboard from './pages/ProviderDashboard';
 import AdvertiserDashboard from './pages/AdvertiserDashboard';
 
-function App() {
+// Define user role types for type safety
+type UserRole = 'buyer' | 'prestador' | 'anunciante';
+
+// PrivateRoute component props type
+interface PrivateRouteProps {
+  requiredRole: UserRole;
+  children: React.ReactNode;
+}
+
+function App(): JSX.Element {
   return (
     <AuthProvider>
       <Router>

@@ -11,6 +11,16 @@ export const userRoleSchema = z.enum([
   TipoUsuarioEnum.ADMIN
 ]);
 
+/**
+ * Zod schema for TipoUsuarioEnum
+ */
+export const tipoUsuarioEnumSchema = z.enum([
+  TipoUsuarioEnum.COMPRADOR,
+  TipoUsuarioEnum.PRESTADOR,
+  TipoUsuarioEnum.ANUNCIANTE,
+  TipoUsuarioEnum.ADMIN
+]);
+
 // Type inference from the schema
 export type UserRole = z.infer<typeof userRoleSchema>;
 
@@ -23,7 +33,7 @@ export const userSchema = z.object({
   email: z.string().email({ message: "Email inválido" }),
   tipoUsuario: userRoleSchema,
   token: z.string(),
-  
+
   // Optional fields
   telefone: z.string().optional(),
   cpfCnpj: z.string().optional(),

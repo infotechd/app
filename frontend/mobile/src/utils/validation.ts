@@ -1,23 +1,23 @@
 import { z } from 'zod';
 
 /**
- * Validates data against a Zod schema and returns the validated data
- * @param schema The Zod schema to validate against
- * @param data The data to validate
- * @returns The validated data
- * @throws Error if validation fails
+ * Valida os dados contra um esquema Zod e retorna os dados validados
+ * @param schema O esquema Zod para validação
+ * @param data Os dados a serem validados
+ * @returns Os dados validados
+ * @throws Error se a validação falhar
  */
 export function validateWithZod<T>(schema: z.ZodType<T>, data: unknown): T {
   try {
     return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      // Format the error message
+      // Formata a mensagem de erro
       const formattedErrors = error.errors.map(err => {
         return `${err.path.join('.')}: ${err.message}`;
       }).join(', ');
-      
-      console.error('Validation error:', formattedErrors);
+
+      console.error('Erro de validação:', formattedErrors);
       throw new Error(`Erro de validação: ${formattedErrors}`);
     }
     throw error;
@@ -25,34 +25,34 @@ export function validateWithZod<T>(schema: z.ZodType<T>, data: unknown): T {
 }
 
 /**
- * Validates data against a Zod schema and returns the validated data or null if validation fails
- * @param schema The Zod schema to validate against
- * @param data The data to validate
- * @returns The validated data or null if validation fails
+ * Valida os dados contra um esquema Zod e retorna os dados validados ou null se a validação falhar
+ * @param schema O esquema Zod para validação
+ * @param data Os dados a serem validados
+ * @returns Os dados validados ou null se a validação falhar
  */
 export function validateWithZodSafe<T>(schema: z.ZodType<T>, data: unknown): T | null {
   try {
     return schema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      // Format the error message
+      // Formata a mensagem de erro
       const formattedErrors = error.errors.map(err => {
         return `${err.path.join('.')}: ${err.message}`;
       }).join(', ');
-      
-      console.error('Validation error:', formattedErrors);
+
+      console.error('Erro de validação:', formattedErrors);
     } else {
-      console.error('Unknown validation error:', error);
+      console.error('Erro de validação desconhecido:', error);
     }
     return null;
   }
 }
 
 /**
- * Validates data against a Zod schema and returns a result object
- * @param schema The Zod schema to validate against
- * @param data The data to validate
- * @returns An object with success, data, and error properties
+ * Valida os dados contra um esquema Zod e retorna um objeto de resultado
+ * @param schema O esquema Zod para validação
+ * @param data Os dados a serem validados
+ * @returns Um objeto com propriedades de sucesso, dados e erro
  */
 export function validateWithZodResult<T>(schema: z.ZodType<T>, data: unknown): { 
   success: boolean; 
@@ -68,22 +68,22 @@ export function validateWithZodResult<T>(schema: z.ZodType<T>, data: unknown): {
     };
   } catch (error) {
     if (error instanceof z.ZodError) {
-      // Format the error message
+      // Formata a mensagem de erro
       const formattedErrors = error.errors.map(err => {
         return `${err.path.join('.')}: ${err.message}`;
       }).join(', ');
-      
+
       return {
         success: false,
         data: null,
         error: formattedErrors
       };
     }
-    
+
     return {
       success: false,
       data: null,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }

@@ -1,7 +1,7 @@
 // src/types/api.ts
 
 // Importa os tipos de usuário do arquivo vizinho
-import { User, UserRole } from './user';
+import { User, UserRole, TipoUsuarioEnum } from './user';
 import { Offer } from './offer'; // Importa Offer
 import { Contratacao} from './contratacao'; // Importar Contratacao
 
@@ -45,7 +45,7 @@ export interface RegistrationResponse {
 export interface ApiErrorResponse {
   message: string; // Mensagem de erro vinda do backend
   // statusCode?: number; // Opcional: código de status interno da API
-  // errorCode?: string;  // Opcional: código de erro específico
+  errorCode?: string;  // Código de erro específico para tratamento mais robusto
 }
 
 // --- Adicione outros tipos de API aqui ---
@@ -55,6 +55,8 @@ export interface ApiErrorResponse {
 // export interface CreateOfferData { ... }
 /** Dados que podem ser enviados para atualizar o perfil */
 export interface ProfileUpdateData {
+  idUsuario?: string; // Identificador único do usuário
+  id?: string;      // Identificador alternativo que pode vir da API
   nome?: string;
   email?: string; // É seguro permitir atualização de email? Depende das regras do backend
   telefone?: string;
