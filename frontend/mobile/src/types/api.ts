@@ -14,10 +14,16 @@ import { Contratacao} from './contratacao'; // Importar Contratacao
 //   senha: string;
 // }
 
-/** Resposta esperada da API de login em caso de sucesso */
+/** 
+ * Resposta esperada da API de login em caso de sucesso 
+ * 
+ * Nota: Embora o backend envie o token separadamente do objeto user,
+ * no frontend o token é adicionado ao objeto user antes da validação
+ * para facilitar o uso no AuthContext.
+ */
 export interface LoginResponse {
-  user: User;    // O objeto do usuário retornado
-  token: string; // O token JWT
+  user: User & { token: string }; // O objeto do usuário retornado com o token incluído
+  token?: string; // O token JWT (opcional aqui porque será movido para dentro do user)
   message?: string; // Mensagem opcional de sucesso
 }
 
@@ -31,6 +37,8 @@ export interface RegistrationData {
   tipoUsuario: TipoUsuarioEnum; // Usa o tipo TipoUsuarioEnum importado
   endereco?: string;
   foto?: string;
+  dataNascimento?: string | Date; // Data de nascimento do usuário
+  genero?: 'Feminino' | 'Masculino' | 'Prefiro não dizer'; // Gênero do usuário
 }
 
 /** Resposta esperada da API de registro em caso de sucesso */
@@ -63,6 +71,8 @@ export interface ProfileUpdateData {
   cpfCnpj?: string;
   endereco?: string;
   foto?: string;
+  dataNascimento?: string | Date; // Data de nascimento do usuário
+  genero?: 'Feminino' | 'Masculino' | 'Prefiro não dizer'; // Gênero do usuário
   // Adicione outros campos atualizáveis conforme necessário
 }
 

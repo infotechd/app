@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { TipoUsuarioEnum } from '../types/user';
 
 /**
  * Zod schema for TipoUsuarioEnum
@@ -18,14 +19,19 @@ export const userRoleSchema = tipoUsuarioEnumSchema;
 /**
  * Zod schema for User
  * Validates the structure of a user object
+ * Alinhado com a interface User em types/user.ts
  */
 export const userSchema = z.object({
-  // Aceita tanto idUsuario quanto id (um dos dois é obrigatório)
+  // Identificadores - pelo menos um deve estar presente
   idUsuario: z.string().optional(),
   id: z.string().optional(),
+
+  // Campos obrigatórios
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
   email: z.string().email({ message: 'Email inválido' }),
   tipoUsuario: tipoUsuarioEnumSchema,
+
+  // Token (opcional)
   token: z.string().optional(),
 
   // Campos opcionais
@@ -33,6 +39,14 @@ export const userSchema = z.object({
   cpfCnpj: z.string().optional(),
   endereco: z.string().optional(),
   foto: z.string().url({ message: 'URL da foto inválida' }).optional(),
+
+  // Campos adicionais alinhados com o backend
+  dataNascimento: z.union([z.string(), z.date()]).optional(),
+  genero: z.enum(['Feminino', 'Masculino', 'Prefiro não dizer']).optional(),
+
+  // Timestamps do MongoDB
+  createdAt: z.union([z.string(), z.date()]).optional(),
+  updatedAt: z.union([z.string(), z.date()]).optional(),
 }).refine(data => data.idUsuario || data.id, {
   message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
   path: ["idUsuario"]
@@ -112,6 +126,8 @@ export const profileUpdateDataSchema = z.object({
   cpfCnpj: z.string().min(11, { message: 'CPF/CNPJ inválido' }).optional(),
   endereco: z.string().optional(),
   foto: z.string().url({ message: 'URL da foto inválida' }).optional(),
+  dataNascimento: z.union([z.string(), z.date()]).optional(),
+  genero: z.enum(['Feminino', 'Masculino', 'Prefiro não dizer']).optional(),
 }).refine(data => data.idUsuario || data.id, {
   message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
   path: ["idUsuario"]

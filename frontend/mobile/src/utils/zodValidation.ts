@@ -13,11 +13,12 @@ export function validateWithZod<T>(schema: z.ZodType<T>, data: unknown): T {
   } catch (error) {
     if (error instanceof z.ZodError) {
       // Formata a mensagem de erro
-      const errorMessage = error.errors.map(err => 
-        `${err.path.join('.')}: ${err.message}`
-      ).join(', ');
+      const formattedErrors = error.errors.map(err => {
+        return `${err.path.join('.')}: ${err.message}`;
+      }).join(', ');
 
-      throw new Error(`Erro de validação: ${errorMessage}`);
+      console.error('Erro de validação:', formattedErrors);
+      throw new Error(`Erro de validação: ${formattedErrors}`);
     }
     throw error;
   }
@@ -33,7 +34,16 @@ export function validateWithZodSafe<T>(schema: z.ZodType<T>, data: unknown): T |
   try {
     return schema.parse(data);
   } catch (error) {
-    console.error('Erro de validação:', error);
+    if (error instanceof z.ZodError) {
+      // Formata a mensagem de erro
+      const formattedErrors = error.errors.map(err => {
+        return `${err.path.join('.')}: ${err.message}`;
+      }).join(', ');
+
+      console.error('Erro de validação:', formattedErrors);
+    } else {
+      console.error('Erro de validação desconhecido:', error);
+    }
     return null;
   }
 }
@@ -57,20 +67,23 @@ export function validateWithZodResult<T>(schema: z.ZodType<T>, data: unknown): {
       error: null
     };
   } catch (error) {
-    let errorMessage = 'Erro de validação desconhecido';
-
     if (error instanceof z.ZodError) {
-      errorMessage = error.errors.map(err => 
-        `${err.path.join('.')}: ${err.message}`
-      ).join(', ');
-    } else if (error instanceof Error) {
-      errorMessage = error.message;
+      // Formata a mensagem de erro
+      const formattedErrors = error.errors.map(err => {
+        return `${err.path.join('.')}: ${err.message}`;
+      }).join(', ');
+
+      return {
+        success: false,
+        data: null,
+        error: formattedErrors
+      };
     }
 
     return {
       success: false,
       data: null,
-      error: errorMessage
+      error: error instanceof Error ? error.message : 'Erro desconhecido'
     };
   }
 }

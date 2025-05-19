@@ -36,13 +36,8 @@ export const useImageUpload = (userToken: string | undefined) => {
     if (!hasPermission) return;
 
     try {
-      // Usar MediaType em vez de MediaTypeOptions (que foi depreciado)
-      const mediaType = ImagePicker.MediaType
-        ? ImagePicker.MediaType.Images
-        : 'images'; // Fallback para string 'images' se MediaType não existir
-
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: mediaType,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.7,

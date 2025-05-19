@@ -18,7 +18,9 @@ import {
   NativeSyntheticEvent,
   TextInputChangeEventData,
   ScrollView,
-  Switch
+  Switch,
+  Modal,
+  Pressable
 } from 'react-native';
 
 // 1. Importações
@@ -29,7 +31,18 @@ import {
   fetchMyOfferById as apiFetchMyOfferById,
   updateOffer as apiUpdateOffer
 } from '../services/api';
-import { Offer, OfferData, OfferStatus, IDisponibilidade, IRecorrenciaSemanal, IHorarioDisponivel } from "@/types/offer"; // Tipos de Oferta
+import { 
+  Offer, 
+  OfferData, 
+  OfferStatus, 
+  IDisponibilidade, 
+  IRecorrenciaSemanal, 
+  IHorarioDisponivel,
+  CategoriaServico,
+  EstadoBrasil,
+  CapitalBrasil,
+  ILocalizacao
+} from "@/types/offer"; // Tipos de Oferta
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types";
 
@@ -99,6 +112,19 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   });
   const [disponibilidadeError, setDisponibilidadeError] = useState<string | null>(null);
 
+  // Estado para categorias - inicializa com uma categoria padrão para evitar erro de validação
+  const [categorias, setCategorias] = useState<string[]>([CategoriaServico.OUTROS]);
+  const [categoriasError, setCategoriasError] = useState<string | null>(null);
+  const [showCategoriasModal, setShowCategoriasModal] = useState<boolean>(false);
+
+  // Estado para localização
+  const [localizacao, setLocalizacao] = useState<ILocalizacao>({
+    estado: EstadoBrasil.SP // São Paulo como padrão
+  });
+  const [localizacaoError, setLocalizacaoError] = useState<string | null>(null);
+  const [showEstadosModal, setShowEstadosModal] = useState<boolean>(false);
+  const [showCidadesModal, setShowCidadesModal] = useState<boolean>(false);
+
   // Estados para controlar a interface de disponibilidade
   const [showRecorrencia, setShowRecorrencia] = useState<boolean>(false);
   const [selectedDays, setSelectedDays] = useState<number[]>([]);
@@ -114,7 +140,7 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   const [loadingList, setLoadingList] = useState<boolean>(true); // Carregando para lista
   const [error, setError] = useState<string | null>(null);
 
-  // 5. Refatorar fetchOfertas com melhor tratamento de erros
+  // 5. Refatorar fetchOfertas com melhor tr atamento de erros
   const fetchOfertas = useCallback(async () => {
     if (!user?.token) {
       // Não deveria acontecer se a tela for protegida, mas é bom verificar
@@ -218,6 +244,16 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
             }
           }
         }
+
+        // Configurar as categorias
+        if (response.offer.categorias && Array.isArray(response.offer.categorias)) {
+          setCategorias(response.offer.categorias);
+        }
+
+        // Configurar a localização
+        if (response.offer.localizacao) {
+          setLocalizacao(response.offer.localizacao);
+        }
       } else {
         setError(response?.message || 'Não foi possível carregar os detalhes da oferta');
         Alert.alert('Erro', 'Não foi possível carregar os detalhes da oferta para edição');
@@ -251,94 +287,148 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
 
   // Função para validar descrição
   const validateDescricao = (text: string): string | null => {
+    console.log('Validando descrição:', text);
+    console.log('Comprimento da descrição:', text.trim().length);
+
     if (!text.trim()) {
+      console.log('ERRO: Descrição está vazia');
       return 'Descrição é obrigatória';
     } else if (text.trim().length < 10) {
+      console.log('ERRO: Descrição tem menos de 10 caracteres');
       return 'Descrição deve ter pelo menos 10 caracteres';
     } else if (text.trim().length > 500) {
+      console.log('ERRO: Descrição excede 500 caracteres');
       return 'Descrição deve ter no máximo 500 caracteres';
     }
+    console.log('Descrição válida');
     return null;
   };
 
   // Função para validar preço
   const validatePreco = (text: string): string | null => {
+    console.log('Validando preço:', text);
+
     if (!text.trim()) {
+      console.log('ERRO: Preço está vazio');
       return 'Preço é obrigatório';
     }
 
     // Validação para formato brasileiro
     // Remove caracteres de formatação (R$, espaços, pontos de milhar)
     const precoLimpo = text.replace(/[^\d,]/g, '');
+    console.log('Preço após limpeza:', precoLimpo);
 
     if (precoLimpo.length === 0) {
+      console.log('ERRO: Preço não contém números');
       return 'Preço deve conter números';
     }
 
     // Verifica se há apenas uma vírgula
     const virgulas = precoLimpo.split(',');
+    console.log('Partes do preço após split por vírgula:', virgulas);
+
     if (virgulas.length > 2) {
+      console.log('ERRO: Preço contém múltiplas vírgulas');
       return 'Formato de preço inválido. Use apenas uma vírgula como separador decimal';
     }
 
     // Verifica se o valor é maior que zero
     // Converte de formato brasileiro para número
     const valorNumerico = parseFloat(precoLimpo.replace(',', '.'));
-    if (isNaN(valorNumerico) || valorNumerico <= 0) {
+    console.log('Valor numérico do preço:', valorNumerico);
+
+    if (isNaN(valorNumerico)) {
+      console.log('ERRO: Preço não é um número válido');
+      return 'Preço deve ser um número válido';
+    } else if (valorNumerico <= 0) {
+      console.log('ERRO: Preço é menor ou igual a zero');
       return 'Preço deve ser maior que zero';
     }
 
     if (valorNumerico > 1000000) {
+      console.log('ERRO: Preço excede o limite máximo');
       return 'Preço máximo permitido é R$ 1.000.000,00';
     }
 
+    console.log('Preço válido');
     return null;
   };
 
   // Função para validar disponibilidade estruturada
   const validateDisponibilidade = (disp: IDisponibilidade): string | null => {
+    console.log('Validando disponibilidade:', JSON.stringify(disp, null, 2));
+
     // Verifica se pelo menos um dos campos está preenchido
     const hasRecorrencia = disp.recorrenciaSemanal && disp.recorrenciaSemanal.length > 0;
     const hasDuracao = disp.duracaoMediaMinutos !== undefined && disp.duracaoMediaMinutos > 0;
     const hasObservacoes = disp.observacoes && disp.observacoes.trim().length > 0;
 
+    console.log('Tem recorrência semanal?', hasRecorrencia);
+    console.log('Tem duração média?', hasDuracao);
+    console.log('Tem observações?', hasObservacoes);
+
     if (!hasRecorrencia && !hasDuracao && !hasObservacoes) {
+      console.log('ERRO: Nenhum campo de disponibilidade preenchido');
       return 'Preencha pelo menos um dos campos de disponibilidade';
     }
 
     // Validação específica para duração
     if (disp.duracaoMediaMinutos !== undefined) {
-      if (isNaN(disp.duracaoMediaMinutos) || disp.duracaoMediaMinutos <= 0) {
+      console.log('Duração média em minutos:', disp.duracaoMediaMinutos);
+
+      if (isNaN(disp.duracaoMediaMinutos)) {
+        console.log('ERRO: Duração média não é um número');
+        return 'Duração média deve ser um número positivo';
+      } else if (disp.duracaoMediaMinutos <= 0) {
+        console.log('ERRO: Duração média é menor ou igual a zero');
         return 'Duração média deve ser um número positivo';
       }
+
       if (disp.duracaoMediaMinutos > 480) { // 8 horas como limite máximo
+        console.log('ERRO: Duração média excede 480 minutos');
         return 'Duração média não deve exceder 480 minutos (8 horas)';
       }
     }
 
     // Validação para observações
-    if (disp.observacoes && disp.observacoes.trim().length > 500) {
-      return 'Observações devem ter no máximo 500 caracteres';
+    if (disp.observacoes) {
+      console.log('Comprimento das observações:', disp.observacoes.trim().length);
+
+      if (disp.observacoes.trim().length > 500) {
+        console.log('ERRO: Observações excedem 500 caracteres');
+        return 'Observações devem ter no máximo 500 caracteres';
+      }
     }
 
     // Validação para recorrência semanal
     if (hasRecorrencia) {
+      console.log('Validando recorrência semanal com', disp.recorrenciaSemanal!.length, 'dias');
+
       for (const recorrencia of disp.recorrenciaSemanal!) {
+        console.log('Validando dia da semana:', recorrencia.diaSemana);
+
         // Verifica se o dia da semana é válido
         if (recorrencia.diaSemana < 0 || recorrencia.diaSemana > 6) {
+          console.log('ERRO: Dia da semana inválido:', recorrencia.diaSemana);
           return 'Dia da semana inválido';
         }
 
         // Verifica se há horários definidos
         if (!recorrencia.horarios || recorrencia.horarios.length === 0) {
+          console.log('ERRO: Nenhum horário definido para o dia', recorrencia.diaSemana);
           return 'Adicione pelo menos um horário para cada dia selecionado';
         }
 
+        console.log('Validando', recorrencia.horarios.length, 'horários para o dia', recorrencia.diaSemana);
+
         // Verifica formato e validade dos horários
         for (const horario of recorrencia.horarios) {
+          console.log('Validando horário:', horario);
+
           const regexHora = /^([01]\d|2[0-3]):([0-5]\d)$/; // Formato HH:MM (00:00 a 23:59)
 
           if (!regexHora.test(horario.inicio) || !regexHora.test(horario.fim)) {
+            console.log('ERRO: Formato de horário inválido. Início:', horario.inicio, 'Fim:', horario.fim);
             return 'Formato de horário inválido. Use HH:MM (ex: 08:30)';
           }
 
@@ -349,13 +439,75 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
           const inicioEmMinutos = horaInicio * 60 + minInicio;
           const fimEmMinutos = horaFim * 60 + minFim;
 
+          console.log('Início em minutos:', inicioEmMinutos, 'Fim em minutos:', fimEmMinutos);
+
           if (fimEmMinutos <= inicioEmMinutos) {
+            console.log('ERRO: Hora final não é posterior à hora inicial');
             return 'Hora final deve ser posterior à hora inicial';
           }
         }
       }
     }
 
+    console.log('Disponibilidade válida');
+    return null;
+  };
+
+  // Função para validar categorias
+  const validateCategorias = (cats: string[]): string | null => {
+    console.log('Validando categorias:', cats);
+
+    if (!cats || cats.length === 0) {
+      console.log('ERRO: Nenhuma categoria selecionada');
+      return 'Selecione pelo menos uma categoria';
+    }
+
+    console.log('Número de categorias selecionadas:', cats.length);
+
+    // Verifica se todas as categorias são válidas
+    for (const cat of cats) {
+      console.log('Verificando categoria:', cat);
+      if (!Object.values(CategoriaServico).includes(cat as any)) {
+        console.log('ERRO: Categoria inválida selecionada:', cat);
+        console.log('Categorias válidas:', Object.values(CategoriaServico));
+        return 'Categoria inválida selecionada';
+      }
+    }
+
+    console.log('Categorias válidas');
+    return null;
+  };
+
+  // Função para validar localização
+  const validateLocalizacao = (loc: ILocalizacao): string | null => {
+    console.log('Validando localização:', JSON.stringify(loc, null, 2));
+
+    if (!loc || !loc.estado) {
+      console.log('ERRO: Estado não selecionado');
+      return 'Selecione um estado';
+    }
+
+    console.log('Estado selecionado:', loc.estado);
+
+    // Verifica se o estado é válido
+    if (!Object.values(EstadoBrasil).includes(loc.estado as any)) {
+      console.log('ERRO: Estado inválido selecionado:', loc.estado);
+      console.log('Estados válidos:', Object.values(EstadoBrasil));
+      return 'Estado inválido selecionado';
+    }
+
+    // Se tiver cidade, verifica se é válida para o estado
+    if (loc.cidade) {
+      console.log('Cidade selecionada:', loc.cidade);
+
+      // Aqui poderia ter uma validação mais complexa para verificar se a cidade pertence ao estado
+      // Por enquanto, apenas verificamos se é uma capital válida (se for uma capital)
+      if (Object.values(CapitalBrasil).includes(loc.cidade as any)) {
+        console.log('Cidade é uma capital válida');
+      }
+    }
+
+    console.log('Localização válida');
     return null;
   };
 
@@ -451,12 +603,41 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
     const descricaoErr = validateDescricao(descricao);
     const precoErr = validatePreco(preco);
     const disponibilidadeErr = validateDisponibilidade(disponibilidade);
+    const categoriasErr = validateCategorias(categorias);
+    const localizacaoErr = validateLocalizacao(localizacao);
 
     setDescricaoError(descricaoErr);
     setPrecoError(precoErr);
     setDisponibilidadeError(disponibilidadeErr);
+    setCategoriasError(categoriasErr);
+    setLocalizacaoError(localizacaoErr);
 
-    return !descricaoErr && !precoErr && !disponibilidadeErr;
+    // Log de erros de validação para identificar o que está causando problemas
+    console.log('=== VALIDAÇÃO DO FORMULÁRIO ===');
+    console.log('Valor da descrição:', descricao);
+    console.log('Erro de descrição:', descricaoErr);
+    console.log('Valor do preço:', preco);
+    console.log('Erro de preço:', precoErr);
+    console.log('Valor da disponibilidade:', JSON.stringify(disponibilidade, null, 2));
+    console.log('Erro de disponibilidade:', disponibilidadeErr);
+    console.log('Valor das categorias:', categorias);
+    console.log('Erro de categorias:', categoriasErr);
+    console.log('Valor da localização:', JSON.stringify(localizacao, null, 2));
+    console.log('Erro de localização:', localizacaoErr);
+
+    const isValid = !descricaoErr && !precoErr && !disponibilidadeErr && !categoriasErr && !localizacaoErr;
+    console.log('Formulário válido?', isValid);
+
+    if (!isValid) {
+      console.log('ERROS DE VALIDAÇÃO ENCONTRADOS:');
+      if (descricaoErr) console.log('- Descrição:', descricaoErr);
+      if (precoErr) console.log('- Preço:', precoErr);
+      if (disponibilidadeErr) console.log('- Disponibilidade:', disponibilidadeErr);
+      if (categoriasErr) console.log('- Categorias:', categoriasErr);
+      if (localizacaoErr) console.log('- Localização:', localizacaoErr);
+    }
+
+    return isValid;
   };
 
   // 6. Refatorar handleCreateOffer com melhor tratamento de erros e validação aprimorada
@@ -466,45 +647,68 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       return;
     }
 
+    // Verificação explícita para categorias vazias
+    if (!categorias || categorias.length === 0) {
+      setCategoriasError('Selecione pelo menos uma categoria');
+      Alert.alert('Erro de Validação', 'Selecione pelo menos uma categoria antes de continuar.');
+      return;
+    }
+
     // Validação completa do formulário
-    if (!validateForm()) {
+    console.log('Iniciando validação do formulário para submissão...');
+    const isValid = validateForm();
+    if (!isValid) {
+      console.log('Formulário inválido. Abortando submissão.');
       Alert.alert('Erro de Validação', 'Por favor, corrija os erros no formulário antes de continuar.');
       return;
     }
+    console.log('Formulário válido. Continuando com a submissão.');
 
     // Normalização do preço no formato brasileiro
     // Remove todos os caracteres não numéricos exceto a vírgula decimal
     let precoNormalizado = preco.trim();
     let precoNumero: number;
 
+    console.log('=== PROCESSAMENTO DO PREÇO ===');
+    console.log('Preço original:', preco);
+    console.log('Preço após trim:', precoNormalizado);
+
     try {
       // Remove caracteres de formatação (R$, espaços, pontos de milhar)
       // Mantém apenas dígitos e vírgula
       precoNormalizado = precoNormalizado.replace(/[^\d,]/g, '');
+      console.log('Preço após remover caracteres não numéricos:', precoNormalizado);
 
       // Substitui vírgula por ponto para conversão para número
       precoNormalizado = precoNormalizado.replace(',', '.');
+      console.log('Preço após substituir vírgula por ponto:', precoNormalizado);
 
       precoNumero = Number(precoNormalizado);
+      console.log('Preço convertido para número:', precoNumero);
 
       if (isNaN(precoNumero)) {
+        console.log('ERRO: Preço é NaN após conversão');
         setPrecoError('Preço inválido. Use apenas números e vírgula como separador decimal.');
         Alert.alert('Erro de Validação', 'Preço inválido. Use apenas números e vírgula como separador decimal.');
         return;
       } else if (precoNumero <= 0) {
+        console.log('ERRO: Preço é menor ou igual a zero:', precoNumero);
         setPrecoError('Preço deve ser maior que zero.');
         Alert.alert('Erro de Validação', 'Preço deve ser maior que zero.');
         return;
       } else if (precoNumero > 1000000) {
+        console.log('ERRO: Preço excede o limite máximo:', precoNumero);
         setPrecoError('Preço máximo permitido é R$ 1.000.000,00.');
         Alert.alert('Erro de Validação', 'Preço máximo permitido é R$ 1.000.000,00.');
         return;
       }
 
       // Se chegou aqui, o preço é válido
+      console.log('Preço validado com sucesso:', precoNumero);
       setPrecoError(null);
     } catch (error) {
       console.error('Erro ao processar preço:', error);
+      console.log('Detalhes do erro:', JSON.stringify(error));
       setPrecoError('Erro ao processar o preço. Verifique o formato.');
       Alert.alert('Erro de Validação', 'Erro ao processar o preço. Verifique o formato.');
       return;
@@ -537,6 +741,8 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       preco: precoNumero,
       status: status === 'draft' ? 'draft' : 'ready', // Força 'ready' a menos que seja explicitamente 'draft'
       disponibilidade: disponibilidadePayload,
+      categorias: categorias,
+      localizacao: localizacao,
     };
 
     console.log(`${isEditMode ? 'Atualizando' : 'Enviando'} oferta com status:`, offerData.status);
@@ -1012,6 +1218,207 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
           {disponibilidadeError && formTouched && (
             <Text style={styles.errorText}>{disponibilidadeError}</Text>
           )}
+
+          {/* Campo de Categorias */}
+          <Text style={styles.label}>Categorias <Text style={styles.required}>*</Text></Text>
+          <TouchableOpacity
+            style={[styles.input, categoriasError && formTouched ? styles.inputError : null]}
+            onPress={() => setShowCategoriasModal(true)}
+            disabled={isCreating}
+          >
+            <Text style={categorias.length > 0 ? styles.inputText : styles.placeholderText}>
+              {categorias.length > 0 
+                ? categorias.map(cat => cat).join(', ')
+                : 'Selecione as categorias'}
+            </Text>
+          </TouchableOpacity>
+          {categoriasError && formTouched && (
+            <Text style={styles.errorText}>{categoriasError}</Text>
+          )}
+
+          {/* Modal para seleção de categorias */}
+          <Modal
+            visible={showCategoriasModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowCategoriasModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Selecione as Categorias</Text>
+                <ScrollView style={styles.modalScrollView}>
+                  {Object.values(CategoriaServico).map((categoria, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.modalItem,
+                        categorias.includes(categoria) && styles.modalItemSelected
+                      ]}
+                      onPress={() => {
+                        if (categorias.includes(categoria)) {
+                          setCategorias(categorias.filter(cat => cat !== categoria));
+                        } else {
+                          setCategorias([...categorias, categoria]);
+                        }
+                        if (formTouched) {
+                          setCategoriasError(validateCategorias([...categorias]));
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.modalItemText,
+                        categorias.includes(categoria) && styles.modalItemTextSelected
+                      ]}>
+                        {categoria}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+                <TouchableOpacity
+                  style={styles.modalButton}
+                  onPress={() => {
+                    setShowCategoriasModal(false);
+                    if (formTouched) {
+                      setCategoriasError(validateCategorias(categorias));
+                    }
+                  }}
+                >
+                  <Text style={styles.modalButtonText}>Confirmar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Campo de Localização */}
+          <Text style={styles.label}>Localização <Text style={styles.required}>*</Text></Text>
+          <View style={styles.rowContainer}>
+            {/* Seleção de Estado */}
+            <TouchableOpacity
+              style={[styles.input, styles.inputHalf, localizacaoError && formTouched ? styles.inputError : null]}
+              onPress={() => setShowEstadosModal(true)}
+              disabled={isCreating}
+            >
+              <Text style={localizacao.estado ? styles.inputText : styles.placeholderText}>
+                {localizacao.estado || 'Selecione o estado'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Seleção de Cidade (apenas se um estado for selecionado) */}
+            {localizacao.estado && (
+              <TouchableOpacity
+                style={[styles.input, styles.inputHalf]}
+                onPress={() => setShowCidadesModal(true)}
+                disabled={isCreating}
+              >
+                <Text style={localizacao.cidade ? styles.inputText : styles.placeholderText}>
+                  {localizacao.cidade || 'Selecione a cidade (opcional)'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          {localizacaoError && formTouched && (
+            <Text style={styles.errorText}>{localizacaoError}</Text>
+          )}
+
+          {/* Modal para seleção de estados */}
+          <Modal
+            visible={showEstadosModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowEstadosModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Selecione o Estado</Text>
+                <ScrollView style={styles.modalScrollView}>
+                  {Object.values(EstadoBrasil).map((estado, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.modalItem,
+                        localizacao.estado === estado && styles.modalItemSelected
+                      ]}
+                      onPress={() => {
+                        setLocalizacao({
+                          estado: estado,
+                          cidade: undefined // Limpa a cidade ao mudar de estado
+                        });
+                        setShowEstadosModal(false);
+                        if (formTouched) {
+                          setLocalizacaoError(validateLocalizacao({estado}));
+                        }
+                      }}
+                    >
+                      <Text style={[
+                        styles.modalItemText,
+                        localizacao.estado === estado && styles.modalItemTextSelected
+                      ]}>
+                        {estado}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Modal para seleção de cidades */}
+          <Modal
+            visible={showCidadesModal}
+            transparent={true}
+            animationType="slide"
+            onRequestClose={() => setShowCidadesModal(false)}
+          >
+            <View style={styles.modalContainer}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Selecione a Cidade (Opcional)</Text>
+                <ScrollView style={styles.modalScrollView}>
+                  {/* Opção para limpar a seleção */}
+                  <TouchableOpacity
+                    style={styles.modalItem}
+                    onPress={() => {
+                      setLocalizacao({
+                        ...localizacao,
+                        cidade: undefined
+                      });
+                      setShowCidadesModal(false);
+                    }}
+                  >
+                    <Text style={styles.modalItemText}>Nenhuma (qualquer cidade)</Text>
+                  </TouchableOpacity>
+
+                  {/* Lista de capitais do estado selecionado */}
+                  {Object.values(CapitalBrasil)
+                    .filter(capital => capital.startsWith(localizacao.estado?.substring(0, 2) || ''))
+                    .map((capital, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={[
+                          styles.modalItem,
+                          localizacao.cidade === capital && styles.modalItemSelected
+                        ]}
+                        onPress={() => {
+                          setLocalizacao({
+                            ...localizacao,
+                            cidade: capital
+                          });
+                          setShowCidadesModal(false);
+                        }}
+                      >
+                        <Text style={[
+                          styles.modalItemText,
+                          localizacao.cidade === capital && styles.modalItemTextSelected
+                        ]}>
+                          {capital.split('-')[1]?.trim() || capital}
+                        </Text>
+                      </TouchableOpacity>
+                    ))
+                  }
+                </ScrollView>
+              </View>
+            </View>
+          </Modal>
+
           <Text style={styles.label}>Status Inicial *</Text>
           <View style={styles.statusButtonGroup}>
             {renderStatusButton('draft', 'Rascunho')}
@@ -1574,5 +1981,81 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     fontSize: 14,
+  },
+  // Estilos para campos de categoria e localização
+  inputText: {
+    color: '#333',
+    fontSize: 15,
+  },
+  placeholderText: {
+    color: '#999',
+    fontSize: 15,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  modalScrollView: {
+    maxHeight: 300,
+  },
+  modalItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  modalItemSelected: {
+    backgroundColor: '#e6f7ff',
+  },
+  modalItemText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  modalItemTextSelected: {
+    fontWeight: 'bold',
+    color: '#3498db',
+  },
+  modalButton: {
+    backgroundColor: '#3498db',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 15,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  rowContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  inputHalf: {
+    width: '48%',
   },
 });

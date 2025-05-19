@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 /**
- * Zod schema for OfferStatus
- * Validates that the status is one of the allowed values
+ * Schema Zod para OfferStatus
+ * Valida que o status é um dos valores permitidos
  */
 export const offerStatusSchema = z.enum([
   'draft',
@@ -12,8 +12,20 @@ export const offerStatusSchema = z.enum([
 ]);
 
 /**
- * Zod schema for IHorarioDisponivel
- * Validates the structure of a time slot
+ * Schema Zod para estados brasileiros
+ * Valida que o estado é um dos estados brasileiros
+ */
+export const estadoSchema = z.enum([
+  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal',
+  'Espírito Santo', 'Goiás', 'Maranhão', 'Mato Grosso', 'Mato Grosso do Sul',
+  'Minas Gerais', 'Pará', 'Paraíba', 'Paraná', 'Pernambuco', 'Piauí',
+  'Rio de Janeiro', 'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia',
+  'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins'
+]);
+
+/**
+ * Schema Zod para IHorarioDisponivel
+ * Valida a estrutura de um intervalo de tempo
  */
 export const horarioDisponivelSchema = z.object({
   inicio: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, {
@@ -25,8 +37,8 @@ export const horarioDisponivelSchema = z.object({
 });
 
 /**
- * Zod schema for IRecorrenciaSemanal
- * Validates the structure of a weekly recurrence
+ * Schema Zod para IRecorrenciaSemanal
+ * Valida a estrutura de uma recorrência semanal
  */
 export const recorrenciaSemanalSchema = z.object({
   diaSemana: z.number().min(0).max(6),
@@ -34,8 +46,8 @@ export const recorrenciaSemanalSchema = z.object({
 });
 
 /**
- * Zod schema for IDisponibilidade
- * Validates the structure of availability
+ * Schema Zod para IDisponibilidade
+ * Valida a estrutura de disponibilidade
  */
 export const disponibilidadeSchema = z.object({
   recorrenciaSemanal: z.array(recorrenciaSemanalSchema).optional(),
@@ -44,8 +56,8 @@ export const disponibilidadeSchema = z.object({
 });
 
 /**
- * Zod schema for Offer
- * Validates the structure of an offer object
+ * Schema Zod para Offer
+ * Valida a estrutura de um objeto de oferta
  */
 export const offerSchema = z.object({
   _id: z.string(),
@@ -57,26 +69,31 @@ export const offerSchema = z.object({
     z.string()
   ]),
   prestadorId: z.string(),
-  
+
   // Campos opcionais
   dataCriacao: z.string().optional(),
   dataAtualizacao: z.string().optional(),
 });
 
 /**
- * Zod schema for OfferData
- * Validates the structure of data for creating or updating an offer
+ * Schema Zod para OfferData
+ * Valida a estrutura de dados para criar ou atualizar uma oferta
  */
 export const offerDataSchema = z.object({
   descricao: z.string().min(1, { message: 'Descrição é obrigatória' }),
   preco: z.number().positive({ message: 'Preço deve ser positivo' }),
   status: offerStatusSchema,
   disponibilidade: disponibilidadeSchema,
+  categorias: z.array(z.string()).min(1, { message: 'Pelo menos uma categoria é obrigatória' }),
+  localizacao: z.object({
+    estado: estadoSchema,
+    cidade: z.string().optional(),
+  }),
 });
 
 /**
- * Zod schema for FetchOffersParams
- * Validates the structure of parameters for fetching offers
+ * Schema Zod para FetchOffersParams
+ * Valida a estrutura de parâmetros para buscar ofertas
  */
 export const fetchOffersParamsSchema = z.object({
   textoPesquisa: z.string().optional(),
@@ -92,8 +109,8 @@ export const fetchOffersParamsSchema = z.object({
 });
 
 /**
- * Type inferences from the Zod schemas
- * These ensure that the TypeScript types are always in sync with the schemas
+ * Inferências de tipo dos schemas Zod
+ * Isso garante que os tipos TypeScript estejam sempre sincronizados com os schemas
  */
 export type OfferStatusSchemaType = z.infer<typeof offerStatusSchema>;
 export type HorarioDisponivelSchemaType = z.infer<typeof horarioDisponivelSchema>;

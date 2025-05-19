@@ -11,22 +11,25 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  Button
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { z } from 'zod';
-import { useForm, Controller } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { MaterialIcons } from '@expo/vector-icons';
 
 // Importações necessárias para o funcionamento da tela
 import { useAuth } from "@/context/AuthContext";
 import { updateNome, updateTelefone, updateEndereco } from "@/services/updateFieldApi";
-import { ProfileUpdateData } from "@/types/api";
+import { UpdateProfileResponse } from "@/types/api";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types";
 import { profileUpdateDataSchema } from '@/schemas/user.schema';
 import EmailChangeModal from '@/components/EmailChangeModal';
 import ProfileImagePicker from '@/components/ProfileImagePicker';
+import ProfileField from '@/components/ProfileField';
 
 // Definição do tipo das props da tela
 type EditProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'EditProfile'>;
@@ -42,31 +45,150 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   // Obtém o usuário atual e as funções para atualizar o contexto de autenticação
   const { user, updateUser } = useAuth();
 
+  // Tipo para o status de atualização de um campo
+  type FieldStatus = 'idle' | 'loading' | 'success' | 'error';
+
+  // Interface para o estado de um campo
+  interface FieldState {
+    status: FieldStatus;
+    message?: string;
+  }
+
   // Estados para controle de UI
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-
-  // Estados para controle de carregamento e feedback de cada campo
-  const [isLoadingNome, setIsLoadingNome] = useState<boolean>(false);
-  const [isLoadingTelefone, setIsLoadingTelefone] = useState<boolean>(false);
-  const [isLoadingEndereco, setIsLoadingEndereco] = useState<boolean>(false);
-
-  // Estados para feedback de sucesso/erro de cada campo
-  const [nomeUpdateStatus, setNomeUpdateStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [telefoneUpdateStatus, setTelefoneUpdateStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [enderecoUpdateStatus, setEnderecoUpdateStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [, setSelectedImageUrl] = useState<string | null>(null);
 
   // Estado para controlar a visibilidade do modal de alteração de email
   const [isEmailModalVisible, setIsEmailModalVisible] = useState<boolean>(false);
 
+  // Estados para o date picker
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+
+  // Estados para controle de carregamento dos novos campos
+  const [isLoadingDataNascimento, setIsLoadingDataNascimento] = useState<boolean>(false);
+  const [isLoadingGenero, setIsLoadingGenero] = useState<boolean>(false);
+  const [dataNascimentoUpdateStatus, setDataNascimentoUpdateStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [generoUpdateStatus, setGeneroUpdateStatus] = useState<'idle' | 'success' | 'error'>('idle');
+
+  // Estados para controle de carregamento e 'feedback' de cada campo usando useReducer
+  const [fieldStates, setFieldStates] = useState<Record<string, FieldState>>({
+    nome: { status: 'idle' },
+    telefone: { status: 'idle' },
+    endereco: { status: 'idle' }
+  });
+
+  // Getters para compatibilidade com o código existente
+  const isLoadingNome = fieldStates.nome.status === 'loading';
+  const isLoadingTelefone = fieldStates.telefone.status === 'loading';
+  const isLoadingEndereco = fieldStates.endereco.status === 'loading';
+  const nomeUpdateStatus = fieldStates.nome.status === 'loading' ? 'idle' : fieldStates.nome.status;
+  const telefoneUpdateStatus = fieldStates.telefone.status === 'loading' ? 'idle' : fieldStates.telefone.status;
+  const enderecoUpdateStatus = fieldStates.endereco.status === 'loading' ? 'idle' : fieldStates.endereco.status;
+
+  // Setters para compatibilidade com o código existente
+  const setIsLoadingNome = useCallback((loading: boolean | ((prevLoading: boolean) => boolean)) => {
+    setFieldStates(prev => {
+      const newLoadingValue = typeof loading === 'function' 
+        ? loading(prev.nome.status === 'loading') 
+        : loading;
+
+      return {
+        ...prev,
+        nome: { 
+          ...prev.nome,
+          status: newLoadingValue ? 'loading' : prev.nome.status === 'loading' ? 'idle' : prev.nome.status 
+        }
+      };
+    });
+  }, []);
+
+  const setIsLoadingTelefone = useCallback((loading: boolean | ((prevLoading: boolean) => boolean)) => {
+    setFieldStates(prev => {
+      const newLoadingValue = typeof loading === 'function' 
+        ? loading(prev.telefone.status === 'loading') 
+        : loading;
+
+      return {
+        ...prev,
+        telefone: { 
+          ...prev.telefone,
+          status: newLoadingValue ? 'loading' : prev.telefone.status === 'loading' ? 'idle' : prev.telefone.status 
+        }
+      };
+    });
+  }, []);
+
+  const setIsLoadingEndereco = useCallback((loading: boolean | ((prevLoading: boolean) => boolean)) => {
+    setFieldStates(prev => {
+      const newLoadingValue = typeof loading === 'function' 
+        ? loading(prev.endereco.status === 'loading') 
+        : loading;
+
+      return {
+        ...prev,
+        endereco: { 
+          ...prev.endereco,
+          status: newLoadingValue ? 'loading' : prev.endereco.status === 'loading' ? 'idle' : prev.endereco.status 
+        }
+      };
+    });
+  }, []);
+
+  const setNomeUpdateStatus = useCallback((status: 'idle' | 'success' | 'error' | ((prevStatus: 'idle' | 'success' | 'error') => 'idle' | 'success' | 'error')) => {
+    setFieldStates(prev => {
+      const prevStatus = prev.nome.status === 'loading' ? 'idle' : prev.nome.status as 'idle' | 'success' | 'error';
+      const newStatus = typeof status === 'function' ? status(prevStatus) : status;
+
+      return {
+        ...prev,
+        nome: { 
+          ...prev.nome,
+          status: prev.nome.status === 'loading' ? prev.nome.status : newStatus 
+        }
+      };
+    });
+  }, []);
+
+  const setTelefoneUpdateStatus = useCallback((status: 'idle' | 'success' | 'error' | ((prevStatus: 'idle' | 'success' | 'error') => 'idle' | 'success' | 'error')) => {
+    setFieldStates(prev => {
+      const prevStatus = prev.telefone.status === 'loading' ? 'idle' : prev.telefone.status as 'idle' | 'success' | 'error';
+      const newStatus = typeof status === 'function' ? status(prevStatus) : status;
+
+      return {
+        ...prev,
+        telefone: { 
+          ...prev.telefone,
+          status: prev.telefone.status === 'loading' ? prev.telefone.status : newStatus 
+        }
+      };
+    });
+  }, []);
+
+  const setEnderecoUpdateStatus = useCallback((status: 'idle' | 'success' | 'error' | ((prevStatus: 'idle' | 'success' | 'error') => 'idle' | 'success' | 'error')) => {
+    setFieldStates(prev => {
+      const prevStatus = prev.endereco.status === 'loading' ? 'idle' : prev.endereco.status as 'idle' | 'success' | 'error';
+      const newStatus = typeof status === 'function' ? status(prevStatus) : status;
+
+      return {
+        ...prev,
+        endereco: { 
+          ...prev.endereco,
+          status: prev.endereco.status === 'loading' ? prev.endereco.status : newStatus 
+        }
+      };
+    });
+  }, []);
+
   // Configuração do formulário com react-hook-form e validação Zod
-  const { control, handleSubmit, setValue, formState: { errors }, reset } = useForm<FormData>({
+  const { control, setValue, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(profileUpdateDataSchema),
     defaultValues: {
       nome: user?.nome || '',
       telefone: user?.telefone || '',
       endereco: user?.endereco || '',
       foto: user?.foto || '',
+      dataNascimento: user?.dataNascimento ? new Date(user.dataNascimento) : undefined,
+      genero: user?.genero || 'Prefiro não dizer',
     },
     mode: 'onChange' // Validação em tempo real ao alterar os campos
   });
@@ -79,6 +201,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
         telefone: user.telefone || '',
         endereco: user.endereco || '',
         foto: user.foto || '',
+        dataNascimento: user.dataNascimento ? new Date(user.dataNascimento) : undefined,
+        genero: user.genero || 'Prefiro não dizer',
       });
 
       // Limpar a imagem selecionada quando o usuário mudar
@@ -87,8 +211,28 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [user, reset]);
 
 
-  // Função para atualizar o campo nome
-  const handleUpdateNome = useCallback(async (nome: string) => {
+  // Tipo para as funções de atualização de campo
+  type FieldUpdateConfig = {
+    fieldName: 'nome' | 'telefone' | 'endereco' | 'dataNascimento' | 'genero';
+    currentValue: string | Date | undefined;
+    newValue: string;
+    setLoading: React.Dispatch<React.SetStateAction<boolean>>;
+    setStatus: React.Dispatch<React.SetStateAction<'idle' | 'success' | 'error'>>;
+    updateApiFunction: (token: string, userId: { idUsuario?: string; id?: string }, value: string) => Promise<UpdateProfileResponse>;
+  };
+
+  /**
+   * Função genérica para atualizar um campo do perfil
+   * Reduz a duplicação de código entre as funções de atualização
+   */
+  const handleUpdateField = useCallback(async ({
+    fieldName,
+    currentValue,
+    newValue,
+    setLoading,
+    setStatus,
+    updateApiFunction
+  }: FieldUpdateConfig) => {
     // Verifica se o usuário está autenticado
     if (!user?.token) {
       navigation.replace('Login');
@@ -96,20 +240,20 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
     }
 
     // Verifica se o valor é diferente do atual
-    if (nome === user.nome) {
+    if (newValue === currentValue) {
       return; // Não faz nada se o valor não mudou
     }
 
-    setIsLoadingNome(true);
-    setNomeUpdateStatus('idle');
+    setLoading(true);
+    setStatus('idle');
 
     try {
-      console.log('[NewEditProfileScreen] Atualizando nome para:', nome);
+      console.log(`[NewEditProfileScreen] Atualizando ${fieldName} para:`, newValue);
 
-      // Ensure at least one ID field is present to satisfy validation
+      // Garante que pelo menos um campo de ID esteja presente para satisfazer a validação
       const userId: { idUsuario?: string; id?: string } = {};
 
-      // Only add fields that have actual values
+      // Adiciona apenas campos que tenham valores reais
       if (user.idUsuario) {
         userId.idUsuario = user.idUsuario;
       }
@@ -118,199 +262,157 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
         userId.id = user.id;
       }
 
-      // If neither ID field is present, create a default one
+      // Se nenhum campo de ID estiver presente, cria um padrão
       if (!userId.idUsuario && !userId.id) {
-        // Use a fallback ID if available, or generate a temporary one
+        // Usa um ID alternativo se disponível, ou gera um temporário
         userId.id = user.email || 'temp-id-' + Date.now();
-        console.log('[NewEditProfileScreen] Created fallback ID for nome:', userId.id);
+        console.log(`[NewEditProfileScreen] ID alternativo criado para ${fieldName}:`, userId.id);
       }
 
-      const response = await updateNome(user.token, userId, nome);
+      // Garante que o objeto de usuário tenha pelo menos um campo de ID
+      const userWithId = {
+        ...user,
+        ...(userId.idUsuario && { idUsuario: userId.idUsuario }),
+        ...(userId.id && { id: userId.id })
+      };
+
+      const response = await updateApiFunction(user.token, userId, newValue);
 
       // Atualiza o contexto de autenticação com os dados retornados
       if (response.user) {
         const userData = {
-          ...user,
-          nome: response.user.nome || nome
+          ...userWithId,
+          [fieldName]: response.user[fieldName as keyof typeof response.user] || newValue
         };
         await updateUser(userData);
       } else {
-        // Se a API não retornar os dados do usuário, atualiza apenas o nome
+        // Se a API não retornar os dados do usuário, atualiza apenas o campo específico
         await updateUser({
-          ...user,
-          nome
+          ...userWithId,
+          [fieldName]: newValue
         });
       }
 
-      setNomeUpdateStatus('success');
+      setStatus('success');
 
       // Mostra feedback temporário de sucesso
       setTimeout(() => {
-        setNomeUpdateStatus('idle');
+        setStatus('idle');
       }, 3000);
 
     } catch (error) {
-      console.error('[NewEditProfileScreen] Erro ao atualizar nome:', error);
-      setNomeUpdateStatus('error');
+      console.error(`[NewEditProfileScreen] Erro ao atualizar ${fieldName}:`, error);
+      setStatus('error');
 
       // Mostra feedback temporário de erro
       setTimeout(() => {
-        setNomeUpdateStatus('idle');
+        setStatus('idle');
       }, 3000);
     } finally {
-      setIsLoadingNome(false);
+      setLoading(false);
     }
   }, [user, navigation, updateUser]);
+
+  // Função para atualizar o campo nome
+  const handleUpdateNome = useCallback((nome: string) => {
+    return handleUpdateField({
+      fieldName: 'nome',
+      currentValue: user?.nome,
+      newValue: nome,
+      setLoading: setIsLoadingNome,
+      setStatus: setNomeUpdateStatus,
+      updateApiFunction: updateNome
+    });
+  }, [handleUpdateField, user?.nome]);
 
   // Função para atualizar o campo telefone
-  const handleUpdateTelefone = useCallback(async (telefone: string) => {
-    // Verifica se o usuário está autenticado
-    if (!user?.token) {
-      navigation.replace('Login');
-      return;
-    }
-
-    // Verifica se o valor é diferente do atual
-    if (telefone === user.telefone) {
-      return; // Não faz nada se o valor não mudou
-    }
-
-    setIsLoadingTelefone(true);
-    setTelefoneUpdateStatus('idle');
-
-    try {
-      console.log('[NewEditProfileScreen] Atualizando telefone para:', telefone);
-
-      // Ensure at least one ID field is present to satisfy validation
-      const userId: { idUsuario?: string; id?: string } = {};
-
-      // Only add fields that have actual values
-      if (user.idUsuario) {
-        userId.idUsuario = user.idUsuario;
-      }
-
-      if (user.id) {
-        userId.id = user.id;
-      }
-
-      // If neither ID field is present, create a default one
-      if (!userId.idUsuario && !userId.id) {
-        // Use a fallback ID if available, or generate a temporary one
-        userId.id = user.email || 'temp-id-' + Date.now();
-        console.log('[NewEditProfileScreen] Created fallback ID for telefone:', userId.id);
-      }
-
-      const response = await updateTelefone(user.token, userId, telefone);
-
-      // Atualiza o contexto de autenticação com os dados retornados
-      if (response.user) {
-        const userData = {
-          ...user,
-          telefone: response.user.telefone || telefone
-        };
-        await updateUser(userData);
-      } else {
-        // Se a API não retornar os dados do usuário, atualiza apenas o telefone
-        await updateUser({
-          ...user,
-          telefone
-        });
-      }
-
-      setTelefoneUpdateStatus('success');
-
-      // Mostra feedback temporário de sucesso
-      setTimeout(() => {
-        setTelefoneUpdateStatus('idle');
-      }, 3000);
-
-    } catch (error) {
-      console.error('[NewEditProfileScreen] Erro ao atualizar telefone:', error);
-      setTelefoneUpdateStatus('error');
-
-      // Mostra feedback temporário de erro
-      setTimeout(() => {
-        setTelefoneUpdateStatus('idle');
-      }, 3000);
-    } finally {
-      setIsLoadingTelefone(false);
-    }
-  }, [user, navigation, updateUser]);
+  const handleUpdateTelefone = useCallback((telefone: string) => {
+    return handleUpdateField({
+      fieldName: 'telefone',
+      currentValue: user?.telefone,
+      newValue: telefone,
+      setLoading: setIsLoadingTelefone,
+      setStatus: setTelefoneUpdateStatus,
+      updateApiFunction: updateTelefone
+    });
+  }, [handleUpdateField, user?.telefone]);
 
   // Função para atualizar o campo endereço
-  const handleUpdateEndereco = useCallback(async (endereco: string) => {
-    // Verifica se o usuário está autenticado
-    if (!user?.token) {
-      navigation.replace('Login');
-      return;
+  const handleUpdateEndereco = useCallback((endereco: string) => {
+    return handleUpdateField({
+      fieldName: 'endereco',
+      currentValue: user?.endereco,
+      newValue: endereco,
+      setLoading: setIsLoadingEndereco,
+      setStatus: setEnderecoUpdateStatus,
+      updateApiFunction: updateEndereco
+    });
+  }, [handleUpdateField, user?.endereco]);
+
+  // Função para formatar a data para exibição
+  const formatDate = (date: Date | string | undefined): string => {
+    if (!date) return 'Não informado';
+
+    const dateObj = typeof date === 'string' ? new Date(date) : date;
+
+    if (isNaN(dateObj.getTime())) return 'Data inválida';
+
+    return `${dateObj.getDate().toString().padStart(2, '0')}/${(dateObj.getMonth() + 1).toString().padStart(2, '0')}/${dateObj.getFullYear()}`;
+  };
+
+  // Função para lidar com a mudança de data
+  const onDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setValue('dataNascimento', selectedDate, { 
+        shouldDirty: true, 
+        shouldValidate: true,
+        shouldTouch: true
+      });
+      handleUpdateDataNascimento(selectedDate);
     }
+  };
 
-    // Verifica se o valor é diferente do atual
-    if (endereco === user.endereco) {
-      return; // Não faz nada se o valor não mudou
-    }
+  // Função para atualizar a data de nascimento
+  const handleUpdateDataNascimento = useCallback((dataNascimento: Date) => {
+    return handleUpdateField({
+      fieldName: 'dataNascimento',
+      currentValue: user?.dataNascimento,
+      newValue: dataNascimento.toISOString(),
+      setLoading: setIsLoadingDataNascimento,
+      setStatus: setDataNascimentoUpdateStatus,
+      updateApiFunction: updateNome // Reutiliza a função de atualização de nome (deve ser substituída por uma específica)
+    });
+  }, [handleUpdateField, user?.dataNascimento]);
 
-    setIsLoadingEndereco(true);
-    setEnderecoUpdateStatus('idle');
+  // Função para atualizar o gênero
+  const handleUpdateGenero = useCallback((genero: string) => {
+    return handleUpdateField({
+      fieldName: 'genero',
+      currentValue: user?.genero,
+      newValue: genero,
+      setLoading: setIsLoadingGenero,
+      setStatus: setGeneroUpdateStatus,
+      updateApiFunction: updateNome // Reutiliza a função de atualização de nome (deve ser substituída por uma específica)
+    });
+  }, [handleUpdateField, user?.genero]);
 
-    try {
-      console.log('[NewEditProfileScreen] Atualizando endereço para:', endereco);
-
-      // Ensure at least one ID field is present to satisfy validation
-      const userId: { idUsuario?: string; id?: string } = {};
-
-      // Only add fields that have actual values
-      if (user.idUsuario) {
-        userId.idUsuario = user.idUsuario;
-      }
-
-      if (user.id) {
-        userId.id = user.id;
-      }
-
-      // If neither ID field is present, create a default one
-      if (!userId.idUsuario && !userId.id) {
-        // Use a fallback ID if available, or generate a temporary one
-        userId.id = user.email || 'temp-id-' + Date.now();
-        console.log('[NewEditProfileScreen] Created fallback ID for endereco:', userId.id);
-      }
-
-      const response = await updateEndereco(user.token, userId, endereco);
-
-      // Atualiza o contexto de autenticação com os dados retornados
-      if (response.user) {
-        const userData = {
-          ...user,
-          endereco: response.user.endereco || endereco
-        };
-        await updateUser(userData);
-      } else {
-        // Se a API não retornar os dados do usuário, atualiza apenas o endereço
-        await updateUser({
-          ...user,
-          endereco
+  // Função auxiliar para botões de gênero
+  const renderGenderButton = (value: string, title: string) => (
+    <Button
+      title={title}
+      onPress={() => {
+        setValue('genero', value as 'Feminino' | 'Masculino' | 'Prefiro não dizer', { 
+          shouldDirty: true, 
+          shouldValidate: true,
+          shouldTouch: true
         });
-      }
-
-      setEnderecoUpdateStatus('success');
-
-      // Mostra feedback temporário de sucesso
-      setTimeout(() => {
-        setEnderecoUpdateStatus('idle');
-      }, 3000);
-
-    } catch (error) {
-      console.error('[NewEditProfileScreen] Erro ao atualizar endereço:', error);
-      setEnderecoUpdateStatus('error');
-
-      // Mostra feedback temporário de erro
-      setTimeout(() => {
-        setEnderecoUpdateStatus('idle');
-      }, 3000);
-    } finally {
-      setIsLoadingEndereco(false);
-    }
-  }, [user, navigation, updateUser]);
+        handleUpdateGenero(value);
+      }}
+      color={user?.genero === value ? '#3498db' : '#bdc3c7'} // Destaca o botão selecionado
+      disabled={isLoading}
+    />
+  );
 
   // Função para atualizar a foto do perfil (mantida para compatibilidade)
   const handleUpdatePhoto = useCallback(async (imageUrl: string) => {
@@ -325,11 +427,35 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
       // Atualiza o estado local
       setSelectedImageUrl(imageUrl);
 
-      // Atualiza o contexto do usuário diretamente
-      await updateUser({
+      // Garante que pelo menos um campo de ID esteja presente para satisfazer a validação
+      const userId: { idUsuario?: string; id?: string } = {};
+
+      // Adiciona apenas campos que tenham valores reais
+      if (user.idUsuario) {
+        userId.idUsuario = user.idUsuario;
+      }
+
+      if (user.id) {
+        userId.id = user.id;
+      }
+
+      // Se nenhum campo de ID estiver presente, cria um padrão
+      if (!userId.idUsuario && !userId.id) {
+        // Usa um ID alternativo se disponível, ou gera um temporário
+        userId.id = user.email || 'temp-id-' + Date.now();
+        console.log('[NewEditProfileScreen] ID alternativo criado para foto:', userId.id);
+      }
+
+      // Garante que o objeto de usuário tenha pelo menos um campo de ID
+      const userWithId = {
         ...user,
+        ...(userId.idUsuario && { idUsuario: userId.idUsuario }),
+        ...(userId.id && { id: userId.id }),
         foto: imageUrl
-      });
+      };
+
+      // Atualiza o contexto do usuário diretamente
+      await updateUser(userWithId);
 
     } catch (error) {
       console.error('[NewEditProfileScreen] Erro ao atualizar foto:', error);
@@ -354,7 +480,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={{ flex: 1 }}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} testID="keyboard-dismiss-wrapper">
         <ScrollView style={styles.scrollView}>
           <View style={styles.container}>
             <Text style={styles.title}>Editar Perfil</Text>
@@ -381,74 +507,30 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
                 });
 
                 // Chamar a função de atualização de foto
-                handleUpdatePhoto(imageUrl);
+                handleUpdatePhoto(imageUrl)
+                  .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar foto:', error));
               }}
               disabled={isLoading}
             />
 
             {/* Campo Nome */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Nome</Text>
-              <Controller
-                control={control}
-                name="nome"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <View>
-                    <View style={styles.inputWrapper}>
-                      <MaterialIcons name="person" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        placeholder="Nome"
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={() => {
-                          onBlur();
-                          // Don't update on blur, let the save button handle it
-                        }}
-                        style={[
-                          styles.input, 
-                          errors.nome && styles.inputError,
-                          nomeUpdateStatus === 'success' && styles.inputSuccess,
-                          nomeUpdateStatus === 'error' && styles.inputError
-                        ]}
-                        editable={!isLoadingNome}
-                        accessibilityLabel="Campo de nome"
-                        accessibilityHint="Digite seu nome completo"
-                      />
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('[NewEditProfileScreen] Save nome button pressed with value:', value);
-                          handleUpdateNome(value ?? '');
-                        }}
-                        disabled={isLoadingNome}
-                        style={styles.saveButton}
-                        accessibilityLabel="Botão para salvar nome"
-                        accessibilityHint="Toque para salvar as alterações no nome"
-                      >
-                        <MaterialIcons name="save" size={20} color="#4a80f5" />
-                      </TouchableOpacity>
-                      {isLoadingNome && (
-                        <ActivityIndicator size="small" color="#4a80f5" style={styles.fieldIndicator} />
-                      )}
-                      {nomeUpdateStatus === 'success' && (
-                        <MaterialIcons name="check-circle" size={20} color="green" style={styles.fieldIndicator} />
-                      )}
-                      {nomeUpdateStatus === 'error' && (
-                        <MaterialIcons name="error" size={20} color="red" style={styles.fieldIndicator} />
-                      )}
-                    </View>
-                    {errors.nome && (
-                      <Text style={styles.errorText}>{errors.nome.message}</Text>
-                    )}
-                    {nomeUpdateStatus === 'success' && (
-                      <Text style={styles.successText}>Nome atualizado com sucesso!</Text>
-                    )}
-                    {nomeUpdateStatus === 'error' && (
-                      <Text style={styles.errorText}>Erro ao atualizar nome. Tente novamente.</Text>
-                    )}
-                  </View>
-                )}
-              />
-            </View>
+            <ProfileField
+              name="nome"
+              control={control}
+              label="Nome"
+              placeholder="Nome"
+              icon="person"
+              errors={errors}
+              isLoading={isLoadingNome}
+              updateStatus={nomeUpdateStatus}
+              onSave={(value) => {
+                console.log('[NewEditProfileScreen] Save nome button pressed with value:', value);
+                handleUpdateNome(value)
+                  .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar nome:', error));
+              }}
+              accessibilityLabel="Campo de nome"
+              accessibilityHint="Digite seu nome completo"
+            />
 
             {/* Campo Email (não editável diretamente) */}
             <View style={styles.inputContainer}>
@@ -480,141 +562,96 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
             </View>
 
             {/* Campo Telefone */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Telefone</Text>
-              <Controller
-                control={control}
-                name="telefone"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <View>
-                    <View style={styles.inputWrapper}>
-                      <MaterialIcons name="phone" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        placeholder="Telefone"
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={() => {
-                          onBlur();
-                          // Don't update on blur, let the save button handle it
-                        }}
-                        keyboardType="phone-pad"
-                        style={[
-                          styles.input, 
-                          errors.telefone && styles.inputError,
-                          telefoneUpdateStatus === 'success' && styles.inputSuccess,
-                          telefoneUpdateStatus === 'error' && styles.inputError
-                        ]}
-                        editable={!isLoadingTelefone}
-                        accessibilityLabel="Campo de telefone"
-                        accessibilityHint="Digite seu número de telefone com DDD"
-                      />
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('[NewEditProfileScreen] Save telefone button pressed with value:', value);
-                          handleUpdateTelefone(value ?? '');
-                        }}
-                        disabled={isLoadingTelefone}
-                        style={styles.saveButton}
-                        accessibilityLabel="Botão para salvar telefone"
-                        accessibilityHint="Toque para salvar as alterações no telefone"
-                      >
-                        <MaterialIcons name="save" size={20} color="#4a80f5" />
-                      </TouchableOpacity>
-                      {isLoadingTelefone && (
-                        <ActivityIndicator size="small" color="#4a80f5" style={styles.fieldIndicator} />
-                      )}
-                      {telefoneUpdateStatus === 'success' && (
-                        <MaterialIcons name="check-circle" size={20} color="green" style={styles.fieldIndicator} />
-                      )}
-                      {telefoneUpdateStatus === 'error' && (
-                        <MaterialIcons name="error" size={20} color="red" style={styles.fieldIndicator} />
-                      )}
-                    </View>
-                    {errors.telefone && (
-                      <Text style={styles.errorText}>{errors.telefone.message}</Text>
-                    )}
-                    {telefoneUpdateStatus === 'success' && (
-                      <Text style={styles.successText}>Telefone atualizado com sucesso!</Text>
-                    )}
-                    {telefoneUpdateStatus === 'error' && (
-                      <Text style={styles.errorText}>Erro ao atualizar telefone. Tente novamente.</Text>
-                    )}
-                  </View>
-                )}
-              />
-            </View>
+            <ProfileField
+              name="telefone"
+              control={control}
+              label="Telefone"
+              placeholder="Telefone"
+              icon="phone"
+              errors={errors}
+              isLoading={isLoadingTelefone}
+              updateStatus={telefoneUpdateStatus}
+              keyboardType="phone-pad"
+              onSave={(value) => {
+                console.log('[NewEditProfileScreen] Save telefone button pressed with value:', value);
+                handleUpdateTelefone(value)
+                  .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar telefone:', error));
+              }}
+              accessibilityLabel="Campo de telefone"
+              accessibilityHint="Digite seu número de telefone com DDD"
+            />
 
             {/* Campo Endereço */}
+            <ProfileField
+              name="endereco"
+              control={control}
+              label="Endereço"
+              placeholder="Endereço"
+              icon="location-on"
+              errors={errors}
+              isLoading={isLoadingEndereco}
+              updateStatus={enderecoUpdateStatus}
+              onSave={(value) => {
+                console.log('[NewEditProfileScreen] Save endereco button pressed with value:', value);
+                handleUpdateEndereco(value)
+                  .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar endereço:', error));
+              }}
+              accessibilityLabel="Campo de endereço"
+              accessibilityHint="Digite seu endereço completo"
+            />
+
+            {/* Campo Data de Nascimento */}
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Endereço</Text>
-              <Controller
-                control={control}
-                name="endereco"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <View>
-                    <View style={styles.inputWrapper}>
-                      <MaterialIcons name="location-on" size={20} color="#666" style={styles.inputIcon} />
-                      <TextInput
-                        placeholder="Endereço"
-                        value={value}
-                        onChangeText={onChange}
-                        onBlur={() => {
-                          onBlur();
-                          // Don't update on blur, let the save button handle it
-                        }}
-                        style={[
-                          styles.input, 
-                          errors.endereco && styles.inputError,
-                          enderecoUpdateStatus === 'success' && styles.inputSuccess,
-                          enderecoUpdateStatus === 'error' && styles.inputError
-                        ]}
-                        editable={!isLoadingEndereco}
-                        accessibilityLabel="Campo de endereço"
-                        accessibilityHint="Digite seu endereço completo"
-                      />
-                      <TouchableOpacity
-                        onPress={() => {
-                          console.log('[NewEditProfileScreen] Save endereco button pressed with value:', value);
-                          handleUpdateEndereco(value ?? '');
-                        }}
-                        disabled={isLoadingEndereco}
-                        style={styles.saveButton}
-                        accessibilityLabel="Botão para salvar endereço"
-                        accessibilityHint="Toque para salvar as alterações no endereço"
-                      >
-                        <MaterialIcons name="save" size={20} color="#4a80f5" />
-                      </TouchableOpacity>
-                      {isLoadingEndereco && (
-                        <ActivityIndicator size="small" color="#4a80f5" style={styles.fieldIndicator} />
-                      )}
-                      {enderecoUpdateStatus === 'success' && (
-                        <MaterialIcons name="check-circle" size={20} color="green" style={styles.fieldIndicator} />
-                      )}
-                      {enderecoUpdateStatus === 'error' && (
-                        <MaterialIcons name="error" size={20} color="red" style={styles.fieldIndicator} />
-                      )}
-                    </View>
-                    {errors.endereco && (
-                      <Text style={styles.errorText}>{errors.endereco.message}</Text>
-                    )}
-                    {enderecoUpdateStatus === 'success' && (
-                      <Text style={styles.successText}>Endereço atualizado com sucesso!</Text>
-                    )}
-                    {enderecoUpdateStatus === 'error' && (
-                      <Text style={styles.errorText}>Erro ao atualizar endereço. Tente novamente.</Text>
-                    )}
-                  </View>
+              <Text style={styles.label}>Data de Nascimento</Text>
+              <View style={styles.dateContainer}>
+                <TouchableOpacity 
+                  style={[styles.inputWrapper, { flex: 0.8 }]}
+                  onPress={() => setShowDatePicker(true)}
+                  disabled={isLoading || isLoadingDataNascimento}
+                >
+                  <MaterialIcons name="calendar-today" size={20} color="#666" style={styles.inputIcon} />
+                  <Text style={styles.dateText}>
+                    {formatDate(user?.dataNascimento)}
+                  </Text>
+                </TouchableOpacity>
+                {isLoadingDataNascimento ? (
+                  <ActivityIndicator size="small" color="#4a80f5" style={{ marginLeft: 10 }} />
+                ) : (
+                  dataNascimentoUpdateStatus === 'success' && (
+                    <MaterialIcons name="check-circle" size={24} color="#34c759" style={styles.fieldIndicator} />
+                  )
                 )}
-              />
+              </View>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={user?.dataNascimento ? new Date(user.dataNascimento) : new Date(2000, 0, 1)}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  maximumDate={new Date()}
+                />
+              )}
             </View>
 
-            {/* Nota informativa sobre atualização automática */}
-            <View style={styles.infoContainer}>
-              <MaterialIcons name="info" size={20} color="#4a80f5" style={styles.infoIcon} />
-              <Text style={styles.infoText}>
-                Os campos são atualizados automaticamente quando você termina de editá-los.
-              </Text>
+            {/* Campo Gênero */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Gênero</Text>
+              <View style={styles.buttonGroup}>
+                {renderGenderButton('Feminino', 'Feminino')}
+                {renderGenderButton('Masculino', 'Masculino')}
+                {renderGenderButton('Prefiro não dizer', 'Prefiro não dizer')}
+              </View>
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 5 }}>
+                {isLoadingGenero ? (
+                  <ActivityIndicator size="small" color="#4a80f5" />
+                ) : (
+                  generoUpdateStatus === 'success' && (
+                    <MaterialIcons name="check-circle" size={24} color="#34c759" />
+                  )
+                )}
+              </View>
             </View>
+
           </View>
 
           {/* Componente de modal para alteração de email */}
@@ -697,6 +734,24 @@ const styles = StyleSheet.create({
   fieldIndicator: {
     marginLeft: 10,
   },
+  // Estilos para o campo de data
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  dateText: {
+    flex: 1,
+    padding: 12,
+    fontSize: 16,
+  },
+  // Estilos para os botões de gênero
+  buttonGroup: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 10,
+    marginTop: 5,
+  },
   // Estilos para o campo de email e botão de alteração
   emailContainer: {
     flexDirection: 'row',
@@ -704,11 +759,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   emailInput: {
-    flex: 1, // Take up all available space within the inputWrapper
+    flex: 1, // Ocupa todo o espaço disponível dentro do inputWrapper
     padding: 12,
     fontSize: 16,
     backgroundColor: '#f0f0f0',
-    maxWidth: '100%', // Ensure it doesn't overflow its container
+    maxWidth: '100%', // Garante que não ultrapasse os limites do container
   },
   changeEmailButton: {
     backgroundColor: '#4a80f5',
@@ -721,7 +776,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 1.5,
     elevation: 2,
-    minWidth: 80, // Ensure minimum width for the button
+    minWidth: 80, // Garante uma largura mínima para o botão
   },
   changeEmailButtonText: {
     color: 'white',

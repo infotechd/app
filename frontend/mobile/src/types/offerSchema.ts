@@ -9,6 +9,32 @@ export const offerStatusSchema = z.enum(['draft', 'ready', 'inactive', 'archived
 export type OfferStatus = z.infer<typeof offerStatusSchema>;
 
 /**
+ * Zod schema for categorias (service categories)
+ */
+export const categoriasSchema = z.array(z.string()).min(1, { 
+  message: "Pelo menos uma categoria é obrigatória" 
+});
+
+/**
+ * Zod schema for estados (Brazilian states)
+ */
+export const estadoSchema = z.enum([
+  'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal',
+  'Espírito Santo', 'Goiás', 'Maranhão', 'Mato Grosso', 'Mato Grosso do Sul',
+  'Minas Gerais', 'Pará', 'Paraíba', 'Paraná', 'Pernambuco', 'Piauí',
+  'Rio de Janeiro', 'Rio Grande do Norte', 'Rio Grande do Sul', 'Rondônia',
+  'Roraima', 'Santa Catarina', 'São Paulo', 'Sergipe', 'Tocantins'
+]);
+
+/**
+ * Zod schema for localizacao (location)
+ */
+export const localizacaoSchema = z.object({
+  estado: estadoSchema,
+  cidade: z.string().optional()
+});
+
+/**
  * Zod schema for IHorarioDisponivel
  */
 export const horarioDisponivelSchema = z.object({
@@ -22,10 +48,10 @@ export const horarioDisponivelSchema = z.object({
   // Validar que a hora de fim é depois da hora de início
   const inicio = data.inicio.split(':').map(Number);
   const fim = data.fim.split(':').map(Number);
-  
+
   const inicioMinutos = inicio[0] * 60 + inicio[1];
   const fimMinutos = fim[0] * 60 + fim[1];
-  
+
   return fimMinutos > inicioMinutos;
 }, {
   message: "A hora de fim deve ser posterior à hora de início",
@@ -73,7 +99,9 @@ export const offerSchema = z.object({
     z.string()
   ]),
   prestadorId: z.string(),
-  
+  categorias: categoriasSchema,
+  localizacao: localizacaoSchema,
+
   // Optional fields
   dataCriacao: z.string().optional(),
   dataAtualizacao: z.string().optional(),
@@ -90,6 +118,8 @@ export const offerDataSchema = z.object({
   preco: z.number().positive({ message: "Preço deve ser um valor positivo" }),
   status: offerStatusSchema,
   disponibilidade: disponibilidadeSchema,
+  categorias: categoriasSchema,
+  localizacao: localizacaoSchema,
 });
 
 // Type inference from the schema
@@ -103,6 +133,8 @@ export const fetchOffersParamsSchema = z.object({
   precoMax: z.number().optional(),
   precoMin: z.number().optional(),
   categorias: z.array(z.string()).optional(),
+  estado: z.string().optional(),
+  cidade: z.string().optional(),
   status: offerStatusSchema.optional(),
   prestadorId: z.string().optional(),
   sortBy: z.enum(['preco', 'dataCriacao', 'avaliacao']).optional(),

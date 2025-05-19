@@ -8,8 +8,7 @@ import { View, StyleSheet } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 // Importa o Error Boundary personalizado.
-// VERIFIQUE: Certifique-se de que o caminho para ErrorBoundary está correto.
-//import ErrorBoundary from './src/components/ErrorBoundary';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 // Importa o provedor e o hook de autenticação.
 import { AuthProvider, useAuth } from './src/context/AuthContext';
@@ -90,11 +89,11 @@ const App: React.FC = () => {
   }, []);
 
   return (
- //   <ErrorBoundary>
+    <ErrorBoundary>
       <AuthProvider>
         <AppInner />
       </AuthProvider>
- //    </ErrorBoundary>
+    </ErrorBoundary>
   );
 };
 

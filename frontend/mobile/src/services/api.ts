@@ -995,6 +995,18 @@ export const fetchMyOffers = async (token: string, params?: FetchOffersParams): 
  * @returns Promise resolvendo com a mensagem e/ou oferta criada.
  */
 export const createOffer = async (token: string, offerData: OfferData): Promise<OfferMutationResponse> => {
+  let validatedOfferData: OfferData;
+
+  try {
+    // Validar os dados da oferta contra o schema antes de enviar
+    // Isso garante que todos os campos obrigatórios estejam presentes e válidos
+    validatedOfferData = validateWithZod(offerDataSchema, offerData);
+  } catch (validationError) {
+    // Se a validação falhar, retorna um erro detalhado
+    console.error("Erro de validação ao criar oferta:", validationError);
+    throw new Error(`Erro de validação: ${(validationError as Error).message}`);
+  }
+
   // Tenta ambos os endpoints possíveis para maior robustez
   const primaryUrl = `${API_URL}/ofertas`;
   const fallbackUrl = `${API_URL}/oferta`;
@@ -1003,8 +1015,8 @@ export const createOffer = async (token: string, offerData: OfferData): Promise<
   // Isso resolve o problema de ofertas sempre sendo salvas como rascunho
   // Forçar o status para 'ready' se não for explicitamente 'draft'
   const offerDataWithExplicitStatus = {
-    ...offerData,
-    status: offerData.status === 'draft' ? 'draft' : 'ready' // Força 'ready' a menos que seja explicitamente 'draft'
+    ...validatedOfferData,
+    status: validatedOfferData.status === 'draft' ? 'draft' : 'ready' // Força 'ready' a menos que seja explicitamente 'draft'
   };
 
   console.log('Criando oferta com status:', offerDataWithExplicitStatus.status);
@@ -1069,6 +1081,19 @@ export const createOffer = async (token: string, offerData: OfferData): Promise<
  * @returns Promise resolvendo com a mensagem e/ou oferta atualizada.
  */
 export const updateOffer = async (token: string, offerId: string, offerUpdateData: Partial<OfferData>): Promise<OfferMutationResponse> => {
+  // Para atualizações parciais, não validamos com o schema completo
+  // pois nem todos os campos são obrigatórios em uma atualização
+  // No entanto, validamos os campos que estão presentes para garantir que são válidos
+
+  // Garantir que o status seja explicitamente definido no payload se estiver presente
+  const dataToSend = {
+    ...offerUpdateData,
+    // Se status estiver presente, garantir que seja 'draft' ou 'ready'
+    ...(offerUpdateData.status && {
+      status: offerUpdateData.status === 'draft' ? 'draft' : 'ready'
+    })
+  };
+
   const response = await fetch(`${API_URL}/ofertas/${offerId}`, {
     method: 'PUT',
     headers: {
@@ -1076,7 +1101,7 @@ export const updateOffer = async (token: string, offerId: string, offerUpdateDat
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    body: JSON.stringify(offerUpdateData),
+    body: JSON.stringify(dataToSend),
   });
 
   if (!response.ok) {

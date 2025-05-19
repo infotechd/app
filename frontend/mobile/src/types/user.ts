@@ -4,8 +4,10 @@
  * Define os papéis possíveis que um usuário pode ter na aplicação.
  * Baseado na documentação (Diagrama de Classe, Casos de Uso) e
  * nos valores usados em RegistrationScreen.
+ * 
+ * Alinhado com o backend TipoUsuarioEnum
  */
-export type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'administrador';
+export type UserRole = 'comprador' | 'prestador' | 'anunciante' | 'admin';
 
 /**
  * Enum para os tipos de usuário
@@ -25,13 +27,18 @@ export enum TipoUsuarioEnum {
  *
  * Baseado no Diagrama de Classe (Usuario), campos da RegistrationScreen,
  * e no padrão comum de autenticação com token.
+ * 
+ * Alinhado com o modelo de backend (models/User.ts)
  */
 export interface User {
+  // Identificadores - pelo menos um deve estar presente
   idUsuario?: string; // Identificador único (ex: ID do banco de dados)
-  id?: string;      // Identificador alternativo que pode vir da API
+  id?: string;      // Identificador alternativo que pode vir da API (_id do MongoDB)
+
+  // Campos obrigatórios
   nome: string;
   email: string;
-  tipoUsuario: TipoUsuarioEnum | 'comprador' | 'prestador' | 'anunciante' | 'admin' | 'administrador';
+  tipoUsuario: TipoUsuarioEnum;
 
   // O token é frequentemente incluído no objeto do usuário gerenciado pelo AuthContext
   // ou retornado junto com o usuário no login. Essencial para chamadas API autenticadas.
@@ -44,6 +51,12 @@ export interface User {
   cpfCnpj?: string;   // Coletado no registro
   endereco?: string; // Coletado no registro e editável no perfil
   foto?: string;     // URL para a foto do perfil
+  dataNascimento?: string | Date; // Data de nascimento do usuário
+  genero?: 'Feminino' | 'Masculino' | 'Prefiro não dizer'; // Gênero do usuário
+
+  // Timestamps do MongoDB (opcionais no frontend)
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 
   // Observação: A 'senha' não é armazenada no objeto do usuário no frontend
   // após a autenticação por razões de segurança. O 'token' é usado para sessões.

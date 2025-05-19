@@ -6,10 +6,18 @@ import { contratacaoSchema } from './contratacao.schema';
 /**
  * Zod schema for LoginResponse
  * Validates the structure of a login response from the API
+ * 
+ * Nota: Embora o backend envie o token separadamente do objeto user,
+ * no frontend o token é adicionado ao objeto user antes da validação
+ * para facilitar o uso no AuthContext.
  */
 export const loginResponseSchema = z.object({
-  user: userSchema,
-  token: z.string(),
+  user: userSchema._def.schema.extend({
+    token: z.string() // Garante que o token esteja presente no objeto user
+    // Nota: Anteriormente usava .unwrap() que não existe na API do Zod
+    // Foi corrigido para usar diretamente .extend() que é o método correto
+  }),
+  token: z.string().optional(), // Opcional aqui porque será movido para dentro do user
   message: z.string().optional(),
 });
 
@@ -33,6 +41,9 @@ export const apiErrorResponseSchema = z.object({
 /**
  * Zod schema for UpdateProfileResponse
  * Validates the structure of a profile update response from the API
+ * 
+ * Nota: Consistente com loginResponseSchema, garantindo que o token
+ * seja preservado se estiver presente no objeto user retornado.
  */
 export const updateProfileResponseSchema = z.object({
   message: z.string(),
