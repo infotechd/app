@@ -1,66 +1,67 @@
 // src/routes/notificacaoRoutes.ts
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importação dos controladores de notificação e middleware de autenticação
 import * as notificacaoController from '../controllers/notificacaoController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Middlewares de autorização que podem ser implementados futuramente:
 // import { isNotificationOwner } from '../middlewares/authorizationMiddleware';
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 
 const router: Router = Router();
 
-// === ROTAS DE NOTIFICAÇÕES (Todas protegidas por authMiddleware) ===
-// A AUTORIZAÇÃO (usuário só acessa/modifica suas próprias notificações, exceto Admin)
-// deve ser verificada dentro dos controllers ou em middlewares adicionais.
+// === CONFIGURAÇÃO DAS ROTAS DE NOTIFICAÇÕES ===
+// Todas as rotas são protegidas pelo middleware de autenticação
+// A verificação de autorização (se o usuário pode acessar/modificar suas próprias notificações)
+// deve ser implementada nos controladores ou em middlewares adicionais
 
-// GET /api/notificacoes : Lista notificações do usuário logado
-// Controller deve filtrar por req.user.userId e talvez por 'lida', implementar paginação.
+// Rota para listar todas as notificações do usuário autenticado
+// O controlador deve filtrar as notificações pelo ID do usuário logado
+// e possivelmente pelo status de leitura, além de implementar paginação
 router.get(
   '/',
   authMiddleware,
   notificacaoController.getNotificacoes
 );
 
-// PATCH /api/notificacoes/read-all : Marca todas as notificações do usuário logado como lidas (Sugestão)
-// Controller deve atualizar todas as notificações onde usuarioId = req.user.userId e lida = false.
-router.patch( // Usando PATCH para atualização de estado
+// Rota para marcar todas as notificações do usuário como lidas
+// O controlador deve atualizar todas as notificações não lidas do usuário autenticado
+router.patch(
   '/read-all',
   authMiddleware,
-  notificacaoController.marcarTodasComoLidas // Função a ser criada
+  notificacaoController.marcarTodasComoLidas
 );
 
-// PATCH /api/notificacoes/:notificacaoId/read : Marca uma notificação específica como lida (Sugestão)
-// Usando PATCH e rota mais semântica. Controller deve verificar se req.user é dono da notificacaoId.
-router.patch( // Usando PATCH em vez de PUT/:id/lida
+// Rota para marcar uma notificação específica como lida
+// Utiliza o método PATCH para atualizar apenas o status de leitura
+// O controlador deve verificar se o usuário é o proprietário da notificação
+router.patch(
   '/:notificacaoId/read',
   authMiddleware,
-  // isNotificationOwner, // Middleware opcional
-  notificacaoController.markAsRead // Controller atualiza o campo 'lida' para true
+  // isNotificationOwner, // Middleware que pode ser implementado para verificação de propriedade
+  notificacaoController.markAsRead
 );
 
-
-// DELETE /api/notificacoes/:notificacaoId : Exclui uma notificação específica
-// Controller deve verificar se req.user é dono da notificacaoId.
+// Rota para excluir uma notificação específica
+// O controlador deve verificar se o usuário é o proprietário da notificação
 router.delete(
   '/:notificacaoId',
   authMiddleware,
-  // isNotificationOwner, // Middleware opcional
+  // isNotificationOwner, // Middleware que pode ser implementado para verificação de propriedade
   notificacaoController.deleteNotificacao
 );
 
+// === ROTAS ADMINISTRATIVAS (RESTRITAS) ===
 
-// === ROTAS DE CRIAÇÃO (Restritas - Exemplo para Admin) ===
-
-// POST /api/notificacoes/system : Admin cria uma notificação (ex: anúncio do sistema)
-// Rota removida/protegida do POST / genérico. Requer Admin.
-// Corpo da requisição pode especificar o destinatário (usuarioId) ou ser para todos.
+// Rota para criação de notificações pelo administrador do sistema
+// Esta rota está comentada e deve ser implementada apenas para usuários com privilégios de administrador
+// O corpo da requisição pode especificar um destinatário específico ou todos os usuários
 // router.post(
-//     '/system', // Rota específica para criação controlada
+//     '/system',
 //     authMiddleware,
-//     // isAdmin, // Middleware OBRIGATÓRIO
-//     notificacaoController.createNotificacao // Controller lida com a criação para um ou mais usuários
+//     // isAdmin, // Middleware necessário para verificar se o usuário é administrador
+//     notificacaoController.createNotificacao
 // );
 
-// Exporta o router configurado
+// Exportação do roteador configurado
 export default router;

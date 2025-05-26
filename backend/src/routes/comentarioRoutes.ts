@@ -1,67 +1,101 @@
 // src/routes/comentarioRoutes.ts
 
 import { Router } from 'express';
-// Importa o controller e middlewares (assumindo que serão criados/convertidos para .ts)
+// Importação do controlador de comentários e middleware de autenticação
 import * as comentarioController from '../controllers/comentarioController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Middlewares de autorização
+// Middlewares de autorização que podem ser implementados futuramente
 // import { isComentarioOwnerOrAdmin } from '../middlewares/authorizationMiddleware';
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 
+// Inicialização do roteador Express
 const router: Router = Router();
 
 // === ROTAS DE COMENTÁRIOS ===
 
-// POST /api/comentarios : Cria um novo comentário (ou resposta)
-// Requer autenticação. Corpo da req deve incluir publicacaoId, conteudo, e opcionalmente respostaParaComentarioId.
-// Controller deve: validar dados, criar Comentario, incrementar contagemComentarios na PublicacaoComunidade.
+// Rota POST /api/comentarios
+// Descrição: Cria um novo comentário ou resposta a um comentário existente
+// Requisitos: 
+//   - Usuário autenticado
+//   - Corpo da requisição deve incluir: publicacaoId, conteudo
+//   - Opcionalmente pode incluir: respostaParaComentarioId
+// Funcionamento: 
+//   - Valida os dados recebidos
+//   - Cria o registro de Comentario no banco de dados
+//   - Incrementa o contador de comentários na publicação relacionada
 router.post(
   '/',
-  authMiddleware, // Precisa estar logado para comentar
-  comentarioController.criarComentario // Função a ser criada
+  authMiddleware, // Middleware que verifica se o usuário está autenticado
+  comentarioController.criarComentario // Controlador que processa a criação do comentário
 );
 
-// GET /api/comentarios/publicacao/:publicacaoId : Lista comentários (aprovados) de uma publicação
-// Geralmente pública. Controller deve implementar paginação e buscar por publicacaoId e status='aprovado'.
-// Pode ordenar por createdAt. Pode carregar respostas aninhadas se necessário.
+// Rota GET /api/comentarios/publicacao/:publicacaoId
+// Descrição: Lista todos os comentários aprovados de uma publicação específica
+// Acesso: 
+//   - Geralmente público (não requer autenticação)
+//   - Pode ser restrito descomentando o middleware de autenticação
+// Funcionamento:
+//   - Busca comentários pelo ID da publicação e status 'aprovado'
+//   - Implementa paginação para grandes volumes de comentários
+//   - Ordena por data de criação (mais recentes primeiro)
+//   - Pode incluir respostas aninhadas aos comentários principais
 router.get(
   '/publicacao/:publicacaoId',
-  // authMiddleware, // Descomentar se a visualização exigir login
-  comentarioController.listarComentariosPorPublicacao // Função a ser criada
+  // authMiddleware, // Descomentar esta linha se a visualização exigir login
+  comentarioController.listarComentariosPorPublicacao // Controlador que lista os comentários da publicação
 );
 
-// PUT /api/comentarios/:comentarioId : Autor edita seu próprio comentário
-// Requer autenticação. Controller deve verificar se req.user é o autor do comentário.
+// Rota PUT /api/comentarios/:comentarioId
+// Descrição: Permite que o autor edite seu próprio comentário
+// Requisitos:
+//   - Usuário autenticado
+//   - O usuário deve ser o autor original do comentário
+// Funcionamento:
+//   - Verifica se o usuário autenticado é o autor do comentário
+//   - Atualiza o conteúdo do comentário com os novos dados
 router.put(
   '/:comentarioId',
-  authMiddleware,
-  // isComentarioOwner, // Middleware opcional
-  comentarioController.editarComentario // Função a ser criada
+  authMiddleware, // Middleware que verifica se o usuário está autenticado
+  // isComentarioOwner, // Middleware opcional para verificar se é o autor do comentário
+  comentarioController.editarComentario // Controlador que processa a edição do comentário
 );
 
-// DELETE /api/comentarios/:comentarioId : Autor ou Admin deleta um comentário
-// Requer autenticação. Controller deve verificar se req.user é o autor OU admin.
-// Precisa decrementar contagemComentarios na Publicacao se for comentário principal.
-// Precisa decidir o que fazer com as respostas (deletar em cascata? marcar como órfã?).
+// Rota DELETE /api/comentarios/:comentarioId
+// Descrição: Permite que o autor ou um administrador exclua um comentário
+// Requisitos:
+//   - Usuário autenticado
+//   - O usuário deve ser o autor do comentário OU ter permissões de administrador
+// Funcionamento:
+//   - Verifica permissões do usuário (autor ou admin)
+//   - Remove o comentário do banco de dados
+//   - Decrementa o contador de comentários na publicação relacionada
+//   - Trata as respostas associadas (exclusão em cascata ou marcação como órfãs)
 router.delete(
   '/:comentarioId',
-  authMiddleware,
-  // isComentarioOwnerOrAdmin, // Middleware opcional
-  comentarioController.deletarComentario // Função a ser criada
+  authMiddleware, // Middleware que verifica se o usuário está autenticado
+  // isComentarioOwnerOrAdmin, // Middleware opcional para verificar se é o autor ou admin
+  comentarioController.deletarComentario // Controlador que processa a exclusão do comentário
 );
 
-// PATCH /api/comentarios/:comentarioId/status : Admin modera um comentário (aprova/oculta) (Opcional)
-// Requer autenticação e permissão de Admin.
+// Rota PATCH /api/comentarios/:comentarioId/status
+// Descrição: Permite que um administrador modere um comentário (aprovar ou ocultar)
+// Requisitos:
+//   - Usuário autenticado
+//   - O usuário deve ter permissões de administrador
+// Funcionamento:
+//   - Verifica se o usuário tem permissões de administrador
+//   - Atualiza o status do comentário (aprovado/oculto)
 router.patch(
   '/:comentarioId/status',
-  authMiddleware,
-  // isAdmin, // Middleware OBRIGATÓRIO
-  comentarioController.moderarComentario // Função a ser criada
+  authMiddleware, // Middleware que verifica se o usuário está autenticado
+  // isAdmin, // Middleware OBRIGATÓRIO para verificar se é administrador
+  comentarioController.moderarComentario // Controlador que processa a moderação do comentário
 );
 
-// --- Rotas para Likes de Comentários (Podem ficar em curtidaRoutes.ts) ---
-// Ex: POST /api/comentarios/:comentarioId/like
-// Ex: DELETE /api/comentarios/:comentarioId/like
+// --- Sugestões de Rotas para Curtidas em Comentários ---
+// Observação: Estas rotas podem ser implementadas em um arquivo separado (curtidaRoutes.ts)
+// Exemplo: POST /api/comentarios/:comentarioId/like (para curtir um comentário)
+// Exemplo: DELETE /api/comentarios/:comentarioId/like (para remover uma curtida)
 
-// Exporta o router configurado
+// Exportação do roteador configurado para uso no aplicativo
 export default router;

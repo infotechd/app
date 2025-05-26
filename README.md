@@ -9,4 +9,28 @@ Cada subprojeto está organizado como um workspace para facilitar o desenvolvime
 - **frontend/mobile/**: Aplicativo mobile (Android/iOS) com Expo.
 - **frontend/web/**: Aplicativo web (React).
 
+## Executando a Aplicação
+
+### Método Rápido (Windows)
+
+Execute o script `start-app.bat` para iniciar automaticamente o MongoDB, o backend e o frontend mobile:
+
+```
+start-app.bat
+```
+
+### Método Manual
+
+Consulte o arquivo [INSTRUCTIONS.md](INSTRUCTIONS.md) para instruções detalhadas sobre como:
+1. Iniciar o MongoDB
+2. Iniciar o servidor backend
+3. Iniciar o aplicativo mobile
+
+## Requisitos
+
+- Node.js 18+
+- MongoDB
+- pnpm
+- Expo CLI (para o app mobile)
+
 Consulte a documentação interna de cada subprojeto para mais detalhes.

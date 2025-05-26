@@ -1,4 +1,4 @@
-// models/User.ts (Backend - Convertido para TypeScript)
+// models/User.ts (Modelo de usuário do sistema)
 
 import mongoose, {
   CallbackError,
@@ -7,12 +7,12 @@ import mongoose, {
   Model,
   Schema,
 } from "mongoose";
-import bcrypt from "bcryptjs"; // Usar import em vez de require
+import bcrypt from "bcryptjs"; // Biblioteca para criptografia de senhas
 import logger from "../config/logger";
 
 // --- Tipos e Interfaces ---
 
-// Enum para os tipos de usuário (melhor usar um Enum TypeScript)
+// Enumeração para definir os tipos de usuário disponíveis no sistema
 export enum TipoUsuarioEnum {
   COMPRADOR = 'comprador',
   PRESTADOR = 'prestador',
@@ -20,43 +20,45 @@ export enum TipoUsuarioEnum {
   ADMIN = 'admin'
 }
 
-// Interface que define a estrutura de um documento User (propriedades)
-// Estende Document do Mongoose para incluir _id, __v, etc.
+// Interface que define a estrutura de um documento de usuário no banco de dados
+// Estende a classe Document do Mongoose para herdar propriedades como _id e __v
 export interface IUser extends Document {
   nome: string;
   email: string;
-  senha?: string; // Senha é opcional aqui porque usamos select: false
+  senha?: string; // Campo opcional na interface porque é excluído das consultas por padrão
   telefone?: string;
   cpfCnpj: string;
   tipoUsuario: TipoUsuarioEnum;
   endereco?: string;
   foto?: string;
-  // Timestamps (adicionados pelo Mongoose)
+  dataNascimento?: Date; // Armazena a data de nascimento do usuário
+  genero?: string; // Armazena o gênero do usuário
+  // Campos de data criados automaticamente pelo Mongoose
   createdAt: Date;
   updatedAt: Date;
 
-  // Declaração do método de instância para o TypeScript reconhecer
-  comparePassword(candidatePassword: string): Promise<boolean>; // Tornar async é melhor prática com bcrypt.compare
+  // Método para comparar a senha fornecida com a senha armazenada
+  comparePassword(candidatePassword: string): Promise<boolean>; // Método assíncrono para comparação segura de senhas
 }
 
-// Interface para definir métodos estáticos no Modelo (se houver) - Opcional aqui
+// Interface para definir métodos estáticos adicionais no modelo User
 interface IUserModel extends Model<IUser> {
-  // Exemplo: findByEmail(email: string): Promise<HydratedDocument<IUser> | null>;
+  // Aqui podem ser adicionados métodos estáticos personalizados
 }
 
-// --- Schema Mongoose ---
+// --- Definição do Schema no Mongoose ---
 
-// Regex básica para validação de formato de email
+// Expressão regular para validar o formato de email
 let emailRegex: RegExp;
 emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
 
-// Regex para validação de formato de telefone brasileiro
-// Aceita formato: (XX) XXXXX-XXXX ou XXXXXXXXXXX (apenas números)
-// DDD (2 dígitos) + número (9 dígitos) = 11 dígitos no total
+// Expressão regular para validar o formato de telefone brasileiro
+// Aceita os formatos: (XX) XXXXX-XXXX ou XXXXXXXXXXX (apenas números)
+// Composto por DDD (2 dígitos) + número (9 dígitos) = 11 dígitos no total
 let telefoneRegex: RegExp;
 telefoneRegex = /^(?:\(\d{2}\)\s?)?\d{5}-?\d{4}$|^\d{11}$/;
 
-// Define o Schema do Mongoose, usando a interface IUser para tipagem
+// Criação do Schema do Mongoose com base na interface IUser
 const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
   {
     nome: {
@@ -76,17 +78,17 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
     senha: {
       type: String,
       required: [true, 'O campo senha é obrigatório.'],
-      select: false, // Mantém o hash da senha oculto por padrão
+      select: false, // Impede que a senha seja retornada em consultas por padrão
     },
     telefone: {
       type: String,
       trim: true,
-      // Validação do formato do telefone usando a regex definida
+      // Validação do formato do telefone usando a expressão regular definida anteriormente
       match: [telefoneRegex, 'Por favor, insira um número de telefone válido com DDD (11 dígitos).'],
-      // Validação customizada para garantir que o telefone tenha exatamente 11 dígitos numéricos
+      // Validação personalizada para garantir que o telefone tenha exatamente 11 dígitos numéricos
       validate: {
         validator: function(value: string) {
-          // Se o valor não for fornecido, é considerado válido (campo opcional)
+          // Se o campo estiver vazio, é considerado válido (campo opcional)
           if (!value) return true;
 
           // Remove todos os caracteres não numéricos para contar apenas os dígitos
@@ -106,15 +108,15 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
       index: true,
       validate: {
         validator: function(value: string) {
-          // Remove caracteres não numéricos
+          // Remove caracteres não numéricos como pontos e traços
           const numeroLimpo = value.replace(/\D/g, '');
 
-          // Verifica se é CPF (11 dígitos) ou CNPJ (14 dígitos)
+          // Verifica se o número tem a quantidade correta de dígitos para CPF ou CNPJ
           if (numeroLimpo.length !== 11 && numeroLimpo.length !== 14) {
             return false;
           }
 
-          // Validação básica: verifica se não são todos dígitos iguais
+          // Validação básica: verifica se não são todos dígitos iguais (caso inválido)
           if (/^(\d)\1+$/.test(numeroLimpo)) {
             return false;
           }
@@ -141,74 +143,91 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    dataNascimento: {
+      type: Date,
+      validate: {
+        validator: function(value: Date) {
+          // Verifica se a data é válida e não está no futuro
+          return !value || value <= new Date();
+        },
+        message: 'A data de nascimento não pode estar no futuro.'
+      }
+    },
+    genero: {
+      type: String,
+      enum: {
+        values: ['Feminino', 'Masculino', 'Prefiro não dizer'],
+        message: 'O gênero fornecido ({VALUE}) não é válido.'
+      },
+      trim: true,
+    },
   },
   {
     timestamps: true,
   }
 );
 
-// --- Middleware (Hook) pré-save ---
+// --- Middleware executado antes de salvar um usuário ---
 UserSchema.pre<HydratedDocument<IUser>>('save', async function(next: (err?: CallbackError) => void) {
-  // Usa async function para poder usar await dentro, se necessário (embora bcrypt.hashSync seja síncrono)
-  // Tipagem 'this' como HydratedDocument<IUser>
-  // Tipagem 'next' callback
+  // Função assíncrona para permitir o uso de await nas operações de criptografia
+  // O parâmetro 'this' é tipado como HydratedDocument<IUser> para acesso aos métodos do documento
+  // O callback 'next' é tipado para permitir passar erros para o Mongoose
 
-  // Normaliza o formato do telefone se foi modificado
+  // Formata o telefone para o padrão brasileiro se o campo foi modificado
   if (this.isModified('telefone') && this.telefone) {
     try {
-      // Remove todos os caracteres não numéricos
+      // Remove todos os caracteres não numéricos do telefone
       const numeroLimpo = this.telefone.replace(/\D/g, '');
 
-      // Formata o número como (XX) XXXXX-XXXX se tiver 11 dígitos
+      // Formata o número no padrão (XX) XXXXX-XXXX se tiver a quantidade correta de dígitos
       if (numeroLimpo.length === 11) {
         this.telefone = `(${numeroLimpo.substring(0, 2)}) ${numeroLimpo.substring(2, 7)}-${numeroLimpo.substring(7)}`;
       }
     } catch (error: any) {
       logger.error("Erro ao normalizar telefone:", { error: error.message, stack: error.stack });
-      // Não interrompe o fluxo por erro de formatação
+      // Continua o processo mesmo com erro de formatação
     }
   }
 
-  // Só faz o hash se a senha foi modificada
+  // Só criptografa a senha se ela foi modificada
   if (!this.isModified('senha') || !this.senha) {
-    return next(); // Chama next() e retorna se não precisar fazer hash da senha
+    return next(); // Prossegue para o próximo middleware se não precisar criptografar
   }
 
   try {
-    // Usar bcrypt.genSalt e bcrypt.hash (assíncronos) é geralmente preferido em Node.js
-    // sobre as versões Sync para não bloquear a thread.
+    // Utiliza funções assíncronas do bcrypt para não bloquear a thread principal
     const salt = await bcrypt.genSalt(10);
     this.senha = await bcrypt.hash(this.senha, salt);
     next();
-  } catch (error: any) { // Captura o erro
+  } catch (error: any) { // Captura qualquer erro durante a criptografia
     logger.error("Erro ao gerar hash da senha:", { error: error.message, stack: error.stack });
-    next(error); // Passa o erro para o Mongoose
+    next(error); // Passa o erro para o Mongoose tratar
   }
 });
 
-// --- Método de Instância comparePassword ---
+// --- Método para comparação de senhas ---
 UserSchema.methods.comparePassword = async function(candidatePassword: string): Promise<boolean> {
-  // 'this' aqui se refere à instância do documento User
-  // Adicionado async/await para usar bcrypt.compare (assíncrono)
+  // O 'this' refere-se à instância atual do documento de usuário
+  // Método implementado como assíncrono para usar bcrypt.compare de forma não-bloqueante
 
   if (!this.senha) {
-    // Lança um erro se a senha não foi carregada (select: false)
+    // Registra erro se o campo senha não estiver disponível (devido ao select: false)
     logger.error("Erro em comparePassword: Campo 'senha' não foi selecionado na query para este usuário.");
-    // Lançar um erro é mais apropriado para sinalizar um problema de programação
+    // Lança um erro para indicar um problema na implementação da consulta
     throw new Error("Campo 'senha' não carregado para comparação. Use .select('+senha') na query.");
   }
 
   try {
-    // Usa a versão assíncrona bcrypt.compare
+    // Compara a senha fornecida com o hash armazenado usando bcrypt
     return await bcrypt.compare(candidatePassword, this.senha);
   } catch (error: any) {
     logger.error("Erro ao comparar senhas:", { error: error.message, stack: error.stack });
-    return false; // Retorna falso em caso de erro
+    return false; // Retorna falso em caso de falha na comparação
   }
 };
 
-// --- Exportação do Modelo ---
-// Cria e exporta o modelo 'User' tipado com IUser (documento) e IUserModel (modelo)
+// --- Criação e exportação do modelo ---
+// Cria o modelo 'User' com as tipagens definidas e o schema configurado
 const User = mongoose.model<IUser, IUserModel>('User', UserSchema);
 
 export default User;

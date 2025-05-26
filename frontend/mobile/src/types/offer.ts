@@ -103,11 +103,7 @@ export enum CapitalBrasil {
  * Interface para localização
  */
 export interface ILocalizacao {
-  estado: EstadoBrasil | 'Acre' | 'Alagoas' | 'Amapá' | 'Amazonas' | 'Bahia' | 'Ceará' | 'Distrito Federal' |
-  'Espírito Santo' | 'Goiás' | 'Maranhão' | 'Mato Grosso' | 'Mato Grosso do Sul' |
-  'Minas Gerais' | 'Pará' | 'Paraíba' | 'Paraná' | 'Pernambuco' | 'Piauí' |
-  'Rio de Janeiro' | 'Rio Grande do Norte' | 'Rio Grande do Sul' | 'Rondônia' |
-  'Roraima' | 'Santa Catarina' | 'São Paulo' | 'Sergipe' | 'Tocantins';
+  estado: EstadoBrasil;
   cidade?: string;
 }
 
@@ -138,6 +134,15 @@ export interface IDisponibilidade {
 }
 
 /**
+ * Interface para representar informações básicas do prestador
+ */
+export interface PrestadorInfo {
+  _id: string;
+  nome?: string;
+  foto?: string;
+}
+
+/**
  * Interface representando um objeto de Oferta de Serviço completo.
  * Baseado no Diagrama de Classe, Casos de Uso 3/4, e telas relacionadas.
  */
@@ -149,7 +154,7 @@ export interface Offer {
   /** Detalhes sobre a disponibilidade estruturados */
   disponibilidade: IDisponibilidade | string; // Aceita ambos formatos para compatibilidade
   /** ID do PrestadorServico (User) que criou a oferta */
-  prestadorId: string;
+  prestadorId: string | PrestadorInfo;
   /** Categorias de serviços oferecidos */
   categorias: string[];
   /** Localização onde o serviço é oferecido */
@@ -159,7 +164,11 @@ export interface Offer {
   dataCriacao?: string; // ISO 8601
   dataAtualizacao?: string; // ISO 8601
   // Para exibição facilitada na busca, o backend pode incluir:
-  // prestadorInfo?: Pick<User, 'idUsuario' | 'nome' | 'foto'>; // Info básica do prestador
+  // Campos usados para exibir informações do prestador
+  nomePrestador?: string; // Nome do prestador (alternativa)
+  prestadorNome?: string; // Nome do prestador (alternativa)
+  prestadorInfo?: { nome?: string; }; // Informações básicas do prestador
+  prestador?: { nome?: string; } | string; // Objeto prestador ou ID
   // avaliacaoMediaPrestador?: number;
   // numeroContratacoesPrestador?: number;
 }
@@ -195,4 +204,5 @@ export interface FetchOffersParams {
   sortOrder?: 'asc' | 'desc'; // Exemplo
   page?: number; // Para paginação
   limit?: number; // Para paginação
+  includeProvider?: boolean; // Indica se deve incluir informações do prestador na resposta
 }

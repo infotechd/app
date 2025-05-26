@@ -5,6 +5,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { useAuth } from "@/context/AuthContext";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types"; // Importa a lista de parâmetros
+import { TipoUsuarioEnum } from "@/types/user"; // Importa o enum de tipos de usuário
 
 // 2. Definir tipo das props da tela
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
@@ -24,16 +25,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
       // Aguardar um momento para garantir que a tela Home seja montada completamente
       const timer = setTimeout(() => {
         switch (user.tipoUsuario) {
-          case 'comprador':
+          case TipoUsuarioEnum.COMPRADOR:
             navigation.navigate('BuyerDashboard');
             break;
-          case 'prestador':
+          case TipoUsuarioEnum.PRESTADOR:
             navigation.navigate('ProviderDashboard');
             break;
-          case 'anunciante':
+          case TipoUsuarioEnum.ANUNCIANTE:
             navigation.navigate('AdvertiserDashboard');
             break;
-          case 'administrador':
+          case TipoUsuarioEnum.ADMIN:
             // Manter na Home para administradores ou navegar para uma tela específica
             break;
           default:
@@ -56,7 +57,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
     if (!user) return null;
 
     switch (user.tipoUsuario) {
-      case 'comprador':
+      case TipoUsuarioEnum.COMPRADOR:
         return (
           <>
             <TouchableOpacity 
@@ -86,7 +87,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </>
         );
 
-      case 'prestador':
+      case TipoUsuarioEnum.PRESTADOR:
         return (
           <>
             <TouchableOpacity 
@@ -116,7 +117,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
           </>
         );
 
-      case 'anunciante':
+      case TipoUsuarioEnum.ANUNCIANTE:
         return (
           <>
             <TouchableOpacity 

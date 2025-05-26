@@ -1,64 +1,65 @@
-// src/routes/curriculoRoutes.ts
+// Arquivo de rotas para gerenciamento de currículos
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importação dos controladores de currículo e middleware de autenticação
 import * as curriculoController from '../controllers/curriculoController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middleware de autorização específico
+// Middleware de autorização pode ser importado quando necessário
 // import { isPrestador } from '../middlewares/authorizationMiddleware';
 
+// Inicialização do roteador
 const router: Router = Router();
 
-// === ROTA PÚBLICA/SEMIPÚBLICA (Sugestão) ===
+// === ROTA PÚBLICA/SEMIPÚBLICA ===
 
-// GET /api/curriculos/user/:prestadorId : Obtém o currículo público de um prestador específico
-// Pode ser pública ou exigir apenas autenticação básica (authMiddleware)
+// Rota para obter o currículo público de um prestador específico pelo ID
+// Esta rota pode ser configurada como pública ou com autenticação básica
 router.get(
   '/user/:prestadorId',
-  // authMiddleware, // Descomentar se visualização exigir login
-  curriculoController.getPublicCurriculoByUserId // Função a ser criada
+  // authMiddleware, // Ative este middleware se a visualização exigir login
+  curriculoController.getPublicCurriculoByUserId // Controlador que busca o currículo público
 );
 
 
-// === ROTAS PRIVADAS (Requer Autenticação e ser Prestador) ===
-// O middleware authMiddleware garante o login.
-// A verificação se é Prestador e age sobre o próprio currículo deve ocorrer nos controllers.
+// === ROTAS PRIVADAS (Requerem Autenticação e Perfil de Prestador) ===
+// O middleware de autenticação garante que o usuário esteja logado
+// A verificação do perfil de Prestador é feita nos controladores
 
-// POST /api/curriculos : Cria o currículo do prestador logado (CU2)
-// Controller deve verificar se é Prestador e se já não existe currículo para ele.
+// Rota para criar um novo currículo para o prestador logado
+// O controlador verifica se o usuário é Prestador e se já não possui um currículo
 router.post(
   '/',
   authMiddleware,
-  // isPrestador, // Middleware opcional
-  curriculoController.createCurriculo
+  // isPrestador, // Middleware opcional para verificação adicional
+  curriculoController.createCurriculo // Controlador de criação de currículo
 );
 
-// GET /api/curriculos : Obtém o currículo do prestador logado (CU2)
-// Controller deve verificar se é Prestador e buscar pelo req.user.userId.
+// Rota para obter o currículo do prestador logado
+// O controlador verifica se o usuário é Prestador e busca o currículo pelo ID do usuário
 router.get(
-  '/', // Rota implícita para "meu currículo"
+  '/', // Rota para acessar o próprio currículo
   authMiddleware,
-  // isPrestador, // Middleware opcional
-  curriculoController.getCurriculoByPrestador // Busca pelo ID do usuário no token
+  // isPrestador, // Middleware opcional para verificação adicional
+  curriculoController.getCurriculoByPrestador // Controlador que busca pelo ID do usuário no token
 );
 
-// PUT /api/curriculos : Atualiza o currículo do prestador logado (CU2)
-// Controller deve verificar se é Prestador e atualizar pelo req.user.userId.
+// Rota para atualizar o currículo do prestador logado
+// O controlador verifica se o usuário é Prestador e atualiza o currículo correspondente
 router.put(
-  '/', // Rota implícita para "meu currículo"
+  '/', // Rota para atualizar o próprio currículo
   authMiddleware,
-  // isPrestador, // Middleware opcional
-  curriculoController.updateCurriculo // Atualiza usando o ID do usuário no token
+  // isPrestador, // Middleware opcional para verificação adicional
+  curriculoController.updateCurriculo // Controlador que atualiza usando o ID do usuário no token
 );
 
-// DELETE /api/curriculos : (Opcional) Deleta o currículo do prestador logado
+// Rota para deletar o currículo do prestador logado (Funcionalidade opcional)
 // router.delete(
 //     '/',
 //     authMiddleware,
-//     // isPrestador, // Middleware opcional
-//     curriculoController.deleteCurriculo // Função a ser criada
+//     // isPrestador, // Middleware opcional para verificação adicional
+//     curriculoController.deleteCurriculo // Controlador para remoção do currículo
 // );
 
 
-// Exporta o router configurado
+// Exportação do roteador configurado para uso na aplicação
 export default router;

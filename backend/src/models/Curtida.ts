@@ -1,13 +1,13 @@
-// models/Curtida.ts (Backend - Convertido para TypeScript)
+// models/Curtida.ts
 
 /**
- * Modelo Curtida (Like)
+ * Modelo Curtida
  * Representa a ação de um usuário curtir um item específico (polimórfico),
  * como uma PublicacaoComunidade ou um Comentario.
  */
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 // Importa a interface do usuário para referenciação
-import { IUser } from './User'; // Ajuste o caminho se necessário
+import { IUser } from './User';
 
 // --- Enums e Interfaces ---
 
@@ -16,21 +16,21 @@ import { IUser } from './User'; // Ajuste o caminho se necessário
 export enum TipoItemCurtidoEnum {
   PUBLICACAO_COMUNIDADE = 'PublicacaoComunidade',
   COMENTARIO = 'Comentario'
-  // Adicionar outros tipos se mais itens puderem ser curtidos (ex: 'OfertaServico')
+  // Possibilidade de adicionar outros tipos de itens que podem ser curtidos no futuro
 }
 
 // Interface principal que define a estrutura de um documento Curtida
 export interface ICurtida extends Document {
-  usuarioId: Types.ObjectId | IUser; // Usuário que curtiu (pode ser populado)
-  itemCurtidoId: Types.ObjectId; // ID do documento curtido (PublicacaoComunidade ou Comentario)
-  tipoItemCurtido: TipoItemCurtidoEnum; // Tipo do documento curtido
-  // Timestamp (apenas createdAt é relevante)
+  usuarioId: Types.ObjectId | IUser; // Referência ao usuário que realizou a curtida
+  itemCurtidoId: Types.ObjectId; // ID do item que recebeu a curtida (PublicacaoComunidade ou Comentario)
+  tipoItemCurtido: TipoItemCurtidoEnum; // Tipo do item que recebeu a curtida
+  // Registro de data e hora da curtida
   createdAt: Date;
 }
 
 // --- Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface ICurtida para tipagem
+// Define o Schema Mongoose utilizando a interface ICurtida para tipagem
 const CurtidaSchema: Schema<ICurtida> = new Schema(
   {
     usuarioId: {
@@ -41,7 +41,7 @@ const CurtidaSchema: Schema<ICurtida> = new Schema(
     },
     itemCurtidoId: {
       type: Schema.Types.ObjectId,
-      // Não usamos 'ref' aqui porque é polimórfico (pode referenciar diferentes modelos)
+      // Campo polimórfico que pode referenciar diferentes modelos
       required: [true, 'O ID do item curtido é obrigatório.'],
       index: true
     },
@@ -49,14 +49,14 @@ const CurtidaSchema: Schema<ICurtida> = new Schema(
       type: String,
       required: [true, 'O tipo do item curtido é obrigatório.'],
       enum: {
-        values: Object.values(TipoItemCurtidoEnum), // Usa valores do Enum TS
+        values: Object.values(TipoItemCurtidoEnum), // Utiliza os valores definidos no Enum
         message: 'Tipo de item curtido inválido: {VALUE}.'
       },
       index: true
     }
   },
   {
-    timestamps: { createdAt: true, updatedAt: false } // Apenas createdAt
+    timestamps: { createdAt: true, updatedAt: false } // Registra apenas a data de criação
   }
 );
 
@@ -64,13 +64,13 @@ const CurtidaSchema: Schema<ICurtida> = new Schema(
 // Garante que um usuário só possa curtir um item específico (de um tipo específico) UMA ÚNICA VEZ.
 CurtidaSchema.index({ usuarioId: 1, itemCurtidoId: 1, tipoItemCurtido: 1 }, { unique: true });
 
-// --- Lógica Associada (Relembrete - Implementar nos Services/Controllers) ---
-// - Ao Curtir: Tentar criar Curtida -> Se sucesso, incrementar contagem no item pai ($inc).
-// - Ao Descurtir: Tentar remover Curtida -> Se sucesso, decrementar contagem no item pai ($inc).
-// - Para saber Quem Curtiu: Buscar nesta coleção por itemCurtidoId e tipoItemCurtido.
+// --- Lógica Associada (Lembrete para implementação nos Services/Controllers) ---
+// - Ao Curtir: Criar documento Curtida e incrementar contador no item pai
+// - Ao Descurtir: Remover documento Curtida e decrementar contador no item pai
+// - Para listar quem curtiu: Consultar esta coleção filtrando por itemCurtidoId e tipoItemCurtido
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Curtida' tipado com ICurtida
+// Cria e exporta o modelo 'Curtida' com a tipagem da interface ICurtida
 const Curtida = mongoose.model<ICurtida>('Curtida', CurtidaSchema);
 
 export default Curtida;

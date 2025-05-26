@@ -1,99 +1,108 @@
 // src/routes/treinamentoRoutes.ts
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importação dos controladores e middlewares necessários para as rotas de treinamento
 import * as treinamentoController from '../controllers/treinamentoController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Middlewares de autorização que podem ser implementados futuramente
 // import { isAnunciante } from '../middlewares/authorizationMiddleware';
 // import { isTreinamentoOwner } from '../middlewares/authorizationMiddleware';
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 
+// Criação do roteador para as rotas de treinamento
 const router: Router = Router();
 
 // === ROTAS PÚBLICAS (ou requerem apenas login básico) ===
 
-// GET /api/treinamentos : Lista treinamentos publicados (CU25)
-// Controller deve filtrar por status: 'publicado'
+// Rota: GET /api/treinamentos
+// Função: Lista todos os treinamentos com status 'publicado' (CU25)
+// Observação: O controlador deve aplicar filtro por status 'publicado'
 router.get(
   '/',
-  // authMiddleware, // Descomentar se a listagem exigir login
-  treinamentoController.getPublicTreinamentos // Nome atual, talvez renomear para getPublicTreinamentos
+  // authMiddleware, // Ativar se for necessário autenticação para listar
+  treinamentoController.getPublicTreinamentos
 );
 
-// GET /api/treinamentos/:treinamentoId : Obtém detalhes de um treinamento publicado específico (CU25)
-// Controller deve verificar se status é 'publicado' ou se usuário tem permissão especial
+// Rota: GET /api/treinamentos/:treinamentoId
+// Função: Obtém detalhes de um treinamento específico que esteja publicado (CU25)
+// Observação: O controlador deve verificar se o status é 'publicado' ou se o usuário possui permissão especial
 router.get(
   '/:treinamentoId',
-  // authMiddleware, // Descomentar se a visualização exigir login
-  treinamentoController.getPublicTreinamentoById // Nome atual, talvez renomear para getPublicTreinamentoById
+  // authMiddleware, // Ativar se for necessário autenticação para visualizar
+  treinamentoController.getPublicTreinamentoById
 );
 
 
 // === ROTAS PRIVADAS / PARA ANUNCIANTES ===
-// Exigem login (authMiddleware). Autorização (ser Anunciante e/ou Dono) deve ser verificada.
+// Estas rotas exigem autenticação (authMiddleware) e verificação de autorização (ser Anunciante e/ou Proprietário)
 
-// POST /api/treinamentos : Cria um novo treinamento (CU26)
-// Controller deve verificar se req.user.tipoUsuario === 'anunciante'
+// Rota: POST /api/treinamentos
+// Função: Cria um novo treinamento (CU26)
+// Observação: O controlador deve verificar se o usuário é do tipo 'anunciante'
 router.post(
   '/',
   authMiddleware,
-  // isAnunciante, // Middleware opcional
+  // isAnunciante, // Middleware opcional para verificação adicional
   treinamentoController.createTreinamento
 );
 
-// GET /api/treinamentos/my-trainings : Lista os treinamentos criados pelo Anunciante logado (Sugestão)
-// Controller deve verificar se req.user.tipoUsuario === 'anunciante'
+// Rota: GET /api/treinamentos/my-trainings
+// Função: Lista os treinamentos criados pelo anunciante que está logado
+// Observação: O controlador deve verificar se o usuário é do tipo 'anunciante'
 router.get(
   '/my-trainings',
   authMiddleware,
-  // isAnunciante, // Middleware opcional
-  treinamentoController.listarMeusTreinamentos // Função a ser criada
+  // isAnunciante, // Middleware opcional para verificação adicional
+  treinamentoController.listarMeusTreinamentos // Função que precisa ser implementada
 );
 
-// PUT /api/treinamentos/:treinamentoId : Atualiza um treinamento existente (CU26)
-// Controller deve verificar se req.user é dono do treinamentoId
+// Rota: PUT /api/treinamentos/:treinamentoId
+// Função: Atualiza um treinamento existente (CU26)
+// Observação: O controlador deve verificar se o usuário é o proprietário do treinamento
 router.put(
   '/:treinamentoId',
   authMiddleware,
-  // isTreinamentoOwner, // Middleware opcional
+  // isTreinamentoOwner, // Middleware opcional para verificação adicional
   treinamentoController.updateTreinamento
 );
 
-// DELETE /api/treinamentos/:treinamentoId : Deleta um treinamento (Sugestão)
-// Controller deve verificar se req.user é dono do treinamentoId (ou Admin)
+// Rota: DELETE /api/treinamentos/:treinamentoId
+// Função: Remove um treinamento do sistema
+// Observação: O controlador deve verificar se o usuário é o proprietário do treinamento ou um administrador
 router.delete(
   '/:treinamentoId',
   authMiddleware,
-  // isTreinamentoOwnerOrAdmin, // Middleware opcional
-  treinamentoController.deleteTreinamento // Função a ser criada
+  // isTreinamentoOwnerOrAdmin, // Middleware opcional para verificação adicional
+  treinamentoController.deleteTreinamento // Função que precisa ser implementada
 );
 
 
-// === ROTAS DE ADMINISTRAÇÃO (Exemplo - Se houver moderação) ===
+// === ROTAS DE ADMINISTRAÇÃO (Para moderação de conteúdo) ===
 
-// GET /api/treinamentos/pending : Admin lista treinamentos pendentes de revisão
+// Rota: GET /api/treinamentos/pending
+// Função: Permite que administradores listem treinamentos pendentes de revisão
 // router.get(
 //     '/pending',
 //     authMiddleware,
-//     isAdmin, // Middleware OBRIGATÓRIO
-//     treinamentoController.listarTreinamentosPendentes // Função a ser criada
+//     isAdmin, // Middleware obrigatório para garantir que apenas administradores acessem
+//     treinamentoController.listarTreinamentosPendentes // Função que precisa ser implementada
 // );
 
-// PATCH /api/treinamentos/:treinamentoId/review : Admin aprova ou rejeita um treinamento
+// Rota: PATCH /api/treinamentos/:treinamentoId/review
+// Função: Permite que administradores aprovem ou rejeitem um treinamento
 // router.patch(
 //     '/:treinamentoId/review',
 //     authMiddleware,
-//     isAdmin, // Middleware OBRIGATÓRIO
-//     treinamentoController.revisarTreinamento // Função a ser criada
+//     isAdmin, // Middleware obrigatório para garantir que apenas administradores acessem
+//     treinamentoController.revisarTreinamento // Função que precisa ser implementada
 // );
 
-// === ROTAS DE INSCRIÇÃO (Devem ir para inscricaoTreinamentoRoutes.ts) ===
-// Lembrete: Criar rotas separadas para:
-// - POST /api/treinamentos/:treinamentoId/inscricoes (Usuário se inscreve)
-// - GET /api/inscricoes/my (Usuário lista suas inscrições)
-// - PATCH /api/inscricoes/:inscricaoId (Usuário atualiza progresso)
+// === ROTAS DE INSCRIÇÃO (A serem implementadas em inscricaoTreinamentoRoutes.ts) ===
+// Observação: É necessário criar rotas separadas para:
+// - POST /api/treinamentos/:treinamentoId/inscricoes (Para usuários se inscreverem)
+// - GET /api/inscricoes/my (Para usuários listarem suas inscrições)
+// - PATCH /api/inscricoes/:inscricaoId (Para usuários atualizarem seu progresso)
 
 
-// Exporta o router configurado
+// Exportação do roteador configurado para uso na aplicação
 export default router;

@@ -1,34 +1,38 @@
 // src/controllers/comentarioController.ts
 
 import { Request, Response, NextFunction } from 'express';
-import mongoose, { ClientSession, Types, HydratedDocument } from 'mongoose'; // Importa Types aqui
+import mongoose, { ClientSession, Types, HydratedDocument } from 'mongoose'; // Importa o mongoose e seus tipos
 import Comentario, { IComentario, ComentarioStatusEnum } from '../models/Comentario';
 import PublicacaoComunidade, { IPublicacaoComunidade, PublicacaoStatusEnum } from '../models/PublicacaoComunidade';
 import Curtida, { TipoItemCurtidoEnum } from '../models/Curtida';
 import { TipoUsuarioEnum } from '../models/User';
 import logger from '../config/logger';
 
-// Interface para Payload de Criação
+// Interface que define a estrutura de dados para criação de comentários
 interface CriarComentarioPayload {
   publicacaoId: string;
   conteudo: string;
   respostaParaComentarioId?: string;
 }
 
-// Interface para Payload de Edição
+// Interface que define a estrutura de dados para edição de comentários
 interface EditarComentarioPayload {
   conteudo: string;
 }
 
-// Interface para Payload de Moderação
+// Interface que define a estrutura de dados para moderação de comentários
 interface ModerarComentarioPayload {
   status: ComentarioStatusEnum;
 }
 
-// --- Funções do Controller ---
+// --- Funções do Controlador ---
 
+/**
+ * Cria um novo comentário em uma publicação.
+ * Valida os dados de entrada, verifica permissões e cria o comentário na base de dados.
+ * Incrementa o contador de comentários na publicação pai.
+ */
 export const criarComentario = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // ... (código da função criarComentario - sem alterações da versão anterior)
   if (!req.user) { res.status(401).json({ message: 'Autenticação necessária para comentar.' }); return; }
   const { publicacaoId, conteudo, respostaParaComentarioId } = req.body as CriarComentarioPayload;
   const autorId = req.user.userId;
@@ -52,8 +56,12 @@ export const criarComentario = async (req: Request, res: Response, next: NextFun
   } catch (error: any) { await session.abortTransaction(); session.endSession(); logger.error("Erro ao criar comentário:", error); if (error.status) { res.status(error.status).json({ message: error.message }); } else if ((error as Error).name === 'ValidationError') { res.status(400).json({ message: 'Erro de validação ao salvar comentário.', errors: error.errors }); } else { next(new Error('Falha ao criar comentário.')); } }
 };
 
+/**
+ * Lista todos os comentários de uma publicação específica.
+ * Implementa paginação e retorna apenas comentários aprovados.
+ * Retorna apenas comentários principais (não respostas) ordenados por data de criação.
+ */
 export const listarComentariosPorPublicacao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // ... (código da função listarComentariosPorPublicacao - sem alterações da versão anterior)
   const { publicacaoId } = req.params;
   if (!mongoose.Types.ObjectId.isValid(publicacaoId)) { res.status(400).json({ message: 'ID da publicação inválido.' }); return; }
   try {
@@ -68,8 +76,12 @@ export const listarComentariosPorPublicacao = async (req: Request, res: Response
   } catch (error) { next(error); }
 };
 
+/**
+ * Edita o conteúdo de um comentário existente.
+ * Permite apenas que o autor do comentário faça a edição.
+ * Limita a edição a um período de 15 minutos após a criação do comentário.
+ */
 export const editarComentario = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // ... (código da função editarComentario - sem alterações da versão anterior)
   if (!req.user) { res.status(401).json({ message: 'Não autorizado.' }); return; }
   const { comentarioId } = req.params;
   const autorId = req.user.userId;
@@ -82,7 +94,7 @@ export const editarComentario = async (req: Request, res: Response, next: NextFu
 
 /**
  * Deleta um comentário (Autor ou Admin).
- * Usa transação para deletar comentário, respostas, curtidas e decrementar contador.
+ * Usa transação para deletar o comentário, suas respostas, curtidas associadas e decrementar o contador.
  * Utiliza abordagem de busca recursiva de IDs corrigida.
  */
 export const deletarComentario = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -103,7 +115,7 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
   session.startTransaction();
   try {
     // Busca o comentário principal para validação e para obter ID da publicação
-    // Tipagem explícita aqui ajuda
+    // Tipagem explícita aqui ajuda na verificação de tipos
     const comentario: HydratedDocument<IComentario> | null = await Comentario.findById(comentarioId).session(session);
     if (!comentario) {
       throw { status: 404, message: 'Comentário não encontrado.' }; // Lança erro para abortar transação
@@ -116,13 +128,13 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
 
     // --- Lógica de Exclusão e Limpeza ---
 
-    // 1. Função Recursiva para encontrar IDs de Respostas (agora tipada corretamente)
+    // 1. Função Recursiva para encontrar IDs de Respostas (com tipagem correta)
     const encontrarIdsDeRespostas = async (parentId: mongoose.Types.ObjectId, currentSession: ClientSession): Promise<mongoose.Types.ObjectId[]> => {
       const idsEncontrados: mongoose.Types.ObjectId[] = [];
       // Busca respostas, seleciona apenas _id e usa .lean() para objetos JS simples
       const respostas = await Comentario.find({ respostaParaComentarioId: parentId })
         .select('_id')
-        .lean() // Retorna POJOs (Plain Old JavaScript Objects)
+        .lean() // Retorna objetos JavaScript simples
         .session(currentSession);
 
       for (const resposta of respostas) {
@@ -143,7 +155,7 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
 
     // 2. Coleta todos os IDs a serem deletados (principal + todas as respostas aninhadas)
     const idsRespostas = await encontrarIdsDeRespostas(comentario._id as unknown as mongoose.Types.ObjectId, session);
-    const todosIdsParaDeletar: mongoose.Types.ObjectId[] = [comentario._id as unknown as mongoose.Types.ObjectId, ...idsRespostas as unknown as mongoose.Types.ObjectId[]]; // Junta tudo
+    const todosIdsParaDeletar: mongoose.Types.ObjectId[] = [comentario._id as unknown as mongoose.Types.ObjectId, ...idsRespostas as unknown as mongoose.Types.ObjectId[]]; // Junta todos os IDs
 
     // 3. Deleta todos os comentários (principal + respostas) usando os IDs coletados
     logger.debug(`[Delete Comentario] Deletando IDs: ${todosIdsParaDeletar.map(id => id.toString()).join(', ')}`);
@@ -153,7 +165,7 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
     logger.debug(`[Delete Comentario] Deletando curtidas para comentários: ${todosIdsParaDeletar.map(id => id.toString()).join(', ')}`);
     await Curtida.deleteMany({
       itemCurtidoId: { $in: todosIdsParaDeletar },
-      tipoItemCurtido: TipoItemCurtidoEnum.COMENTARIO // Usa o Enum
+      tipoItemCurtido: TipoItemCurtidoEnum.COMENTARIO // Usa o Enum para tipo de item
     }).session(session);
 
     // 5. Decrementa o contador na publicação pai pelo número total de comentários deletados
@@ -162,7 +174,7 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
     const updateResult = await PublicacaoComunidade.findByIdAndUpdate(
       comentario.publicacaoId,
       { $inc: { contagemComentarios: -numDeletados } },
-      { session, runValidators: false } // Não rodar validadores da publicação
+      { session, runValidators: false } // Não executa validadores da publicação
     ).orFail(new Error(`Publicacao ${comentario.publicacaoId} não encontrada ao decrementar contador.`)); // Lança erro se não encontrar
 
     // Garante que a contagem não seja negativa (opcional, mas seguro)
@@ -173,26 +185,30 @@ export const deletarComentario = async (req: Request, res: Response, next: NextF
     );
     // ------------------------------------
 
-    await session.commitTransaction(); // Confirma todas as operações
+    await session.commitTransaction(); // Confirma todas as operações na transação
     session.endSession();
 
     res.status(200).json({ message: 'Comentário(s) excluído(s) com sucesso.' });
 
   } catch (error: any) {
-    await session.abortTransaction(); // Desfaz tudo em caso de erro
+    await session.abortTransaction(); // Desfaz todas as operações em caso de erro
     session.endSession();
     logger.error("Erro ao deletar comentário:", error);
-    if (error.status) { // Trata erros lançados com status/message
+    if (error.status) { // Trata erros lançados com status/message específicos
       res.status(error.status).json({ message: error.message });
     } else {
-      next(error); // Delega outros erros para o handler central
+      next(error); // Encaminha outros erros para o manipulador central de erros
     }
   }
 };
 
 
+/**
+ * Modera comentários, permitindo aprovar ou ocultar comentários.
+ * Função exclusiva para administradores do sistema.
+ * Permite alterar o status de um comentário entre aprovado e oculto pelo admin.
+ */
 export const moderarComentario = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // ... (código da função moderarComentario - sem alterações da versão anterior)
   if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) { res.status(403).json({ message: 'Acesso proibido: Apenas administradores podem moderar.' }); return; }
   const { comentarioId } = req.params;
   const { status: novoStatus } = req.body as ModerarComentarioPayload;

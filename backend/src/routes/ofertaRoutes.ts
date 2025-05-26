@@ -1,80 +1,81 @@
 // src/routes/ofertaRoutes.ts
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo que foram/serão convertidos para .ts)
+// Importa os controladores de oferta e middleware de autenticação
 import  * as ofertaController from '../controllers/ofertaController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Middlewares de autorização que podem ser implementados futuramente
 // import { isPrestador } from '../middlewares/authorizationMiddleware';
 // import { isOfertaOwner } from '../middlewares/authorizationMiddleware';
 
+// Inicializa o roteador Express
 const router: Router = Router();
 
 // === ROTAS PÚBLICAS / PARA COMPRADORES ===
 
-// GET /api/ofertas/search : Busca/lista ofertas disponíveis (CU4)
-// Pode ou não requerer authMiddleware dependendo da regra de negócio
+// Rota para buscar e listar ofertas disponíveis para o público (Caso de Uso 4)
+// A autenticação pode ser opcional dependendo das regras de negócio
 router.get('/search', /* authMiddleware (opcional), */ ofertaController.searchPublicOfertas);
 
-// GET /api/ofertas/:ofertaId/public : Vê detalhes de uma oferta específica
-// Pode ou não requerer authMiddleware
+// Rota para visualizar detalhes públicos de uma oferta específica pelo ID
+// A autenticação pode ser opcional para esta rota
 router.get('/:ofertaId/public', /* authMiddleware (opcional), */ ofertaController.getPublicOfertaById);
 
 
 // === ROTAS PRIVADAS / PARA PRESTADORES ===
-// Todas as rotas abaixo exigem que o usuário esteja logado (authMiddleware)
-// A lógica de autorização (ser Prestador e/ou Dono da oferta) deve estar nos controllers ou middlewares específicos
+// Todas as rotas a seguir necessitam que o usuário esteja autenticado (authMiddleware)
+// A verificação de permissões (ser Prestador e/ou Dono da oferta) deve ser implementada nos controladores ou middlewares específicos
 
-// POST /api/ofertas : Cria uma nova oferta (CU3)
-// Requer que o usuário logado seja um Prestador
+// Rota para criar uma nova oferta (Caso de Uso 3)
+// Requer que o usuário autenticado tenha perfil de Prestador
 router.post(
   '/',
   authMiddleware,
-  // isPrestador, // Exemplo de middleware de autorização
+  // isPrestador, // Middleware de autorização que pode ser implementado
   ofertaController.createOferta
 );
 
-// GET /api/ofertas/my-offers : Lista as ofertas criadas pelo Prestador logado (CU3)
-// Renomeado de GET / para clareza
-// Requer que o usuário logado seja um Prestador
+// Rota para listar todas as ofertas criadas pelo Prestador autenticado (Caso de Uso 3)
+// Esta rota foi renomeada de GET / para /my-offers para maior clareza
+// Requer que o usuário autenticado tenha perfil de Prestador
 router.get(
   '/my-offers',
   authMiddleware,
-  // isPrestador, // Exemplo de middleware de autorização
+  // isPrestador, // Middleware de autorização que pode ser implementado
   ofertaController.listOfertasByPrestador
 );
 
-// GET /api/ofertas/:ofertaId : Obtém detalhes de uma oferta específica do Prestador logado (para edição, etc.)
-// Requer que o usuário logado seja o Prestador dono da oferta
+// Rota para obter detalhes completos de uma oferta específica do Prestador autenticado (para edição e outras operações)
+// Requer que o usuário autenticado seja o Prestador proprietário da oferta
 router.get(
   '/:ofertaId',
   authMiddleware,
-  // isPrestador, // Exemplo
-  // isOfertaOwner, // Exemplo
-  ofertaController.getOwnOfertaDetails // Exemplo de nome de controller
+  // isPrestador, // Middleware de verificação de perfil
+  // isOfertaOwner, // Middleware de verificação de propriedade
+  ofertaController.getOwnOfertaDetails
 );
 
 
-// PUT /api/ofertas/:ofertaId : Atualiza uma oferta existente (CU3)
-// Requer que o usuário logado seja o Prestador dono da oferta
+// Rota para atualizar uma oferta existente (Caso de Uso 3)
+// Requer que o usuário autenticado seja o Prestador proprietário da oferta
 router.put(
   '/:ofertaId',
   authMiddleware,
-  // isPrestador, // Exemplo
-  // isOfertaOwner, // Exemplo
+  // isPrestador, // Middleware de verificação de perfil
+  // isOfertaOwner, // Middleware de verificação de propriedade
   ofertaController.updateOferta
 );
 
-// DELETE /api/ofertas/:ofertaId : Deleta uma oferta (CU3)
-// Requer que o usuário logado seja o Prestador dono da oferta
+// Rota para excluir uma oferta existente (Caso de Uso 3)
+// Requer que o usuário autenticado seja o Prestador proprietário da oferta
 router.delete(
   '/:ofertaId',
   authMiddleware,
-  // isPrestador, // Exemplo
-  // isOfertaOwner, // Exemplo
+  // isPrestador, // Middleware de verificação de perfil
+  // isOfertaOwner, // Middleware de verificação de propriedade
   ofertaController.deleteOferta
 );
 
 
-// Exporta o router configurado
+// Exporta o roteador configurado para uso no aplicativo
 export default router;

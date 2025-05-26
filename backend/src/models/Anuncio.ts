@@ -1,12 +1,12 @@
-// models/Anuncio.ts (Backend - Convertido para TypeScript)
+// Modelo de Anúncio para o backend em TypeScript
 
 import mongoose, { Schema, Document, Model, Types, HydratedDocument } from 'mongoose';
 // Importa a interface e o enum do usuário para referenciação e validação
-import { IUser, TipoUsuarioEnum } from './User'; // Ajuste o caminho se necessário
+import { IUser, TipoUsuarioEnum } from './User';
 
 // --- Enums e Interfaces ---
 
-// Regex básica para validação de URL (simplificada)
+// Expressão regular para validação de URLs
 const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/;
 
 // Enum para os status do Anúncio
@@ -19,7 +19,7 @@ export enum AnuncioStatusEnum {
   ENCERRADO = 'encerrado'
 }
 
-// Enum para os tipos de Anúncio (exemplo)
+// Enum que define os diferentes formatos de anúncios disponíveis na plataforma
 export enum AnuncioTipoEnum {
   BANNER_TOPO = 'banner_topo',
   CARD_FEED = 'card_feed',
@@ -27,42 +27,43 @@ export enum AnuncioTipoEnum {
   OUTRO = 'outro'
 }
 
-// Tipos de usuário válidos para segmentação (baseado no Enum do User)
-// Excluindo 'admin' da segmentação, se fizer sentido
+// Lista de tipos de usuário que podem ser alvo de segmentação
+// Não inclui administradores na segmentação
 const tiposUsuarioSegmentacaoValidos = [
   TipoUsuarioEnum.COMPRADOR,
   TipoUsuarioEnum.PRESTADOR,
   TipoUsuarioEnum.ANUNCIANTE
 ];
 
-// Interface para o objeto de Segmentação
+// Interface que define a estrutura de segmentação para direcionar anúncios
 interface ISegmentacao {
-  regioes?: string[];
-  tiposUsuario?: TipoUsuarioEnum[];
-  // interesses?: string[]; // Exemplo futuro
+  regioes?: string[];                // Regiões geográficas para segmentação
+  tiposUsuario?: TipoUsuarioEnum[];  // Tipos de usuário para segmentação
+  // interesses?: string[];          // Possível implementação futura para segmentação por interesses
 }
 
-// Interface principal que define a estrutura de um documento Anuncio
+// Interface principal que define a estrutura completa de um documento Anuncio
 export interface IAnuncio extends Document {
-  anuncianteId: Types.ObjectId | IUser; // Pode ser populado
-  titulo: string;
-  conteudo: string;
-  imagens?: string[];
-  link?: string;
-  status: AnuncioStatusEnum;
-  motivoRejeicao?: string;
-  tipoAnuncio?: AnuncioTipoEnum;
-  dataInicioExibicao?: Date;
-  dataFimExibicao?: Date;
-  segmentacao?: ISegmentacao;
-  rejeicaoMotivo?: string;  // Adiciona o campo opcional para o motivo
-  // estatisticas?: { visualizacoes?: number; cliques?: number }; // Considerar coleção separada
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  anuncianteId: Types.ObjectId | IUser; // Referência ao usuário anunciante, pode ser populado com dados completos
+  titulo: string;                        // Título do anúncio
+  conteudo: string;                      // Conteúdo/descrição do anúncio
+  imagens?: string[];                    // Lista de URLs das imagens do anúncio
+  link?: string;                         // Link para redirecionamento
+  status: AnuncioStatusEnum;             // Status atual do anúncio
+  motivoRejeicao?: string;               // Motivo caso o anúncio seja rejeitado
+  tipoAnuncio?: AnuncioTipoEnum;         // Formato/tipo do anúncio
+  dataInicioExibicao?: Date;             // Data de início da campanha
+  dataFimExibicao?: Date;                // Data de término da campanha
+  segmentacao?: ISegmentacao;            // Configurações de segmentação do público-alvo
+  rejeicaoMotivo?: string;               // Campo alternativo para motivo de rejeição
+  // estatisticas?: { visualizacoes?: number; cliques?: number }; // Futuramente pode ser movido para coleção separada
+  // Campos de controle temporal
+  createdAt: Date;                       // Data de criação do registro
+  updatedAt: Date;                       // Data da última atualização
 }
 
-// --- Função de Validação de Data (Tipada) ---
+// --- Função de Validação de Data ---
+// Verifica se a data de fim de exibição é posterior ou igual à data de início
 function validarDataFimExibicao(this: HydratedDocument<IAnuncio>, value: Date | null | undefined): boolean {
   return !this.dataInicioExibicao || !value || value >= this.dataInicioExibicao;
 }
@@ -70,7 +71,7 @@ function validarDataFimExibicao(this: HydratedDocument<IAnuncio>, value: Date | 
 
 // --- Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface IAnuncio para tipagem
+// Definição do Schema do MongoDB usando a interface IAnuncio para tipagem
 const AnuncioSchema: Schema<IAnuncio> = new Schema(
   {
     anuncianteId: {
@@ -126,53 +127,56 @@ const AnuncioSchema: Schema<IAnuncio> = new Schema(
       },
       required: false
     },
-    // --- Agendamento ---
+    // --- Configuração de Período de Exibição ---
     dataInicioExibicao: {
       type: Date,
-      index: true,
-      required: false
+      index: true,          // Indexado para consultas de performance
+      required: false       // Não obrigatório
     },
     dataFimExibicao: {
       type: Date,
-      index: true,
-      required: false,
+      index: true,          // Indexado para consultas de performance
+      required: false,      // Não obrigatório
       validate: [validarDataFimExibicao, 'A data de fim da exibição deve ser igual ou posterior à data de início.']
     },
-    // --- Segmentação ---
-    segmentacao: { // Objeto opcional
-      type: { // Tipo Mongoose explícito
+    // --- Configuração de Segmentação ---
+    segmentacao: {          // Objeto que define o público-alvo do anúncio
+      type: {               // Definição explícita do tipo no Mongoose
         regioes: {
           type: [String],
-          default: undefined, // Não cria array vazio por default
-          required: false
+          default: undefined, // Evita criar um array vazio automaticamente
+          required: false     // Campo opcional
         },
         tiposUsuario: {
-          type: [String], // Armazena como string, mas valida com Enum TS
+          type: [String],     // Armazenado como string no banco
           enum: {
             values: tiposUsuarioSegmentacaoValidos,
             message: 'Tipo de usuário inválido na segmentação: {VALUE}.'
           },
-          default: undefined,
-          required: false
+          default: undefined, // Evita criar um array vazio automaticamente
+          required: false     // Campo opcional
         }
         // interesses: { type: [String], default: undefined, required: false }
       },
-      required: false, // O objeto segmentacao como um todo é opcional
-      default: undefined
+      required: false,      // O objeto de segmentação como um todo é opcional
+      default: undefined    // Não cria objeto vazio por padrão
     }
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona campos automáticos de data de criação e atualização
   }
 );
 
-// --- Índices Adicionais ---
+// --- Índices Adicionais para Otimização de Consultas ---
+// Índice composto para consultas de anúncios ativos por período
 AnuncioSchema.index({ status: 1, dataInicioExibicao: 1, dataFimExibicao: 1 });
+// Índice para consultas de anúncios por tipo de usuário na segmentação
 AnuncioSchema.index({ status: 1, 'segmentacao.tiposUsuario': 1 });
+// Índice para consultas de anúncios por região na segmentação
 AnuncioSchema.index({ status: 1, 'segmentacao.regioes': 1 });
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Anuncio' tipado com IAnuncio
+// Cria o modelo Mongoose 'Anuncio' com tipagem TypeScript
 const Anuncio = mongoose.model<IAnuncio>('Anuncio', AnuncioSchema);
 
 export default Anuncio;

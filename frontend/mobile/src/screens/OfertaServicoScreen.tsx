@@ -112,8 +112,8 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   });
   const [disponibilidadeError, setDisponibilidadeError] = useState<string | null>(null);
 
-  // Estado para categorias - inicializa com uma categoria padrão para evitar erro de validação
-  const [categorias, setCategorias] = useState<string[]>([CategoriaServico.OUTROS]);
+  // Estado para categorias - inicializa com array vazio para que o usuário selecione as categorias desejadas
+  const [categorias, setCategorias] = useState<string[]>([]);
   const [categoriasError, setCategoriasError] = useState<string | null>(null);
   const [showCategoriasModal, setShowCategoriasModal] = useState<boolean>(false);
 

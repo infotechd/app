@@ -1,25 +1,30 @@
 // index.ts
-// Esse arquivo pode ser usado para importar módulos adicionais, iniciar serviços ou realizar configurações
+// Arquivo de entrada principal da aplicação backend
+// Este arquivo pode ser usado para importar módulos adicionais, iniciar serviços ou realizar configurações
 // necessárias antes do servidor principal (server.ts) ser iniciado.
 // ATENÇÃO: Verifique se este arquivo é realmente necessário ou se a lógica não pertence a server.ts.
 
+// Mensagem de log indicando que o backend foi inicializado
 console.log("Backend (index.ts) inicializado.");
 
-// Exemplo: Se você tivesse inicializações complexas aqui:
+// Exemplo de código para inicializações complexas:
+// Importação de módulos de configuração do banco de dados e monitoramento
 // import database from './src/config/database';
 // import setupMonitoring from './src/config/monitoring';
 //
+// Função assíncrona para inicializar componentes do sistema
 // async function initialize() {
-//   await database.connect(); // Exemplo
-//   setupMonitoring();       // Exemplo
+//   await database.connect(); // Conecta ao banco de dados
+//   setupMonitoring();        // Configura o sistema de monitoramento
 //   console.log("Pré-inicializações concluídas.");
-//   // Agora, como iniciar o server.ts a partir daqui? É mais comum o contrário.
+//   // Observação: É mais comum que server.ts importe este arquivo, não o contrário
 // }
 //
+// Execução da função de inicialização com tratamento de erros
 // initialize().catch(err => {
 //   console.error("Falha na pré-inicialização:", err);
-//   process.exit(1);
+//   process.exit(1); // Encerra o processo com código de erro
 // });
 
-// Exportar algo (geralmente não necessário para um script de inicialização puro)
-// export {}; // Para tratar como módulo se não houver imports/exports
+// Exportação vazia para tratar o arquivo como um módulo TypeScript
+// export {}; // Necessário quando não há outras importações/exportações no arquivo

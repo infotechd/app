@@ -1,61 +1,62 @@
-// src/routes/curtidaRoutes.ts
+// Arquivo de rotas para gerenciamento de curtidas
 
 import { Router } from 'express';
-// Importa o controller e middlewares (assumindo que serão criados/convertidos para .ts)
+// Importação do controlador de curtidas e middleware de autenticação
 import curtidaController from '../controllers/curtidaController';
 import authMiddleware from '../middlewares/authMiddleware';
 
+// Inicialização do roteador Express
 const router: Router = Router();
 
-// === ROTAS DE CURTIDAS (Likes) ===
-// Todas as rotas exigem autenticação
+// === ROTAS DE CURTIDAS ===
+// Todas as rotas abaixo necessitam de autenticação do usuário
 
-// POST /api/curtidas : Usuário curte um item (Publicacao ou Comentario)
-// Corpo da requisição deve conter { itemCurtidoId, tipoItemCurtido }
-// Controller deve: verificar se item existe, tentar criar Curtida (índice único previne duplicados),
-//                  se sucesso, incrementar contagemLikes no item pai via $inc.
+// Rota para curtir um item (Publicação ou Comentário)
+// Recebe no corpo da requisição: itemCurtidoId e tipoItemCurtido
+// O controlador verifica se o item existe, cria a curtida e incrementa o contador de curtidas
 router.post(
   '/',
   authMiddleware,
-  curtidaController.curtirItem // Função a ser criada
+  curtidaController.curtirItem
 );
 
-// DELETE /api/curtidas : Usuário descurte um item (Publicacao ou Comentario)
-// Corpo da requisição deve conter { itemCurtidoId, tipoItemCurtido }
-// Controller deve: tentar remover Curtida, se sucesso, decrementar contagemLikes no item pai via $inc.
+// Rota para remover curtida de um item (Publicação ou Comentário)
+// Recebe no corpo da requisição: itemCurtidoId e tipoItemCurtido
+// O controlador remove a curtida e decrementa o contador de curtidas no item
 router.delete(
   '/',
   authMiddleware,
-  curtidaController.descurtirItem // Função a ser criada
+  curtidaController.descurtirItem
 );
 
-// GET /api/curtidas/item : Verifica se o usuário logado curtiu um item específico (Sugestão)
-// Query params: ?itemCurtidoId=...&tipoItemCurtido=...
-// Controller busca por usuarioId (logado), itemCurtidoId e tipoItemCurtido. Retorna true/false ou a curtida.
+// Rota para verificar se o usuário logado curtiu um item específico
+// Recebe como parâmetros de consulta: itemCurtidoId e tipoItemCurtido
+// O controlador busca pela curtida usando o ID do usuário logado e retorna verdadeiro/falso ou a curtida
 router.get(
   '/item',
   authMiddleware,
-  curtidaController.verificarCurtida // Função a ser criada
+  curtidaController.verificarCurtida
 );
 
-// GET /api/curtidas/user/:userId : Lista itens curtidos por um usuário específico (Sugestão)
-// Controller deve verificar permissão (usuário só pode ver suas curtidas? Ou é público?)
+// Rota para listar todos os itens curtidos por um usuário específico
+// Recebe o ID do usuário como parâmetro de rota
+// O controlador verifica as permissões de visualização antes de retornar os dados
 router.get(
   '/user/:userId',
   authMiddleware,
-  // canViewUserLikes, // Middleware opcional
-  curtidaController.listarItensCurtidosPeloUsuario // Função a ser criada
+  // Middleware opcional para verificação de permissões
+  curtidaController.listarItensCurtidosPeloUsuario
 );
 
-// GET /api/curtidas/item/:tipoItemCurtido/:itemCurtidoId/users : Lista usuários que curtiram um item (Sugestão)
-// Geralmente usado para exibir "Fulano, Ciclano e outras X pessoas curtiram"
-// Controller deve implementar paginação.
+// Rota para listar todos os usuários que curtiram um item específico
+// Recebe o tipo do item e o ID do item como parâmetros de rota
+// Utilizado para exibir informações como "Fulano, Ciclano e outras X pessoas curtiram"
+// O controlador implementa paginação para otimizar a resposta
 router.get(
   '/item/:tipoItemCurtido/:itemCurtidoId/users',
-  authMiddleware, // Ou talvez público?
-  curtidaController.listarUsuariosQueCurtiramItem // Função a ser criada
+  authMiddleware,
+  curtidaController.listarUsuariosQueCurtiramItem
 );
 
-
-// Exporta o router configurado
+// Exportação do roteador configurado
 export default router;

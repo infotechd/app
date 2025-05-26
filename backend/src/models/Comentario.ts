@@ -1,4 +1,4 @@
-// models/Comentario.ts (Backend - Convertido para TypeScript)
+// models/Comentario.ts
 
 /**
  * Modelo Comentario
@@ -7,8 +7,8 @@
  */
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 // Importa interfaces dos modelos referenciados
-import { IUser } from './User'; // Ajuste o caminho se necessário
-import { IPublicacaoComunidade } from './PublicacaoComunidade'; // Ajuste o caminho se necessário
+import { IUser } from './User';
+import { IPublicacaoComunidade } from './PublicacaoComunidade';
 
 // --- Enums e Interfaces ---
 
@@ -22,33 +22,33 @@ export enum ComentarioStatusEnum {
 
 // Interface principal que define a estrutura de um documento Comentario
 export interface IComentario extends Document {
-  publicacaoId: Types.ObjectId | IPublicacaoComunidade; // Pode ser populado
-  autorId: Types.ObjectId | IUser; // Pode ser populado
+  publicacaoId: Types.ObjectId | IPublicacaoComunidade; // Referência à publicação que pode ser populada
+  autorId: Types.ObjectId | IUser; // Referência ao autor que pode ser populada
   conteudo: string;
-  respostaParaComentarioId?: Types.ObjectId | IComentario | null; // Opcional, pode ser populado
+  respostaParaComentarioId?: Types.ObjectId | IComentario | null; // Referência opcional a outro comentário (para respostas)
   contagemLikes: number;
   status: ComentarioStatusEnum;
-  // Timestamps
-  createdAt: Date; // Data do comentário
-  updatedAt: Date;
+  // Campos de data
+  createdAt: Date; // Data de criação do comentário
+  updatedAt: Date; // Data da última atualização
 }
 
 // --- Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface IComentario para tipagem
+// Define o Schema Mongoose, utilizando a interface IComentario para tipagem
 const ComentarioSchema: Schema<IComentario> = new Schema(
   {
     publicacaoId: {
       type: Schema.Types.ObjectId,
       ref: 'PublicacaoComunidade',
       required: [true, 'A ID da publicação é obrigatória para o comentário.'],
-      index: true // Otimiza busca por comentários de uma publicação
+      index: true // Cria índice para otimizar consultas por publicação
     },
     autorId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'O ID do autor do comentário é obrigatório.'],
-      index: true // Otimiza busca por comentários de um autor
+      index: true // Cria índice para otimizar consultas por autor
     },
     conteudo: {
       type: String,
@@ -57,46 +57,47 @@ const ComentarioSchema: Schema<IComentario> = new Schema(
       minlength: [1, 'O comentário não pode estar vazio.'],
       maxlength: [2000, 'O comentário não pode exceder 2000 caracteres.']
     },
-    respostaParaComentarioId: { // Auto-referência para respostas aninhadas
+    respostaParaComentarioId: { // Referência a outro comentário quando este é uma resposta
       type: Schema.Types.ObjectId,
       ref: 'Comentario',
-      default: null, // null = comentário principal
-      index: true, // Otimiza busca por respostas
+      default: null, // Valor nulo indica que é um comentário principal
+      index: true, // Cria índice para otimizar consultas por respostas
       required: false
     },
-    contagemLikes: { // Contador de curtidas no comentário
+    contagemLikes: { // Armazena o número de curtidas recebidas
       type: Number,
       default: 0,
       min: 0,
-      required: true // Garante que o campo exista
+      required: true // Campo obrigatório no documento
     },
-    status: { // Status de moderação do comentário
+    status: { // Controla a visibilidade e moderação do comentário
       type: String,
       enum: {
         values: Object.values(ComentarioStatusEnum),
         message: 'Status de comentário inválido: {VALUE}.'
       },
-      default: ComentarioStatusEnum.APROVADO, // Default para aprovado (ajuste se necessário)
+      default: ComentarioStatusEnum.APROVADO, // Comentários são aprovados por padrão
       required: true,
       index: true
     },
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona campos automáticos de data de criação e atualização
   }
 );
 
 // --- Índices ---
-// Otimiza a busca de comentários (status aprovado) e respostas de uma publicação, ordenados por data
+// Cria um índice composto para otimizar consultas de comentários por publicação, status, hierarquia e data
 ComentarioSchema.index({ publicacaoId: 1, status: 1, respostaParaComentarioId: 1, createdAt: 1 });
 
-// --- Lembretes (Mantidos para clareza) ---
-// 1. Contagem em PublicacaoComunidade: Lembre-se de incrementar/decrementar 'contagemComentarios'
-//    na PublicacaoComunidade ao criar/deletar este Comentario (se respostaParaComentarioId for null).
-// 2. Likes de Comentários: Use o modelo 'Curtida.ts' (referenciando 'Comentario') e atualize 'contagemLikes' aqui.
+// --- Lembretes para Implementação ---
+// 1. Atualização de contadores: Ao criar/deletar um comentário principal, é necessário
+//    incrementar/decrementar o campo 'contagemComentarios' na PublicacaoComunidade relacionada.
+// 2. Sistema de curtidas: Utilize o modelo 'Curtida.ts' para registrar curtidas em comentários
+//    e atualize o campo 'contagemLikes' neste modelo quando houver alterações.
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Comentario' tipado com IComentario
+// Cria e exporta o modelo Mongoose 'Comentario' com a tipagem da interface IComentario
 const Comentario = mongoose.model<IComentario>('Comentario', ComentarioSchema);
 
 export default Comentario;

@@ -3,14 +3,16 @@
 /**
  * Modelo Notificacao (Revisado)
  * Representa uma notificação enviada a um usuário, com contexto e ação.
+ * Este modelo gerencia todas as notificações do sistema, permitindo rastreamento
+ * e interação com diferentes tipos de eventos.
  */
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 // Importa a interface do usuário para referenciação
-import { IUser } from './User'; // Ajuste o caminho se necessário
+import { IUser } from './User'; 
 
 // --- Enums e Interfaces ---
 
-// Enum para os tipos possíveis de notificação (ajuste/expanda conforme necessário)
+// Enum que define todos os tipos possíveis de notificação no sistema
 export enum NotificacaoTipoEnum {
   CHAT_NOVA_MENSAGEM = 'chat_nova_mensagem',
   CONTRATACAO_NOVA = 'contratacao_nova',
@@ -32,14 +34,15 @@ export enum NotificacaoTipoEnum {
   OUTRO = 'outro'
 }
 
-// Enum para a origem da notificação
+// Enum que define a origem da notificação (quem ou o que gerou a notificação)
 export enum NotificacaoOrigemEnum {
   SISTEMA = 'sistema',
   USUARIO = 'usuario',
   ADMIN = 'admin'
 }
 
-// Enum para os tipos de entidade relacionada (deve corresponder aos NOMES DOS MODELOS Mongoose)
+// Enum que define os tipos de entidades que podem estar relacionadas a uma notificação
+// Os valores devem corresponder exatamente aos nomes dos modelos Mongoose
 export enum EntidadeTipoEnum {
   USER = 'User',
   CONTRATACAO = 'Contratacao',
@@ -53,43 +56,43 @@ export enum EntidadeTipoEnum {
   // Adicione outros nomes de modelos se necessário
 }
 
-// Interface para o objeto opcional entidadeRelacionada
+// Interface que define a estrutura do objeto entidadeRelacionada, usado para vincular a notificação a uma entidade específica
 interface IEntidadeRelacionada {
   id: Types.ObjectId;
   tipo: EntidadeTipoEnum;
 }
 
-// Interface principal que define a estrutura de um documento Notificacao
+// Interface principal que define a estrutura completa de um documento Notificacao no MongoDB
 export interface INotificacao extends Document {
-  usuarioId: Types.ObjectId | IUser; // Destinatário (pode ser populado)
-  lida: boolean;
-  origem: NotificacaoOrigemEnum;
-  remetenteId?: Types.ObjectId | IUser; // Remetente (se origem='usuario', pode ser populado)
-  tipoNotificacao: NotificacaoTipoEnum;
-  titulo: string;
-  mensagem: string;
-  linkRelacionado?: string; // URL ou rota interna do app
-  entidadeRelacionada?: IEntidadeRelacionada; // Opcional
-  // Timestamps
-  createdAt: Date; // Data da notificação
-  updatedAt: Date; // Pode ser usado para marcar data de leitura se 'lida' fosse Date
+  usuarioId: Types.ObjectId | IUser; // ID do usuário que receberá a notificação (pode ser populado com dados do usuário)
+  lida: boolean; // Indica se a notificação já foi lida pelo usuário
+  origem: NotificacaoOrigemEnum; // Define a origem da notificação (sistema, usuário ou admin)
+  remetenteId?: Types.ObjectId | IUser; // ID do usuário que enviou a notificação (quando origem='usuario')
+  tipoNotificacao: NotificacaoTipoEnum; // Categoria/tipo da notificação
+  titulo: string; // Título curto da notificação
+  mensagem: string; // Conteúdo detalhado da notificação
+  linkRelacionado?: string; // URL ou rota interna do aplicativo relacionada à notificação
+  entidadeRelacionada?: IEntidadeRelacionada; // Objeto que vincula a notificação a uma entidade específica
+  // Campos de data e hora
+  createdAt: Date; // Data e hora de criação da notificação
+  updatedAt: Date; // Data e hora da última atualização (pode indicar quando foi lida)
 }
 
 // --- Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface INotificacao para tipagem
+// Define a estrutura do Schema Mongoose para o modelo Notificacao, baseado na interface INotificacao
 const NotificacaoSchema: Schema<INotificacao> = new Schema(
   {
     usuarioId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'O ID do usuário destinatário é obrigatório.'],
-      index: true
+      index: true // Indexado para melhorar a performance de consultas
     },
     lida: {
       type: Boolean,
-      default: false,
-      index: true
+      default: false, // Por padrão, notificações são criadas como não lidas
+      index: true // Indexado para facilitar a filtragem de notificações não lidas
     },
     origem: {
       type: String,
@@ -98,13 +101,13 @@ const NotificacaoSchema: Schema<INotificacao> = new Schema(
         message: 'Origem inválida: {VALUE}.'
       },
       required: true,
-      default: NotificacaoOrigemEnum.SISTEMA
+      default: NotificacaoOrigemEnum.SISTEMA // Por padrão, notificações são do sistema
     },
-    remetenteId: { // Opcional, relevante se origem for 'usuario'
+    remetenteId: { // ID do usuário que enviou a notificação
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: false // Não obrigatório por padrão
-      // Validação para exigir se origem === 'usuario' pode ser feita na camada de serviço
+      // A validação para exigir este campo quando origem='usuario' deve ser implementada na camada de serviço
     },
     tipoNotificacao: {
       type: String,
@@ -113,53 +116,54 @@ const NotificacaoSchema: Schema<INotificacao> = new Schema(
         message: 'Tipo de notificação inválido: {VALUE}.'
       },
       required: [true, 'O tipo da notificação é obrigatório.'],
-      index: true
+      index: true // Indexado para facilitar a busca por tipo de notificação
     },
     titulo: {
       type: String,
       required: [true, 'O título da notificação é obrigatório.'],
-      trim: true,
+      trim: true, // Remove espaços em branco no início e fim
       maxlength: [100, 'O título não pode exceder 100 caracteres.']
     },
     mensagem: {
       type: String,
       required: [true, 'A mensagem da notificação é obrigatória.'],
-      trim: true,
+      trim: true, // Remove espaços em branco no início e fim
       maxlength: [500, 'A mensagem não pode exceder 500 caracteres.']
     },
     linkRelacionado: {
       type: String,
-      trim: true,
-      required: false
-      // Adicionar validação de URL/rota se necessário
+      trim: true, // Remove espaços em branco no início e fim
+      required: false // Campo opcional
+      // Pode-se adicionar validação de URL/rota se necessário
     },
-    entidadeRelacionada: { // Armazena ID e tipo da entidade relacionada
-      type: { // Tipo Mongoose explícito para o objeto
-        id: { type: Schema.Types.ObjectId, required: false }, // ID não é obrigatório no sub-schema
-        tipo: { type: String, enum: Object.values(EntidadeTipoEnum), required: false } // Tipo não é obrigatório no sub-schema
+    entidadeRelacionada: { // Objeto que armazena informações sobre a entidade relacionada à notificação
+      type: { // Definição explícita do tipo do objeto para o Mongoose
+        id: { type: Schema.Types.ObjectId, required: false }, // ID da entidade relacionada
+        tipo: { type: String, enum: Object.values(EntidadeTipoEnum), required: false } // Tipo da entidade relacionada
       },
-      required: false, // O objeto como um todo é opcional
-      default: undefined // Não cria objeto vazio por default
-      // Validação para garantir que se 'id' existe, 'tipo' também existe (e vice-versa)
-      // pode ser feita na camada de serviço ou com validadores de schema mais complexos.
+      required: false, // O objeto entidadeRelacionada é opcional
+      default: undefined // Não cria um objeto vazio por padrão
+      // A validação para garantir que se 'id' existe, 'tipo' também existe (e vice-versa)
+      // deve ser implementada na camada de serviço ou com validadores de schema personalizados
     }
-    // dataNotificacao removida - usar createdAt
+    // O campo dataNotificacao foi removido - usar o campo createdAt gerado automaticamente
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona automaticamente os campos createdAt e updatedAt ao documento
   }
 );
 
 // --- Índices ---
-// Índice principal para buscar notificações de um usuário (não lidas, mais recentes primeiro)
+// Índice composto principal para otimizar a busca de notificações de um usuário específico
+// Ordenadas por: não lidas primeiro e depois pelas mais recentes
 NotificacaoSchema.index({ usuarioId: 1, lida: 1, createdAt: -1 });
 
-// Índice para buscar notificações relacionadas a uma entidade específica (se necessário)
-// Sparse: true porque nem toda notificação terá entidadeRelacionada preenchida
+// Índice para otimizar a busca de notificações relacionadas a uma entidade específica
+// A opção sparse:true é usada porque nem todas as notificações terão o campo entidadeRelacionada preenchido
 NotificacaoSchema.index({ 'entidadeRelacionada.id': 1, 'entidadeRelacionada.tipo': 1 }, { sparse: true });
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Notificacao' tipado com INotificacao
+// Cria o modelo 'Notificacao' no MongoDB e o exporta com a tipagem INotificacao
 const Notificacao = mongoose.model<INotificacao>('Notificacao', NotificacaoSchema);
 
 export default Notificacao;

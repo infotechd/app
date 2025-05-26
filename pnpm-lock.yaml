@@ -233,6 +233,9 @@ importers:
       '@hookform/resolvers':
         specifier: ^3.3.4
         version: 3.10.0(react-hook-form@7.56.3(react@19.0.0))
+      '@react-native-community/datetimepicker':
+        specifier: ^8.3.0
+        version: 8.3.0(expo@53.0.5(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       '@react-navigation/native':
         specifier: ^7.0.19
         version: 7.1.6(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
@@ -297,6 +300,9 @@ importers:
       '@testing-library/react-native':
         specifier: ^13.2.0
         version: 13.2.0(jest@29.7.0(@types/node@18.19.87)(babel-plugin-macros@3.1.0)(ts-node@10.9.2(@types/node@18.19.87)(typescript@5.8.3)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react-test-renderer@19.0.0(react@19.0.0))(react@19.0.0)
+      '@types/expo':
+        specifier: ^33.0.3
+        version: 33.0.3(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
       '@types/react':
         specifier: ~19.0.10
         version: 19.0.14
@@ -327,6 +333,9 @@ importers:
       metro-resolver:
         specifier: ^0.82.0
         version: 0.82.2
+      node-fetch:
+        specifier: ^2.6.7
+        version: 2.7.0
       prettier:
         specifier: ^3.5.3
         version: 3.5.3
@@ -1503,6 +1512,19 @@ packages:
   '@react-native-community/cli-tools@18.0.0':
     resolution: {integrity: sha512-oR6FcDEcSDYos79vZy4+Tj8jgAE0Xf5HEiRXMJFGISYLRx7tvslSaK8SodUOW9TZe2bCZOb5QSvj8zeMpORmxg==}
 
+  '@react-native-community/datetimepicker@8.3.0':
+    resolution: {integrity: sha512-K/KgaJbLtjMpx4PaG4efrVIcSe6+DbLufeX1lwPB5YY8i3sq9dOh6WcAcMTLbaRTUpurebQTkl7puHPFm9GalA==}
+    peerDependencies:
+      expo: '>=50.0.0'
+      react: '*'
+      react-native: '*'
+      react-native-windows: '*'
+    peerDependenciesMeta:
+      expo:
+        optional: true
+      react-native-windows:
+        optional: true
+
   '@react-native/assets-registry@0.79.2':
     resolution: {integrity: sha512-5h2Z7/+/HL/0h88s0JHOdRCW4CXMCJoROxqzHqxdrjGL6EBD1DdaB4ZqkCOEVSW4Vjhir5Qb97C8i/MPWEYPtg==}
     engines: {node: '>=18'}
@@ -1750,6 +1772,10 @@ packages:
 
   '@types/estree@1.0.7':
     resolution: {integrity: sha512-w28IoSUCJpidD/TGviZwwMJckNESJZXFu7NBZ5YJ4mEUnNraUn9Pm8HSZm/jDF1pDWYKspWE7oVphigUPRakIQ==}
+
+  '@types/expo@33.0.3':
+    resolution: {integrity: sha512-tyNdlMZPCOBmd0hu654iWEc9AmY2R5ap7fS69KI9nfJn/yvowRkLOrrFaFgrR5Qsw0gKc3qoxc8BiwD6W06Crg==}
+    deprecated: This is a stub types definition. expo provides its own type definitions, so you do not need this installed.
 
   '@types/express-serve-static-core@4.19.6':
     resolution: {integrity: sha512-N4LZ2xG7DatVqhCZzOGb1Yi5lMbXSZcmdLDe9EzSndPV2HpWYWzRbaerl2n27irrm94EPpprqa8KpskPT085+A==}
@@ -7802,6 +7828,14 @@ snapshots:
       prompts: 2.4.2
       semver: 7.7.1
 
+  '@react-native-community/datetimepicker@8.3.0(expo@53.0.5(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      invariant: 2.2.4
+      react: 19.0.0
+      react-native: 0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)
+    optionalDependencies:
+      expo: 53.0.5(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+
   '@react-native/assets-registry@0.79.2': {}
 
   '@react-native/babel-plugin-codegen@0.73.4(@babel/preset-env@7.26.9(@babel/core@7.26.10))':
@@ -8235,6 +8269,22 @@ snapshots:
       '@types/json-schema': 7.0.15
 
   '@types/estree@1.0.7': {}
+
+  '@types/expo@33.0.3(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)':
+    dependencies:
+      expo: 53.0.5(@babel/core@7.26.10)(@expo/metro-runtime@4.0.1(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0)))(react-native@0.79.2(@babel/core@7.26.10)(@types/react@19.0.14)(react@19.0.0))(react@19.0.0)
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@expo/dom-webview'
+      - '@expo/metro-runtime'
+      - babel-plugin-react-compiler
+      - bufferutil
+      - graphql
+      - react
+      - react-native
+      - react-native-webview
+      - supports-color
+      - utf-8-validate
 
   '@types/express-serve-static-core@4.19.6':
     dependencies:

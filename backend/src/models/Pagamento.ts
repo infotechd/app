@@ -1,12 +1,12 @@
-// models/Pagamento.ts (Backend - Convertido para TypeScript)
+// Arquivo: models/Pagamento.ts - Modelo de dados para gerenciamento de pagamentos
 
 import mongoose, { Schema, Document, Model, Types, HydratedDocument, Mixed } from 'mongoose';
-// Importa a interface da Contratacao para referenciação
-import { IContratacao } from './Contratacao'; // Ajuste o caminho se necessário
+// Importa a interface da Contratacao para estabelecer relacionamento entre modelos
+import { IContratacao } from './Contratacao';
 
 // --- Enums e Interfaces ---
 
-// Enum para os status possíveis do pagamento
+// Enum que define os possíveis estados de um pagamento no sistema
 export enum PagamentoStatusEnum {
   CRIADO = 'criado',
   PENDENTE = 'pendente',
@@ -17,7 +17,7 @@ export enum PagamentoStatusEnum {
   ERRO = 'erro'
 }
 
-// Enum para os métodos de pagamento
+// Enum que define os métodos de pagamento disponíveis na plataforma
 export enum PagamentoMetodoEnum {
   CARTAO_CREDITO = 'cartao_credito',
   CARTAO_DEBITO = 'cartao_debito',
@@ -26,36 +26,36 @@ export enum PagamentoMetodoEnum {
   TRANSFERENCIA = 'transferencia'
 }
 
-// Interface para o subdocumento HistoricoStatusPagamento
-interface IHistoricoStatusPagamento extends Types.Subdocument {
+// Interface que define a estrutura do subdocumento para registrar o histórico de mudanças de status
+export interface IHistoricoStatusPagamento extends Types.Subdocument {
   _id: Types.ObjectId;
   status: PagamentoStatusEnum;
   timestamp: Date;
   motivo?: string;
-  metadata?: Mixed; // Para dados extras da Fintech
+  metadata?: Mixed; // Para armazenar dados adicionais da integração financeira
 }
 
-// Interface principal que define a estrutura de um documento Pagamento
+// Interface principal que define a estrutura completa de um documento de Pagamento
 export interface IPagamento extends Document {
-  contratacaoId: Types.ObjectId | IContratacao; // Pode ser populado
+  contratacaoId: Types.ObjectId | IContratacao; // Referência à contratação relacionada
   valor: number;
   metodo: PagamentoMetodoEnum;
-  historicoStatus: Types.DocumentArray<IHistoricoStatusPagamento>; // Array tipado de subdocumentos
-  transacaoId?: string; // ID da Fintech (opcional)
-  // Timestamps
+  historicoStatus: Types.DocumentArray<IHistoricoStatusPagamento>; // Coleção de registros de mudanças de status
+  transacaoId?: string; // Identificador da transação no sistema financeiro
+  // Campos de data automáticos
   createdAt: Date;
   updatedAt: Date;
-  // Virtuals (declarados para que o TS saiba que existem)
+  // Campos virtuais calculados
   statusAtual?: PagamentoStatusEnum;
 }
 
 // --- Schemas Mongoose ---
 
-// Sub-schema Mongoose para HistoricoStatusPagamento
+// Definição do esquema para o histórico de status de pagamento
 const HistoricoStatusPagamentoSchema: Schema<IHistoricoStatusPagamento> = new Schema({
   status: {
     type: String,
-    enum: Object.values(PagamentoStatusEnum), // Usa valores do Enum TS
+    enum: Object.values(PagamentoStatusEnum), // Utiliza os valores definidos no enum TypeScript
     required: true
   },
   timestamp: {
@@ -68,12 +68,12 @@ const HistoricoStatusPagamentoSchema: Schema<IHistoricoStatusPagamento> = new Sc
     required: false
   },
   metadata: {
-    type: Schema.Types.Mixed, // Permite armazenar qualquer estrutura JSON/objeto
+    type: Schema.Types.Mixed, // Campo flexível para armazenar qualquer estrutura de dados JSON
     required: false
   }
 }, { _id: true });
 
-// Schema Mongoose principal para Pagamento, tipado com IPagamento
+// Esquema principal do Mongoose para o modelo de Pagamento
 const PagamentoSchema: Schema<IPagamento> = new Schema(
   {
     contratacaoId: {
@@ -96,43 +96,43 @@ const PagamentoSchema: Schema<IPagamento> = new Schema(
       required: [true, 'O método de pagamento é obrigatório.']
     },
     historicoStatus: {
-      type: [HistoricoStatusPagamentoSchema], // Array do sub-schema
+      type: [HistoricoStatusPagamentoSchema], // Coleção de registros de histórico usando o esquema definido
       required: true,
-      validate: [ // Garante que o array tenha pelo menos um item (status inicial)
+      validate: [ // Validação para garantir que exista pelo menos um registro de status
         (arr: IHistoricoStatusPagamento[]) => Array.isArray(arr) && arr.length > 0,
         'O histórico de status deve conter pelo menos o status inicial.'
       ]
     },
-    transacaoId: { // ID da Fintech
+    transacaoId: { // Identificador único da transação no sistema financeiro
       type: String,
       index: true,
       unique: true,
-      sparse: true, // Permite valores nulos/ausentes sem violar unicidade
-      required: false // Só existe após tentativa na Fintech
+      sparse: true, // Configuração que permite documentos sem este campo sem violar a unicidade
+      required: false // Campo opcional que só é preenchido após integração com sistema financeiro
     },
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Habilita campos automáticos de controle de data de criação e atualização
   }
 );
 
-// --- Virtual para Status Atual ---
+// --- Campo Virtual para Status Atual ---
 PagamentoSchema.virtual('statusAtual').get(function(this: HydratedDocument<IPagamento>): PagamentoStatusEnum | undefined {
-  // Tipagem 'this' como HydratedDocument<IPagamento>
-  // Tipagem do retorno como PagamentoStatusEnum | undefined
+  // Definição de tipos para o contexto e retorno da função
+  // Método que calcula o status atual com base no histórico
   if (this.historicoStatus && this.historicoStatus.length > 0) {
-    // Retorna o status do último item do histórico (mais recente)
+    // Retorna o status do registro mais recente do histórico
     return this.historicoStatus[this.historicoStatus.length - 1].status;
   }
-  return undefined; // Retorna undefined se o histórico estiver vazio
+  return undefined; // Retorna undefined quando não há registros no histórico
 });
 
-// --- Configuração para incluir virtuals em toJSON/toObject ---
+// --- Configuração para incluir campos virtuais nas conversões para JSON e Object ---
 PagamentoSchema.set('toJSON', { virtuals: true });
 PagamentoSchema.set('toObject', { virtuals: true });
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Pagamento' tipado com IPagamento
+// Criação e exportação do modelo Mongoose com tipagem TypeScript
 const Pagamento = mongoose.model<IPagamento>('Pagamento', PagamentoSchema);
 
 export default Pagamento;

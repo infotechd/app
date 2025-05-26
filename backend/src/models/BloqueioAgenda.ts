@@ -1,4 +1,4 @@
-// models/BloqueioAgenda.ts (Backend - Convertido para TypeScript)
+// models/BloqueioAgenda.ts
 
 /**
  * Modelo BloqueioAgenda
@@ -6,73 +6,73 @@
  * na agenda de um prestador de serviço, independente de uma contratação.
  */
 import mongoose, { Schema, Document, Model, Types, HydratedDocument } from 'mongoose';
-// Importa a interface do usuário para referenciação correta
-import { IUser } from './User'; // Ajuste o caminho se necessário
+// Importa a interface do usuário para relacionamento entre modelos
+import { IUser } from './User';
 
 // --- Interfaces ---
 
 // Interface principal que define a estrutura de um documento BloqueioAgenda
 export interface IBloqueioAgenda extends Document {
-  prestadorId: Types.ObjectId | IUser; // Pode ser populado
-  dataInicio: Date;
-  dataFim: Date;
-  motivo?: string; // Opcional
-  // Timestamps
-  createdAt: Date;
-  updatedAt: Date;
+  prestadorId: Types.ObjectId | IUser; // Referência ao prestador de serviço
+  dataInicio: Date; // Data e hora de início do bloqueio
+  dataFim: Date; // Data e hora de término do bloqueio
+  motivo?: string; // Motivo opcional do bloqueio
+  // Campos de controle de data
+  createdAt: Date; // Data de criação do registro
+  updatedAt: Date; // Data da última atualização
 }
 
-// --- Função de Validação (Tipada) ---
+// --- Função de Validação ---
 
-// Função para garantir que dataFim seja >= dataInicio
+// Função para garantir que a data final seja igual ou posterior à data inicial
 function validarDataFim(this: HydratedDocument<IBloqueioAgenda>, value: Date): boolean {
-  // 'this' se refere ao documento que está sendo validado
-  // 'value' é o valor do campo dataFim sendo validado
+  // 'this' referencia o documento atual sendo validado
+  // 'value' contém o valor do campo dataFim que está sendo validado
   return value >= this.dataInicio;
 }
 
-// --- Schema Mongoose ---
+// --- Definição do Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface IBloqueioAgenda para tipagem
+// Define a estrutura do modelo usando a interface IBloqueioAgenda
 const BloqueioAgendaSchema: Schema<IBloqueioAgenda> = new Schema(
   {
-    prestadorId: { // Prestador de serviço que criou o bloqueio
+    prestadorId: { // ID do prestador de serviço que criou o bloqueio
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'O ID do prestador é obrigatório.'],
-      index: true // Otimiza a busca de bloqueios por prestador
+      index: true // Cria índice para otimizar consultas por prestador
     },
-    dataInicio: { // Data e hora de início do período bloqueado
+    dataInicio: { // Momento de início do período bloqueado
       type: Date,
       required: [true, 'A data de início do bloqueio é obrigatória.']
     },
-    dataFim: { // Data e hora de fim do período bloqueado
+    dataFim: { // Momento de término do período bloqueado
       type: Date,
       required: [true, 'A data de fim do bloqueio é obrigatória.'],
       validate: [validarDataFim, 'A data de fim deve ser igual ou posterior à data de início.']
     },
-    motivo: { // Descrição opcional do motivo do bloqueio
+    motivo: { // Razão opcional para o bloqueio da agenda
       type: String,
       trim: true,
       maxlength: [200, 'O motivo não pode exceder 200 caracteres.'],
-      required: false // Motivo é opcional
+      required: false // Campo não obrigatório
     },
-    // Considerações Futuras foram mantidas como comentários no código JS original
+    // Possibilidade de adicionar campos adicionais no futuro
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona campos automáticos de createdAt e updatedAt
   }
 );
 
 // --- Índices Compostos ---
-// Otimiza a consulta principal: buscar bloqueios de um prestador que se sobrepõem a um intervalo de tempo.
+// Cria índice composto para otimizar consultas de bloqueios por prestador em um intervalo de tempo
 BloqueioAgendaSchema.index({ prestadorId: 1, dataInicio: 1, dataFim: 1 });
-// Índices individuais em dataInicio e dataFim podem ser úteis também, dependendo das queries
+// Outros índices que podem ser úteis dependendo dos padrões de consulta
 // BloqueioAgendaSchema.index({ prestadorId: 1, dataInicio: -1 });
 // BloqueioAgendaSchema.index({ prestadorId: 1, dataFim: 1 });
 
 // --- Exportação do Modelo ---
-// Cria e exporta o modelo 'BloqueioAgenda' tipado com IBloqueioAgenda
+// Cria o modelo 'BloqueioAgenda' a partir do schema definido e o exporta
 const BloqueioAgenda = mongoose.model<IBloqueioAgenda>('BloqueioAgenda', BloqueioAgendaSchema);
 
 export default BloqueioAgenda;

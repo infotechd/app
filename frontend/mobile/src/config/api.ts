@@ -5,4 +5,4 @@
 export const API_URL = 
   process.env.NODE_ENV === 'test' 
     ? 'http://test-api-url/api'
-    : (process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.5:3000/api');
+    : (process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.8:3000/api');

@@ -68,7 +68,10 @@ export const offerSchema = z.object({
     disponibilidadeSchema,
     z.string()
   ]),
-  prestadorId: z.string(),
+  prestadorId: z.union([
+    z.string(),
+    z.object({ _id: z.string() })
+  ]),
 
   // Campos opcionais
   dataCriacao: z.string().optional(),
@@ -106,6 +109,7 @@ export const fetchOffersParamsSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.number().positive().optional(),
   limit: z.number().positive().optional(),
+  includeProvider: z.boolean().optional(),
 });
 
 /**

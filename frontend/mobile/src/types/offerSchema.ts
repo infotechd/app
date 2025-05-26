@@ -98,13 +98,25 @@ export const offerSchema = z.object({
     disponibilidadeSchema,
     z.string()
   ]),
-  prestadorId: z.string(),
+  prestadorId: z.union([
+    z.string(),
+    z.object({ _id: z.string() })
+  ]),
   categorias: categoriasSchema,
   localizacao: localizacaoSchema,
 
   // Optional fields
   dataCriacao: z.string().optional(),
   dataAtualizacao: z.string().optional(),
+
+  // Campos para exibir informações do prestador
+  nomePrestador: z.string().optional(),
+  prestadorNome: z.string().optional(),
+  prestadorInfo: z.object({ nome: z.string().optional() }).optional(),
+  prestador: z.union([
+    z.object({ nome: z.string().optional() }),
+    z.string()
+  ]).optional(),
 });
 
 // Type inference from the schema
@@ -141,6 +153,7 @@ export const fetchOffersParamsSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.number().optional(),
   limit: z.number().optional(),
+  includeProvider: z.boolean().optional(),
 });
 
 // Type inference from the schema

@@ -9,86 +9,86 @@ import {
 } from 'app-common';
 
 /**
- * Example of validating user data with Zod schemas
+ * Exemplo de validação de dados de usuário com esquemas Zod
  */
 function validateUserExample() {
-  // Example user data from request body
+  // Dados de exemplo do usuário do corpo da requisição
   const userData = {
     name: 'John Doe',
     email: 'john@example.com',
     password: 'password123'
   };
 
-  // Validate using Zod schema
+  // Validação usando o esquema Zod
   const result = createUserSchema.safeParse(userData);
 
   if (result.success) {
-    console.log('User data is valid:', result.data);
-    // Proceed with creating user in database
+    console.log('Dados do usuário são válidos:', result.data);
+    // Prosseguir com a criação do usuário no banco de dados
     return { success: true, data: result.data };
   } else {
-    console.error('Validation errors:', result.error.issues);
-    // Return validation errors to client
+    console.error('Erros de validação:', result.error.issues);
+    // Retornar erros de validação para o cliente
     return { 
       success: false, 
-      error: 'Validation failed', 
+      error: 'Falha na validação', 
       issues: result.error.issues 
     };
   }
 }
 
 /**
- * Example of validating login data with Zod schemas
+ * Exemplo de validação de dados de login com esquemas Zod
  */
 function validateLoginExample() {
-  // Example login data from request body
+  // Dados de exemplo de login do corpo da requisição
   const loginData = {
     email: 'john@example.com',
-    password: 'short' // Too short, will fail validation
+    password: 'short' // Muito curto, vai falhar na validação
   };
 
-  // Validate using Zod schema
+  // Validação usando o esquema Zod
   const result = loginUserSchema.safeParse(loginData);
 
   if (result.success) {
-    console.log('Login data is valid:', result.data);
-    // Proceed with authentication
+    console.log('Dados de login são válidos:', result.data);
+    // Prosseguir com a autenticação
     return { success: true, data: result.data };
   } else {
-    console.error('Validation errors:', result.error.issues);
-    // Return validation errors to client
+    console.error('Erros de validação:', result.error.issues);
+    // Retornar erros de validação para o cliente
     return { 
       success: false, 
-      error: 'Invalid credentials', 
+      error: 'Credenciais inválidas', 
       issues: result.error.issues 
     };
   }
 }
 
 /**
- * Example of validating pagination parameters
+ * Exemplo de validação de parâmetros de paginação
  */
 function validatePaginationExample(queryParams: any) {
-  // Example query parameters
+  // Parâmetros de consulta de exemplo
   const params = {
     page: queryParams.page ? Number(queryParams.page) : undefined,
     limit: queryParams.limit ? Number(queryParams.limit) : undefined
   };
 
-  // Validate and get defaults for missing values
+  // Validar e obter valores padrão para valores ausentes
   const result = paginationParamsSchema.safeParse(params);
 
   if (result.success) {
-    // Will use defaults if not provided (page=1, limit=10)
+    // Usará valores padrão se não fornecidos (page=1, limit=10)
     return result.data;
   } else {
-    // Use default values if validation fails
+    // Usar valores padrão se a validação falhar
     return { page: 1, limit: 10 };
   }
 }
 
 /**
- * Example of creating a typed API response
+ * Exemplo de criação de uma resposta de API tipada
  */
 function createApiResponse<T>(data: T, success = true, message?: string): any {
   const response = {
@@ -97,15 +97,15 @@ function createApiResponse<T>(data: T, success = true, message?: string): any {
     message
   };
 
-  // Validate the response format
+  // Validar o formato da resposta
   const result = apiResponseSchema.safeParse(response);
-  
+
   if (result.success) {
     return response;
   } else {
-    // This should never happen if we construct the response correctly
-    console.error('Invalid API response format:', result.error.issues);
-    return { success: false, error: 'Internal server error' };
+    // Isso nunca deve acontecer se construirmos a resposta corretamente
+    console.error('Formato de resposta de API inválido:', result.error.issues);
+    return { success: false, error: 'Erro interno do servidor' };
   }
 }
 

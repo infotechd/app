@@ -1,17 +1,22 @@
-// src/routes/uploadRoutes.ts
+// Arquivo de rotas para operações de upload de arquivos
 
 import { Router } from 'express';
 import * as uploadController from '../controllers/uploadController';
 import authMiddleware from '../middlewares/authMiddleware';
 
-// Cria uma instância do Router do Express
+// Cria uma instância do Router do Express para gerenciar as rotas de upload
 const router: Router = Router();
 
 // === ROTAS DE UPLOAD ===
 
-// POST /api/upload/image : Upload de imagem (protegido por autenticação)
-// O middleware upload.single('image') processa o arquivo enviado com o campo 'image'
+// Rota POST para upload de imagens
+// Parâmetros:
+// - Rota: /image
+// - Método: POST
+// - Proteção: Requer autenticação via token JWT
+// - Processamento: Utiliza o middleware de upload para processar um único arquivo
+// - Controlador: Função uploadImage que salva a imagem e retorna a URL
 router.post('/image', authMiddleware, uploadController.upload.single('image'), uploadController.uploadImage);
 
-// Exporta o router configurado para ser usado no server.ts
+// Exporta o router para ser utilizado na configuração principal da aplicação
 export default router;

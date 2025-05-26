@@ -261,7 +261,7 @@ export const listarAnunciosPublicos = async (req: Request, res: Response, next: 
     };
 
     const anuncios = await Anuncio.find(query)
-      .select('-historicoStatus -rejeicaoMotivo') // Exclui campos internos/sensíveis
+      .select('-historicoStatus -motivoRejeicao') // Exclui campos internos/sensíveis
       .populate('anuncianteId', 'nome foto') // Exemplo: Puxa nome e foto do anunciante
       .sort({ createdAt: -1 }); // Ou por relevância, etc.
 
@@ -290,7 +290,7 @@ export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, n
       _id: anuncioId,
       status: AnuncioStatusEnum.APROVADO // Garante que só busca anúncios aprovados para visualização pública
     })
-      .select('-historicoStatus -rejeicaoMotivo') // Exclui campos internos/administrativos da resposta
+      .select('-historicoStatus -motivoRejeicao') // Exclui campos internos/administrativos da resposta
       .populate('anuncianteId', 'nome email foto'); // Inclui dados básicos do anunciante na resposta
 
     if (!anuncio) {
@@ -372,7 +372,7 @@ export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Respon
     anuncio.status = targetStatus;
     // Limpa motivo de rejeição se estiver sendo reativado/aprovado pelo anunciante (se aplicável)
     if (targetStatus === AnuncioStatusEnum.APROVADO) {
-      anuncio.rejeicaoMotivo = undefined;
+      anuncio.motivoRejeicao = undefined;
     }
     const anuncioAtualizado = await anuncio.save(); // Dispara hooks e validações
 
@@ -501,11 +501,11 @@ export const revisarAnuncio = async (req: Request, res: Response, next: NextFunc
     // Aplica a decisão de revisão (aprovação ou rejeição)
     if (acao === 'aprovar') {
       anuncio.status = AnuncioStatusEnum.APROVADO;
-      anuncio.rejeicaoMotivo = undefined; // Limpa motivo de rejeição anterior, se houver
+      anuncio.motivoRejeicao = undefined; // Limpa motivo de rejeição anterior, se houver
       // TODO: Definir data de aprovação se necessário: anuncio.dataAprovacao = new Date();
     } else { // acao === 'rejeitar'
       anuncio.status = AnuncioStatusEnum.REJEITADO;
-      anuncio.rejeicaoMotivo = motivo; // Armazena o motivo da rejeição para feedback ao anunciante
+      anuncio.motivoRejeicao = motivo; // Armazena o motivo da rejeição para feedback ao anunciante
       // TODO: Definir data de rejeição se necessário: anuncio.dataRejeicao = new Date();
     }
 

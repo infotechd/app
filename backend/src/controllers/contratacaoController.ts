@@ -31,7 +31,7 @@ export const contratarOferta = async (req: Request, res: Response, next: NextFun
     // Busca a oferta e verifica se está disponível
     const oferta: HydratedDocument<IOfertaServico> | null = await OfertaServico.findById(ofertaId);
 
-    // Correção: Verifica se a oferta existe e se o status é DISPONIVEL (do Enum)
+    // Verifica se a oferta existe e se o status é DISPONIVEL (do Enum)
     if (!oferta || oferta.status !== OfertaStatusEnum.DISPONIVEL) {
       res.status(400).json({ message: 'Oferta não encontrada ou não está disponível para contratação.' });
       return;
@@ -82,11 +82,11 @@ export const contratarOferta = async (req: Request, res: Response, next: NextFun
     res.status(201).json({ message: 'Oferta contratada com sucesso. Aguardando aceite do prestador.', contratacao: contratacaoSalva });
 
   } catch (error) {
-    next(error); // Delega para o error handler central
+    next(error); // Delega para o tratador de erros central
   }
 };
 
-// --- Funções Faltantes (Placeholders) ---
+// --- Funções Adicionais ---
 
 /**
  * Lista as contratações onde o usuário logado é Comprador ou Prestador.

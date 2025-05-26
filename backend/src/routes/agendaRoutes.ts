@@ -1,34 +1,36 @@
-// src/routes/agendaRoutes.ts
+// Arquivo de rotas para gerenciamento da agenda
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importação dos controladores de agenda e middleware de autenticação
 import * as agendaController from '../controllers/agendaController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Possibilidade de importar middlewares específicos de autorização
 // import { isPrestador } from '../middlewares/authorizationMiddleware';
 
+// Criação do roteador para as rotas de agenda
 const router: Router = Router();
 
-// === ROTAS DE AGENDA (Todas protegidas por authMiddleware) ===
-// A AUTORIZAÇÃO (usuário só acessa/modifica sua própria agenda)
-// deve ser verificada dentro dos controllers ou em middlewares adicionais.
+// === CONFIGURAÇÃO DAS ROTAS DE AGENDA ===
+// Todas as rotas são protegidas pelo middleware de autenticação
+// A verificação de autorização (se o usuário pode acessar/modificar sua própria agenda)
+// deve ser implementada nos controladores ou em middlewares adicionais
 
-// GET /api/agenda : Busca a agenda do prestador autenticado
+// Rota GET para buscar a agenda do prestador que está autenticado
 router.get(
   '/',
   authMiddleware,
-  // isPrestador, // Middleware opcional para verificar se é prestador
-  agendaController.getAgenda // Função a ser criada
+  // isPrestador, // Middleware que poderia verificar se o usuário é um prestador
+  agendaController.getAgenda // Controlador que busca os dados da agenda
 );
 
-// PUT /api/agenda/:agendaId/compromisso/:compromissoId : Atualiza o status de um compromisso específico
+// Rota PUT para atualizar o status de um compromisso específico na agenda
 router.put(
   '/:agendaId/compromisso/:compromissoId',
   authMiddleware,
-  // isPrestador, // Middleware opcional
-  // isAgendaOwner, // Middleware opcional para verificar se é dono da agenda
-  agendaController.updateCompromissoStatus // Função a ser criada
+  // isPrestador, // Middleware que poderia verificar se o usuário é um prestador
+  // isAgendaOwner, // Middleware que poderia verificar se o usuário é dono da agenda
+  agendaController.updateCompromissoStatus // Controlador que atualiza o status do compromisso
 );
 
-// Exporta o router configurado
+// Exportação do roteador configurado para uso na aplicação
 export default router;

@@ -1,4 +1,4 @@
-// models/Contratacao.ts (Backend - Convertido para TypeScript)
+// Modelo de Contratação - Define a estrutura e comportamento das contratações de serviços
 
 import mongoose, { Schema, Document, Model, Types, HydratedDocument } from 'mongoose';
 // Importa interfaces dos modelos referenciados
@@ -9,52 +9,52 @@ import { IOfertaServico } from './OfertaServico';
 
 // --- Enums e Interfaces ---
 
-// Enum para os status da contratação
+// Enumeração dos possíveis estados de uma contratação no sistema
 export enum ContratacaoStatusEnum {
-  PENDENTE = 'Pendente', // Aguardando aceite do prestador?
-  ACEITA = 'Aceita', // Prestador aceitou
-  EM_ANDAMENTO = 'Em andamento', // Serviço iniciado
-  CONCLUIDO = 'Concluído', // Serviço finalizado pelo prestador
-  CANCELADO_BUYER = 'Cancelado pelo Comprador', // Cancelado antes ou durante
-  CANCELADO_PRESTADOR = 'Cancelado pelo Prestador', // Cancelado antes ou durante
-  DISPUTA = 'Disputa' // Há um problema/desacordo
-  // Adicionar mais status conforme a lógica de negócio evoluir
+  PENDENTE = 'Pendente', // Estado inicial: aguardando confirmação do prestador
+  ACEITA = 'Aceita', // Contratação confirmada pelo prestador, aguardando início
+  EM_ANDAMENTO = 'Em andamento', // Serviço em execução
+  CONCLUIDO = 'Concluído', // Serviço finalizado com sucesso pelo prestador
+  CANCELADO_BUYER = 'Cancelado pelo Comprador', // Cancelamento solicitado pelo comprador
+  CANCELADO_PRESTADOR = 'Cancelado pelo Prestador', // Cancelamento solicitado pelo prestador
+  DISPUTA = 'Disputa' // Situação de conflito entre as partes
+  // Novos estados podem ser adicionados conforme a evolução do sistema
 }
 
 // Interface principal que define a estrutura de um documento Contratacao
 export interface IContratacao extends Document {
-  buyerId: Types.ObjectId | IUser; // Pode ser populado
-  prestadorId: Types.ObjectId | IUser; // Pode ser populado
-  ofertaId: Types.ObjectId | IOfertaServico; // Pode ser populado
+  buyerId: Types.ObjectId | IUser; // ID do comprador que pode ser populado com dados completos
+  prestadorId: Types.ObjectId | IUser; // ID do prestador que pode ser populado com dados completos
+  ofertaId: Types.ObjectId | IOfertaServico; // ID da oferta que pode ser populado com dados completos
   status: ContratacaoStatusEnum;
-  dataInicioServico?: Date; // Opcional
-  dataFimServico?: Date; // Opcional
+  dataInicioServico?: Date; // Data opcional de início do serviço
+  dataFimServico?: Date; // Data opcional de término do serviço
   valorTotal: number;
-  // pagamentoId?: Types.ObjectId | IPagamento; // Opcional
-  // Timestamps (adicionados pelo Mongoose)
-  createdAt: Date; // Data da contratação
-  updatedAt: Date;
+  // pagamentoId?: Types.ObjectId | IPagamento; // ID opcional do pagamento associado
+  // Campos de data adicionados automaticamente pelo Mongoose
+  createdAt: Date; // Data da criação da contratação
+  updatedAt: Date; // Data da última atualização da contratação
 }
 
-// --- Função de Validação (Tipada) ---
+// --- Função de Validação de Datas ---
 
-// NOTA: Validação no schema funciona melhor se datas são definidas juntas.
-// Considere reforçar na camada de serviço/controller.
+// NOTA: A validação no schema é mais eficiente quando as datas são definidas em conjunto.
+// É recomendável implementar validações adicionais na camada de serviço/controller.
 function validateDataFim(this: HydratedDocument<IContratacao>, value: Date | null | undefined): boolean {
-  // Permite que dataFim seja null/undefined, mas se for definida, deve ser >= dataInicioServico
-  // 'this' aqui é o documento sendo validado, tipado como HydratedDocument<IContratacao>
+  // Verifica se a data de fim é posterior ou igual à data de início
+  // O parâmetro 'this' representa o documento atual sendo validado
   if (value && this.dataInicioServico) {
     return value >= this.dataInicioServico;
   }
-  return true; // Passa se dataFim ou dataInicioServico não estiverem definidas
+  return true; // Validação passa se a data de fim ou a data de início não estiverem definidas
 }
 
-// --- Schema Mongoose ---
+// --- Definição do Schema Mongoose ---
 
-// Define o Schema Mongoose, usando a interface IContratacao para tipagem
+// Define a estrutura do documento no MongoDB usando a interface IContratacao
 const ContratacaoSchema: Schema<IContratacao> = new Schema(
   {
-    // --- Relacionamentos Principais ---
+    // --- Relacionamentos Principais (Referências a outros documentos) ---
     buyerId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
@@ -74,18 +74,18 @@ const ContratacaoSchema: Schema<IContratacao> = new Schema(
       index: true
     },
 
-    // --- Status e Datas ---
+    // --- Status e Datas do Serviço ---
     status: {
       type: String,
       enum: {
-        values: Object.values(ContratacaoStatusEnum), // Usa valores do Enum TS
+        values: Object.values(ContratacaoStatusEnum), // Utiliza os valores definidos no enum
         message: 'Status de contratação inválido: {VALUE}.'
       },
-      default: ContratacaoStatusEnum.PENDENTE, // Ajustar default conforme regra
+      default: ContratacaoStatusEnum.PENDENTE, // Status inicial padrão
       required: true,
       index: true
     },
-    // createdAt dos timestamps representa a data da contratação
+    // O campo createdAt dos timestamps registra a data da contratação
     dataInicioServico: {
       type: Date,
       required: false
@@ -96,7 +96,7 @@ const ContratacaoSchema: Schema<IContratacao> = new Schema(
       validate: [validateDataFim, 'A data de término do serviço deve ser igual ou posterior à data de início.']
     },
 
-    // --- Valores e Pagamento ---
+    // --- Valores e Informações de Pagamento ---
     valorTotal: {
       type: Number,
       required: [true, 'O valor total da contratação é obrigatório.'],
@@ -105,22 +105,27 @@ const ContratacaoSchema: Schema<IContratacao> = new Schema(
     // pagamentoId: { type: Schema.Types.ObjectId, ref: 'Pagamento', required: false, index: true },
 
     // --- Avaliações ---
-    // Removidas - gerenciadas pelo modelo Avaliacao.ts que referencia esta contratação
+    // As avaliações são gerenciadas pelo modelo Avaliacao.ts que referencia esta contratação
 
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona campos automáticos de createdAt e updatedAt
   }
 );
 
-// --- Índices Compostos ---
+// --- Índices Compostos para Otimização de Consultas ---
+// Índice para buscar contratações de um comprador por status
 ContratacaoSchema.index({ buyerId: 1, status: 1 });
+// Índice para buscar contratações de um prestador por status
 ContratacaoSchema.index({ prestadorId: 1, status: 1 });
+// Índice para buscar contratações de uma oferta por status
 ContratacaoSchema.index({ ofertaId: 1, status: 1 });
+// Índice para verificar disponibilidade de um prestador em determinado período
 ContratacaoSchema.index({ prestadorId: 1, dataInicioServico: 1, dataFimServico: 1 });
 
-// --- Exportação do Modelo ---
-// Cria e exporta o modelo 'Contratacao' tipado com IContratacao
+// --- Criação e Exportação do Modelo ---
+// Cria o modelo 'Contratacao' no MongoDB com a estrutura definida
 const Contratacao = mongoose.model<IContratacao>('Contratacao', ContratacaoSchema);
 
+// Exporta o modelo para uso em outros arquivos
 export default Contratacao;

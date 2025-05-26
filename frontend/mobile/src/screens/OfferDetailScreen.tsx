@@ -44,7 +44,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Verificar se o usuário é o proprietário da oferta
-  const isOwner = user && offer && user.idUsuario === offer.prestadorId;
+  const isOwner = user && offer && user.idUsuario === (typeof offer.prestadorId === 'object' ? offer.prestadorId._id : offer.prestadorId);
 
   // Verificar se o usuário é um prestador
   const isPrestador = user?.tipoUsuario === TipoUsuarioEnum.PRESTADOR;
@@ -412,13 +412,41 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
 
         {/* Informações do prestador */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informações do Prestador</Text>
+          <Text style={styles.sectionTitle}>Informações do Criador</Text>
           <View style={styles.prestadorInfo}>
-            {/* Espaço reservado para a foto do prestador quando estiver disponível na API */}
-            <Text style={styles.prestadorName}>
-              {/* Espaço reservado para o nome do prestador quando estiver disponível na API */}
-              ID do Prestador: {offer.prestadorId || 'Não disponível'}
-            </Text>
+            {/* Nome do criador da oferta */}
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Nome:</Text>
+              <Text style={styles.infoValue}>
+                {typeof offer.prestadorId === 'object' && offer.prestadorId.nome 
+                  ? offer.prestadorId.nome 
+                  : offer.nomePrestador || offer.prestadorNome || 
+                    (offer.prestadorInfo && offer.prestadorInfo.nome) || 
+                    (offer.prestador && (
+                      typeof offer.prestador === 'object' 
+                        ? offer.prestador.nome 
+                        : null
+                    )) || 
+                    'Nome do criador não disponível'}
+              </Text>
+            </View>
+            {/* Categorias de serviço */}
+            {offer.categorias && offer.categorias.length > 0 && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Categoria:</Text>
+                <Text style={styles.infoValue}>{offer.categorias.join(', ')}</Text>
+              </View>
+            )}
+            {/* Localização */}
+            {offer.localizacao && (
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Localização:</Text>
+                <Text style={styles.infoValue}>
+                  {offer.localizacao.cidade ? `${offer.localizacao.cidade}, ` : ''}
+                  {offer.localizacao.estado || 'Localização não especificada'}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
@@ -641,13 +669,31 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   prestadorInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
   },
   prestadorName: {
     fontSize: 16,
+    fontWeight: 'bold',
     color: '#333',
     marginLeft: 10,
+    marginBottom: 10,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 10,
+    marginBottom: 5,
+  },
+  infoLabel: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#555',
+    marginRight: 5,
+  },
+  infoValue: {
+    fontSize: 14,
+    color: '#333',
   },
   descricao: {
     fontSize: 16,

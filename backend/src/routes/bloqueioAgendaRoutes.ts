@@ -1,52 +1,58 @@
 // src/routes/bloqueioAgendaRoutes.ts
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão/criação para .ts)
-import * as bloqueioAgendaController from '../controllers/bloqueioAgendaController'; // Controller a ser criado
+// Importação dos controladores e middlewares necessários para as rotas de bloqueio de agenda
+import * as bloqueioAgendaController from '../controllers/bloqueioAgendaController'; // Controlador responsável pelas operações de bloqueio de agenda
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middleware de autorização específico
-import { isPrestador } from '../middlewares/authorizationMiddleware'; // Middleware a ser criado (verifica se req.user.tipoUsuario === 'prestador')
+// Importação do middleware de autorização para verificação do tipo de usuário
+import { isPrestador } from '../middlewares/authorizationMiddleware'; // Middleware que verifica se o usuário é um prestador de serviços
 
+// Criação do objeto router para definição das rotas
 const router: Router = Router();
 
-// === ROTAS DE BLOQUEIO DE AGENDA (Requer Autenticação e ser Prestador) ===
-// Todas as rotas abaixo devem ser acessadas apenas por usuários do tipo 'prestador'
-// e geralmente só podem manipular os *seus próprios* bloqueios.
+// === ROTAS DE BLOQUEIO DE AGENDA ===
+// Estas rotas gerenciam os períodos em que o prestador não está disponível para atendimento
+// Todas as rotas exigem autenticação e permissão de prestador de serviços
+// Os prestadores só podem manipular seus próprios bloqueios de agenda
 
-// Aplica authMiddleware e isPrestador a todas as rotas neste router
-router.use(authMiddleware); // Garante que o usuário está logado
-router.use(isPrestador);    // Garante que o usuário é um prestador
+// Aplicação dos middlewares de autenticação e autorização em todas as rotas
+router.use(authMiddleware); // Verifica se o usuário está autenticado no sistema
+router.use(isPrestador);    // Verifica se o usuário possui o perfil de prestador de serviços
 
-// POST /api/bloqueios-agenda : Cria um novo bloqueio de tempo para o prestador logado
-// Corpo da requisição deve conter: { dataInicio, dataFim, motivo? }
-// Controller usará req.user.userId como prestadorId.
+// Rota para criar um novo bloqueio de agenda
+// Método POST na rota /api/bloqueios-agenda
+// O corpo da requisição deve conter: { dataInicio, dataFim, motivo? }
+// O ID do prestador é obtido automaticamente do usuário autenticado
 router.post(
   '/',
-  bloqueioAgendaController.criarBloqueio // Função a ser criada
+  bloqueioAgendaController.criarBloqueio // Função do controlador que processa a criação do bloqueio
 );
 
-// GET /api/bloqueios-agenda : Lista os bloqueios de tempo do prestador logado
-// Pode aceitar query params para filtrar por data (ex: ?dataMin=...&dataMax=...)
-// Controller buscará bloqueios usando req.user.userId como prestadorId.
+// Rota para listar os bloqueios de agenda do prestador autenticado
+// Método GET na rota /api/bloqueios-agenda
+// Aceita parâmetros de consulta para filtrar por período (exemplo: ?dataMin=...&dataMax=...)
+// Os bloqueios são filtrados automaticamente pelo ID do prestador autenticado
 router.get(
   '/',
-  bloqueioAgendaController.listarMeusBloqueios // Função a ser criada
+  bloqueioAgendaController.listarMeusBloqueios // Função do controlador que busca e retorna os bloqueios
 );
 
-// DELETE /api/bloqueios-agenda/:bloqueioId : Deleta um bloqueio de tempo específico
-// Controller deve verificar se o bloqueio com :bloqueioId pertence ao req.user.userId antes de deletar.
+// Rota para excluir um bloqueio de agenda específico
+// Método DELETE na rota /api/bloqueios-agenda/:bloqueioId
+// O controlador verifica se o bloqueio pertence ao prestador autenticado antes de excluí-lo
 router.delete(
   '/:bloqueioId',
-  bloqueioAgendaController.deletarBloqueio // Função a ser criada
+  bloqueioAgendaController.deletarBloqueio // Função do controlador que processa a exclusão do bloqueio
 );
 
-// PUT /api/bloqueios-agenda/:bloqueioId : (Opcional) Atualiza um bloqueio de tempo
-// Controller deve verificar se o bloqueio pertence ao req.user.userId.
+// Rota opcional para atualizar um bloqueio de agenda existente
+// Método PUT na rota /api/bloqueios-agenda/:bloqueioId
+// O controlador verifica se o bloqueio pertence ao prestador autenticado
 // router.put(
 //     '/:bloqueioId',
-//     bloqueioAgendaController.atualizarBloqueio // Função a ser criada
+//     bloqueioAgendaController.atualizarBloqueio // Função do controlador que processa a atualização do bloqueio
 // );
 
 
-// Exporta o router configurado
+// Exportação do router configurado para uso no arquivo principal da aplicação
 export default router;

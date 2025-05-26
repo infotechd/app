@@ -1,22 +1,25 @@
 // src/routes/pagamentoRoutes.ts
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importa os controladores de pagamento e o middleware de autenticação
 import * as pagamentoController from '../controllers/pagamentoController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Middlewares de autorização que podem ser utilizados futuramente
 // import { isBuyerOfContratacao } from '../middlewares/authorizationMiddleware';
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 // import { canRequestRefund } from '../middlewares/authorizationMiddleware';
 
+// Inicializa o roteador Express
 const router: Router = Router();
 
 // === ROTAS DE PAGAMENTO (Protegidas por Autenticação) ===
-// A AUTORIZAÇÃO específica (é o comprador? pode estornar?) deve ser verificada
-// dentro dos controllers ou em middlewares de autorização adicionais.
+// A autorização específica (verificação se o usuário é o comprador ou se pode estornar)
+// deve ser implementada dentro dos controllers ou em middlewares de autorização adicionais.
 
-// POST /api/pagamentos : Inicia o processo de pagamento para uma Contratacao (CU9, CU23)
-// Controller deve verificar se req.user é o buyerId da Contratacao a ser paga.
+// Rota: Inicia o processo de pagamento para uma Contratação
+// Método: POST /api/pagamentos
+// Casos de Uso: CU9, CU23
+// Observação: O controller deve verificar se o usuário autenticado é o comprador da contratação
 router.post(
   '/',
   authMiddleware,
@@ -24,15 +27,19 @@ router.post(
   pagamentoController.processarPagamento
 );
 
-// GET /api/pagamentos : Lista o histórico de pagamentos do usuário logado (Sugestão)
+// Rota: Lista o histórico de pagamentos do usuário logado
+// Método: GET /api/pagamentos
+// Observação: Função ainda precisa ser implementada
 router.get(
   '/',
   authMiddleware,
   pagamentoController.listarMeusPagamentos // Função a ser criada
 );
 
-// GET /api/pagamentos/:pagamentoId : Obtém detalhes/status de um pagamento específico (Sugestão)
-// Controller deve verificar se req.user tem permissão para ver este pagamento (buyer, prestador ou admin?)
+// Rota: Obtém detalhes e status de um pagamento específico
+// Método: GET /api/pagamentos/:pagamentoId
+// Observação: O controller deve verificar se o usuário tem permissão para visualizar este pagamento
+// (se é o comprador, o prestador de serviço ou um administrador)
 router.get(
   '/:pagamentoId',
   authMiddleware,
@@ -41,8 +48,10 @@ router.get(
 );
 
 
-// PUT ou POST /api/pagamentos/:pagamentoId/estornar : Solicita o estorno de um pagamento
-// Controller deve verificar se req.user tem permissão para solicitar estorno (buyer, admin?)
+// Rota: Solicita o estorno de um pagamento
+// Método: PUT /api/pagamentos/:pagamentoId/estornar
+// Observação: O controller deve verificar se o usuário tem permissão para solicitar estorno
+// (se é o comprador ou um administrador)
 router.put( // Ou router.post
   '/:pagamentoId/estornar',
   authMiddleware,
@@ -52,12 +61,14 @@ router.put( // Ou router.post
 
 
 // === ROTAS DE WEBHOOK (NÃO protegidas por authMiddleware) ===
+// Estas rotas recebem notificações de serviços externos e não requerem autenticação de usuário
 
-// POST /api/pagamentos/webhook/fintech : Recebe atualizações assíncronas da APIFintech (Sugestão Essencial)
-// Controller deve validar a autenticidade da requisição (ex: assinatura HMAC, IP)
-// e atualizar o status do Pagamento correspondente no banco.
+// Rota: Recebe atualizações assíncronas da API de pagamento (Fintech)
+// Método: POST /api/pagamentos/webhook/fintech
+// Observação: O controller deve validar a autenticidade da requisição (ex: assinatura HMAC, IP)
+// e atualizar o status do pagamento correspondente no banco de dados
 router.post(
-  '/webhook/fintech', // O nome exato da rota pode variar
+  '/webhook/fintech', // O nome exato da rota pode variar conforme a integração
   pagamentoController.handleWebhookFintech // Função a ser criada
 );
 

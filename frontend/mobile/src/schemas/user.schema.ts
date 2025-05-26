@@ -122,11 +122,41 @@ export const profileUpdateDataSchema = z.object({
   id: z.string().optional(),
   nome: z.string().min(1, { message: 'Nome é obrigatório' }).optional(),
   email: z.string().email({ message: 'Email inválido' }).optional(),
-  telefone: z.string().optional(),
-  cpfCnpj: z.string().min(11, { message: 'CPF/CNPJ inválido' }).optional(),
+  telefone: z.string()
+    .regex(/^(?:\(\d{2}\)\s?)?\d{5}-?\d{4}$|^\d{11}$/, { 
+      message: 'Por favor, insira um número de telefone válido com DDD (11 dígitos)' 
+    })
+    .optional(),
+  cpfCnpj: z.string()
+    .refine(
+      (value) => {
+        if (!value) return true; // Skip validation if empty
+        const numeroLimpo = value.replace(/\D/g, '');
+        return numeroLimpo.length === 11 || numeroLimpo.length === 14;
+      },
+      { message: 'CPF deve ter 11 dígitos e CNPJ deve ter 14 dígitos' }
+    )
+    .refine(
+      (value) => {
+        if (!value) return true; // Skip validation if empty
+        const numeroLimpo = value.replace(/\D/g, '');
+        return !/^(\d)\1+$/.test(numeroLimpo);
+      },
+      { message: 'CPF/CNPJ não pode conter todos os dígitos iguais' }
+    )
+    .optional(),
   endereco: z.string().optional(),
   foto: z.string().url({ message: 'URL da foto inválida' }).optional(),
-  dataNascimento: z.union([z.string(), z.date()]).optional(),
+  dataNascimento: z.union([z.string(), z.date()])
+    .refine(
+      (value) => {
+        if (!value) return true; // Skip validation if empty
+        const date = typeof value === 'string' ? new Date(value) : value;
+        return date <= new Date(); // Ensure date is not in the future
+      },
+      { message: 'A data de nascimento não pode ser no futuro' }
+    )
+    .optional(),
   genero: z.enum(['Feminino', 'Masculino', 'Prefiro não dizer']).optional(),
 }).refine(data => data.idUsuario || data.id, {
   message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",

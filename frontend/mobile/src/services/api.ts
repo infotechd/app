@@ -93,6 +93,12 @@ export interface FetchOfferDetailResponse {
   message?: string;
 }
 
+// Interface para objeto de prestador com ID e nome
+export interface PrestadorIdObj {
+  _id: any;
+  nome?: string;
+}
+
 // --- Utilitários do Cliente API ---
 
 /**
@@ -127,19 +133,96 @@ const isTestEnvironment = (): boolean => {
  * Verifica a conectividade de rede
  * @returns Promise que é resolvida se a conectividade estiver disponível
  */
-const checkConnectivity = async (): Promise<void> => {
+const checkConnectivity = async (): Promise<boolean> => {
+  console.log('[CONNECTIVITY] Iniciando verificação de conectividade de rede');
+
   if (isTestEnvironment()) {
-    return; // Pula a verificação de conectividade em ambiente de teste
+    console.log('[CONNECTIVITY] Ambiente de teste detectado, pulando verificação');
+    return true; // Pula a verificação de conectividade em ambiente de teste
   }
 
-  try {
-    console.log('Verificando conectividade de rede...');
-    await axios.head('https://www.google.com', { timeout: 5000 });
-    console.log('✓ Conectividade com internet confirmada');
-  } catch (error) {
-    console.error('✗ Falha na verificação de conectividade:', error);
-    // Continua mesmo se a verificação de conectividade falhar
+  // Lista de URLs para verificar conectividade (em ordem de prioridade)
+  const connectivityCheckUrls = [
+    'https://www.google.com',
+    'https://www.cloudflare.com',
+    'https://www.amazon.com'
+  ];
+
+  console.log('[CONNECTIVITY] Verificando conectividade com sites externos...');
+  console.log('[CONNECTIVITY] URLs a serem testadas:', connectivityCheckUrls);
+
+  // Tenta cada URL até encontrar uma que funcione
+  for (const url of connectivityCheckUrls) {
+    console.log(`[CONNECTIVITY] Tentando conectar a ${url}...`);
+    try {
+      const startTime = Date.now();
+      await axios.head(url, { 
+        timeout: 5000,
+        // Não seguir redirecionamentos para economizar tempo/dados
+        maxRedirects: 0,
+        // Cabeçalhos mínimos
+        headers: { 'Accept': '*/*' }
+      });
+      const endTime = Date.now();
+      const responseTime = endTime - startTime;
+
+      console.log(`[CONNECTIVITY] ✓ Conectividade confirmada via ${url} (${responseTime}ms)`);
+
+      // Agora vamos verificar se conseguimos acessar nossa própria API
+      try {
+        console.log(`[CONNECTIVITY] Verificando acesso à API em ${API_URL}...`);
+        const apiStartTime = Date.now();
+        // Faz uma requisição simples para a API apenas para verificar conectividade
+        const apiResponse = await fetch(`${API_URL}/health`, { 
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+          // Timeout curto para não bloquear por muito tempo
+          signal: AbortSignal.timeout(3000)
+        });
+        const apiEndTime = Date.now();
+        const apiResponseTime = apiEndTime - apiStartTime;
+
+        if (apiResponse.ok) {
+          console.log(`[CONNECTIVITY] ✓ API acessível (${apiResponseTime}ms, status: ${apiResponse.status})`);
+        } else {
+          console.warn(`[CONNECTIVITY] ⚠ API retornou status ${apiResponse.status} (${apiResponseTime}ms)`);
+        }
+      } catch (apiError: unknown) {
+        if (apiError instanceof Error) {
+          console.warn('[CONNECTIVITY] ⚠ Não foi possível acessar a API:', apiError.message);
+        } else {
+          console.warn('[CONNECTIVITY] ⚠ Não foi possível acessar a API:', apiError);
+        }
+        console.log('[CONNECTIVITY] Isso pode indicar um problema com a conexão à API, mas a internet está funcionando');
+      }
+
+      return true;
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.warn(`[CONNECTIVITY] ✗ Falha ao verificar conectividade via ${url}:`, error.message);
+      } else {
+        console.warn(`[CONNECTIVITY] ✗ Falha ao verificar conectividade via ${url}:`, error);
+      }
+
+      // Verificações seguras para propriedades específicas
+      if (error && typeof error === 'object') {
+        if ('code' in error && error.code) {
+          console.warn(`[CONNECTIVITY] Código de erro: ${error.code}`);
+        }
+
+        if ('response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
+          console.warn(`[CONNECTIVITY] Resposta recebida com status: ${error.response.status}`);
+        }
+      }
+      // Continua para a próxima URL
+    }
   }
+
+  // Se chegou aqui, todas as verificações falharam
+  console.error('[CONNECTIVITY] ✗ Falha na verificação de conectividade em todas as URLs testadas');
+  console.error('[CONNECTIVITY] Dispositivo parece estar offline ou com conectividade muito limitada');
+
+  return false;
 };
 
 /**
@@ -234,39 +317,104 @@ async function fetchWithRetry(
   retries = 3, 
   delay = 1000
 ): Promise<Response> {
+  console.log(`[FETCH] Iniciando requisição para: ${url}`);
+  console.log(`[FETCH] Método: ${options.method}, Headers:`, options.headers);
+
   let lastError: Error | null = null;
 
+  // Verifica a conectividade de rede antes de fazer a requisição
+  try {
+    console.log('[FETCH] Verificando conectividade de rede...');
+    const isConnected = await checkConnectivity();
+    if (!isConnected) {
+      console.error('[FETCH] Sem conectividade de rede antes da requisição');
+      throw new Error('Erro ao conectar com o servidor. Verifique sua conexão com a internet e tente novamente.');
+    }
+    console.log('[FETCH] Conectividade de rede confirmada');
+  } catch (error) {
+    console.error('[FETCH] Erro de conectividade antes da requisição:', error);
+    // Se for um erro de conectividade, lança o erro imediatamente
+    if (error instanceof Error && error.message.includes('Erro ao conectar com o servidor')) {
+      throw error;
+    }
+    // Para outros erros, continua tentando a requisição
+    console.log('[FETCH] Continuando com a requisição apesar do erro de verificação de conectividade');
+  }
+
   for (let attempt = 0; attempt <= retries; attempt++) {
+    console.log(`[FETCH] Tentativa ${attempt + 1}/${retries + 1} para ${url}`);
+
     try {
+      console.log(`[FETCH] Executando fetch para ${url}`);
       const response = await fetch(url, options);
+      console.log(`[FETCH] Resposta recebida: status ${response.status}`);
 
       // Se for um 404, podemos querer tentar novamente
       if (response.status === 404) {
+        console.log('[FETCH] Recebido status 404');
         // Na última tentativa, retorna a resposta 404
         if (attempt === retries) {
+          console.log('[FETCH] Última tentativa, retornando resposta 404');
           return response;
         }
         // Caso contrário, espera e tenta novamente
+        console.log(`[FETCH] Tentando novamente após ${delay}ms`);
         await new Promise(resolve => setTimeout(resolve, delay));
         continue;
       }
 
       // Para outras respostas, retorna imediatamente
+      console.log(`[FETCH] Retornando resposta com status ${response.status}`);
       return response;
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
+      console.error(`[FETCH] Tentativa ${attempt + 1}/${retries + 1} falhou:`, lastError.message);
+
+      // Verifica se é um erro de rede
+      if (lastError.message.includes('Network request failed')) {
+        console.error('[FETCH] Erro de rede detectado. Verificando conectividade...');
+        try {
+          const isConnected = await checkConnectivity();
+          console.log(`[FETCH] Verificação de conectividade: ${isConnected ? 'Conectado' : 'Desconectado'}`);
+
+          if (!isConnected) {
+            console.error('[FETCH] Sem conectividade de rede confirmada durante a tentativa de retry');
+            // Se não há conectividade, não faz sentido continuar tentando
+            if (attempt === retries - 1) { // Na penúltima tentativa
+              console.error('[FETCH] Desistindo devido à falta de conectividade');
+              throw new Error('Erro ao conectar com o servidor. Verifique sua conexão com a internet e tente novamente.');
+            }
+          }
+        } catch (connectivityError) {
+          console.error('[FETCH] Falha na verificação de conectividade:', connectivityError);
+        }
+      }
 
       // Na última tentativa, lança o erro
       if (attempt === retries) {
+        console.error(`[FETCH] Todas as ${retries + 1} tentativas falharam para ${url}`);
+
+        if (lastError.message.includes('Network request failed')) {
+          console.error('[FETCH] Erro de rede persistente');
+          throw new Error('Erro ao conectar com o servidor. Verifique sua conexão com a internet e tente novamente.');
+        } else if (lastError.message.includes('timeout') || lastError.message.includes('timed out')) {
+          console.error('[FETCH] Erro de timeout');
+          throw new Error('O servidor está demorando muito para responder. Tente novamente mais tarde.');
+        } else if (lastError.message.includes('JSON')) {
+          console.error('[FETCH] Erro de parsing JSON');
+          throw new Error('Erro ao processar a resposta do servidor. Entre em contato com o suporte.');
+        }
         throw lastError;
       }
 
       // Caso contrário, espera e tenta novamente
+      console.log(`[FETCH] Aguardando ${delay}ms antes da próxima tentativa`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
   }
 
   // Isso nunca deveria acontecer devido ao lançamento de erro no loop
+  console.error('[FETCH] Erro inesperado: chegou ao final do fetchWithRetry sem retorno ou erro');
   throw lastError || new Error('Erro desconhecido em fetchWithRetry');
 }
 
@@ -786,6 +934,8 @@ export const deleteTraining = async (token: string, id: string): Promise<{ messa
  * @returns Promise resolvendo com a lista de ofertas encontradas.
  */
 export const fetchAuthenticatedOffers = async (token: string, params?: FetchOffersParams): Promise<FetchOffersResponse> => {
+  console.log('[API] fetchAuthenticatedOffers: Iniciando busca de ofertas autenticadas');
+
   // Constrói a query string a partir dos parâmetros
   const queryParams = new URLSearchParams();
   if (params) {
@@ -804,6 +954,7 @@ export const fetchAuthenticatedOffers = async (token: string, params?: FetchOffe
 
   // Constrói a URL correta para o endpoint de busca
   const url = `${API_URL}/ofertas/search${queryString ? `?${queryString}` : ''}`;
+  console.log('[API] fetchAuthenticatedOffers: URL da requisição:', url);
 
   const options = {
     method: 'GET',
@@ -812,42 +963,57 @@ export const fetchAuthenticatedOffers = async (token: string, params?: FetchOffe
       'Authorization': `Bearer ${token}`
     },
   };
-
-  // Faz a requisição para o endpoint
-  let response = await fetchWithRetry(url, options);
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-
-    // Se for 404, fornece uma mensagem mais amigável
-    if (response.status === 404) {
-      console.log('Ambos os endpoints de busca falharam com 404. Retornando lista vazia.');
-      // Retorna uma lista vazia em vez de lançar erro
-      return { offers: [] };
-    }
-
-    throw new Error(errorData?.message || `Erro ao buscar ofertas autenticadas: ${response.status}`);
-  }
+  console.log('[API] fetchAuthenticatedOffers: Enviando requisição autenticada');
 
   try {
-    const data = await response.json();
+    // Faz a requisição para o endpoint
+    let response = await fetchWithRetry(url, options);
+    console.log('[API] fetchAuthenticatedOffers: Resposta recebida, status:', response.status);
 
-    // Verifica se a resposta contém 'ofertas' (backend) ou 'offers' (frontend)
-    if (data.ofertas && Array.isArray(data.ofertas)) {
-      // Mapeia 'ofertas' para 'offers' para compatibilidade
-      return { offers: data.ofertas };
-    } else if (data.offers && Array.isArray(data.offers)) {
-      // Já está no formato esperado
-      return data;
-    } else {
-      console.warn("Resposta da API não contém array de ofertas autenticadas. Retornando lista vazia.");
+    if (!response.ok) {
+      let errorData: ApiErrorResponse | null = null;
+      try { 
+        errorData = await response.json(); 
+        console.log('[API] fetchAuthenticatedOffers: Dados de erro:', errorData);
+      } catch (e) { 
+        console.log('[API] fetchAuthenticatedOffers: Não foi possível parsear dados de erro');
+      }
+
+      // Se for 404, fornece uma mensagem mais amigável
+      if (response.status === 404) {
+        console.log('[API] fetchAuthenticatedOffers: Endpoint não encontrado (404). Retornando lista vazia.');
+        // Retorna uma lista vazia em vez de lançar erro
+        return { offers: [] };
+      }
+
+      throw new Error(errorData?.message || `Erro ao buscar ofertas autenticadas: ${response.status}`);
+    }
+
+    try {
+      const data = await response.json();
+      console.log('[API] fetchAuthenticatedOffers: Dados recebidos com sucesso');
+
+      // Verifica se a resposta contém 'ofertas' (backend) ou 'offers' (frontend)
+      if (data.ofertas && Array.isArray(data.ofertas)) {
+        // Mapeia 'ofertas' para 'offers' para compatibilidade
+        console.log(`[API] fetchAuthenticatedOffers: Encontradas ${data.ofertas.length} ofertas (formato 'ofertas')`);
+        return { offers: data.ofertas };
+      } else if (data.offers && Array.isArray(data.offers)) {
+        // Já está no formato esperado
+        console.log(`[API] fetchAuthenticatedOffers: Encontradas ${data.offers.length} ofertas (formato 'offers')`);
+        return data;
+      } else {
+        console.warn("[API] fetchAuthenticatedOffers: Resposta da API não contém array de ofertas. Formato inesperado:", data);
+        return { offers: [] };
+      }
+    } catch (parseError) {
+      console.error("[API] fetchAuthenticatedOffers: Falha ao parsear resposta de sucesso", parseError);
+      // Retorna lista vazia em vez de lançar erro
       return { offers: [] };
     }
-  } catch (parseError) {
-    console.error("API fetchAuthenticatedOffers: Falha ao parsear resposta de sucesso", parseError);
-    // Retorna lista vazia em vez de lançar erro
-    return { offers: [] };
+  } catch (error) {
+    console.error("[API] fetchAuthenticatedOffers: Erro na requisição", error);
+    throw error; // Re-lança o erro para ser tratado pelo chamador
   }
 };
 
@@ -858,6 +1024,8 @@ export const fetchAuthenticatedOffers = async (token: string, params?: FetchOffe
  * @returns Promise resolvendo com a lista de ofertas encontradas.
  */
 export const fetchPublicOffers = async (params?: FetchOffersParams): Promise<FetchOffersResponse> => {
+  console.log('[API] fetchPublicOffers: Iniciando busca de ofertas públicas');
+
   // Constrói a query string a partir dos parâmetros
   const queryParams = new URLSearchParams();
   if (params) {
@@ -876,47 +1044,63 @@ export const fetchPublicOffers = async (params?: FetchOffersParams): Promise<Fet
 
   // Constrói a URL correta para o endpoint de busca
   const url = `${API_URL}/ofertas/search${queryString ? `?${queryString}` : ''}`;
+  console.log('[API] fetchPublicOffers: URL da requisição:', url);
 
   const options = {
     method: 'GET',
     headers: { 'Accept': 'application/json' },
   };
-
-  // Faz a requisição para o endpoint
-  let response = await fetchWithRetry(url, options);
-
-  if (!response.ok) {
-    let errorData: ApiErrorResponse | null = null;
-    try { errorData = await response.json(); } catch (e) { /* Ignore */ }
-
-    // Se for 404, fornece uma mensagem mais amigável
-    if (response.status === 404) {
-      console.log('Ambos os endpoints de busca falharam com 404. Retornando lista vazia.');
-      // Retorna uma lista vazia em vez de lançar erro
-      return { offers: [] };
-    }
-
-    throw new Error(errorData?.message || `Erro ao buscar ofertas públicas: ${response.status}`);
-  }
+  console.log('[API] fetchPublicOffers: Enviando requisição pública');
 
   try {
-    const data = await response.json();
+    // Faz a requisição para o endpoint
+    let response = await fetchWithRetry(url, options);
+    console.log('[API] fetchPublicOffers: Resposta recebida, status:', response.status);
 
-    // Verifica se a resposta contém 'ofertas' (backend) ou 'offers' (frontend)
-    if (data.ofertas && Array.isArray(data.ofertas)) {
-      // Mapeia 'ofertas' para 'offers' para compatibilidade
-      return { offers: data.ofertas };
-    } else if (data.offers && Array.isArray(data.offers)) {
-      // Já está no formato esperado
-      return data;
-    } else {
-      console.warn("Resposta da API não contém array de ofertas públicas. Retornando lista vazia.");
+    if (!response.ok) {
+      let errorData: ApiErrorResponse | null = null;
+      try { 
+        errorData = await response.json(); 
+        console.log('[API] fetchPublicOffers: Dados de erro:', errorData);
+      } catch (e) { 
+        console.log('[API] fetchPublicOffers: Não foi possível parsear dados de erro');
+      }
+
+      // Se for 404, fornece uma mensagem mais amigável
+      if (response.status === 404) {
+        console.log('[API] fetchPublicOffers: Endpoint não encontrado (404). Retornando lista vazia.');
+        // Retorna uma lista vazia em vez de lançar erro
+        return { offers: [] };
+      }
+
+      throw new Error(errorData?.message || `Erro ao buscar ofertas públicas: ${response.status}`);
+    }
+
+    try {
+      const data = await response.json();
+      console.log('[API] fetchPublicOffers: Dados recebidos com sucesso');
+
+      // Verifica se a resposta contém 'ofertas' (backend) ou 'offers' (frontend)
+      if (data.ofertas && Array.isArray(data.ofertas)) {
+        // Mapeia 'ofertas' para 'offers' para compatibilidade
+        console.log(`[API] fetchPublicOffers: Encontradas ${data.ofertas.length} ofertas (formato 'ofertas')`);
+        return { offers: data.ofertas };
+      } else if (data.offers && Array.isArray(data.offers)) {
+        // Já está no formato esperado
+        console.log(`[API] fetchPublicOffers: Encontradas ${data.offers.length} ofertas (formato 'offers')`);
+        return data;
+      } else {
+        console.warn("[API] fetchPublicOffers: Resposta da API não contém array de ofertas. Formato inesperado:", data);
+        return { offers: [] };
+      }
+    } catch (parseError) {
+      console.error("[API] fetchPublicOffers: Falha ao parsear resposta de sucesso", parseError);
+      // Retorna lista vazia em vez de lançar erro
       return { offers: [] };
     }
-  } catch (parseError) {
-    console.error("API fetchPublicOffers: Falha ao parsear resposta de sucesso", parseError);
-    // Retorna lista vazia em vez de lançar erro
-    return { offers: [] };
+  } catch (error) {
+    console.error("[API] fetchPublicOffers: Erro na requisição", error);
+    throw error; // Re-lança o erro para ser tratado pelo chamador
   }
 };
 
@@ -1238,6 +1422,32 @@ export const fetchPublicOfferById = async (offerId: string, token?: string): Pro
     }
 
     const data = await response.json();
+
+    // Processar os dados para garantir que o prestadorId seja um objeto com nome quando disponível
+    if (data && typeof data === 'object') {
+      // Se prestadorId for uma string e houver informações do prestador em outro campo
+      if (typeof data.prestadorId === 'string' && 
+          (data.prestadorInfo || data.prestador || data.nomePrestador || data.prestadorNome)) {
+
+        // Criar um objeto prestadorId com as informações disponíveis
+        const prestadorIdObj: PrestadorIdObj = { _id: data.prestadorId };
+
+        // Adicionar nome do prestador se disponível em algum campo
+        if (data.prestadorInfo && data.prestadorInfo.nome) {
+          prestadorIdObj.nome = data.prestadorInfo.nome;
+        } else if (data.prestador && typeof data.prestador === 'object' && data.prestador.nome) {
+          prestadorIdObj.nome = data.prestador.nome;
+        } else if (data.nomePrestador) {
+          prestadorIdObj.nome = data.nomePrestador;
+        } else if (data.prestadorNome) {
+          prestadorIdObj.nome = data.prestadorNome;
+        }
+
+        // Substituir o prestadorId string pelo objeto
+        data.prestadorId = prestadorIdObj;
+      }
+    }
+
     return {
       success: true,
       offer: data,
@@ -1294,6 +1504,32 @@ const fetchPublicOfferByIdFallback = async (offerId: string, token?: string): Pr
 
       if (response.ok) {
         const data = await response.json();
+
+        // Processar os dados para garantir que o prestadorId seja um objeto com nome quando disponível
+        if (data && typeof data === 'object') {
+          // Se prestadorId for uma string e houver informações do prestador em outro campo
+          if (typeof data.prestadorId === 'string' && 
+              (data.prestadorInfo || data.prestador || data.nomePrestador || data.prestadorNome)) {
+
+            // Criar um objeto prestadorId com as informações disponíveis
+            const prestadorIdObj: PrestadorIdObj = { _id: data.prestadorId };
+
+            // Adicionar nome do prestador se disponível em algum campo
+            if (data.prestadorInfo && data.prestadorInfo.nome) {
+              prestadorIdObj.nome = data.prestadorInfo.nome;
+            } else if (data.prestador && typeof data.prestador === 'object' && data.prestador.nome) {
+              prestadorIdObj.nome = data.prestador.nome;
+            } else if (data.nomePrestador) {
+              prestadorIdObj.nome = data.nomePrestador;
+            } else if (data.prestadorNome) {
+              prestadorIdObj.nome = data.prestadorNome;
+            }
+
+            // Substituir o prestadorId string pelo objeto
+            data.prestadorId = prestadorIdObj;
+          }
+        }
+
         return {
           success: true,
           offer: data,
@@ -1359,6 +1595,32 @@ export const fetchMyOfferById = async (token: string, offerId: string): Promise<
     }
 
     const data = await response.json();
+
+    // Processar os dados para garantir que o prestadorId seja um objeto com nome quando disponível
+    if (data && typeof data === 'object') {
+      // Se prestadorId for uma string e houver informações do prestador em outro campo
+      if (typeof data.prestadorId === 'string' && 
+          (data.prestadorInfo || data.prestador || data.nomePrestador || data.prestadorNome)) {
+
+        // Criar um objeto prestadorId com as informações disponíveis
+        const prestadorIdObj: PrestadorIdObj = { _id: data.prestadorId };
+
+        // Adicionar nome do prestador se disponível em algum campo
+        if (data.prestadorInfo && data.prestadorInfo.nome) {
+          prestadorIdObj.nome = data.prestadorInfo.nome;
+        } else if (data.prestador && typeof data.prestador === 'object' && data.prestador.nome) {
+          prestadorIdObj.nome = data.prestador.nome;
+        } else if (data.nomePrestador) {
+          prestadorIdObj.nome = data.nomePrestador;
+        } else if (data.prestadorNome) {
+          prestadorIdObj.nome = data.prestadorNome;
+        }
+
+        // Substituir o prestadorId string pelo objeto
+        data.prestadorId = prestadorIdObj;
+      }
+    }
+
     return {
       success: true,
       offer: data,
@@ -1405,6 +1667,32 @@ const fetchMyOfferByIdFallback = async (token: string, offerId: string): Promise
 
       if (response.ok) {
         const data = await response.json();
+
+        // Processar os dados para garantir que o prestadorId seja um objeto com nome quando disponível
+        if (data && typeof data === 'object') {
+          // Se prestadorId for uma string e houver informações do prestador em outro campo
+          if (typeof data.prestadorId === 'string' && 
+              (data.prestadorInfo || data.prestador || data.nomePrestador || data.prestadorNome)) {
+
+            // Criar um objeto prestadorId com as informações disponíveis
+            const prestadorIdObj: PrestadorIdObj = { _id: data.prestadorId };
+
+            // Adicionar nome do prestador se disponível em algum campo
+            if (data.prestadorInfo && data.prestadorInfo.nome) {
+              prestadorIdObj.nome = data.prestadorInfo.nome;
+            } else if (data.prestador && typeof data.prestador === 'object' && data.prestador.nome) {
+              prestadorIdObj.nome = data.prestador.nome;
+            } else if (data.nomePrestador) {
+              prestadorIdObj.nome = data.nomePrestador;
+            } else if (data.prestadorNome) {
+              prestadorIdObj.nome = data.prestadorNome;
+            }
+
+            // Substituir o prestadorId string pelo objeto
+            data.prestadorId = prestadorIdObj;
+          }
+        }
+
         return {
           success: true,
           offer: data,

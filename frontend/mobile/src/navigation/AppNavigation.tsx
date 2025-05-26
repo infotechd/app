@@ -88,7 +88,7 @@ export default function AppNavigation() {
       {/* Configurações globais do Stack Navigator podem ser definidas aqui */}
       <Stack.Navigator
         id={undefined}  // O stack.navigator estava dando erro acrecentei isso aqui = id={undefined}
-        initialRouteName={user ? 'Home' : 'Login'} // Define a tela inicial baseada no login
+        initialRouteName={user ? 'Home' : 'BuscarOfertas'} // Define a tela inicial baseada no login
         screenOptions={{
           headerShown: true,
           headerStyle: { backgroundColor: '#f8f8f8' },
@@ -135,6 +135,9 @@ export default function AppNavigation() {
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Registration" component={RegistrationScreen} options={{ title: 'Criar Conta' }} />
             <Stack.Screen name="ResetPassword" component={PlaceholderScreen} options={{ title: 'Redefinir Senha' }} />
+            <Stack.Screen name="BuscarOfertas" component={BuscarOfertasScreen} options={{ title: 'Buscar Ofertas' }} />
+            <Stack.Screen name="OfertaServico" component={OfertaServicoScreen} options={{ title: 'Detalhes da Oferta' }} />
+            <Stack.Screen name="OfferDetail" component={OfferDetailScreen} options={{ title: 'Detalhe da Oferta' }} />
           </>
         )}
       </Stack.Navigator>

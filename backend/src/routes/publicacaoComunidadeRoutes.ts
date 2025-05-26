@@ -1,88 +1,95 @@
-// src/routes/publicacaoComunidadeRoutes.ts
+// Arquivo de rotas para publicações da comunidade
 
 import { Router } from 'express';
-// Importa os controladores e middlewares (assumindo conversão para .ts)
+// Importação dos controladores e middlewares necessários
 import * as publicacaoController from '../controllers/publicacaoComunidadeController';
 import authMiddleware from '../middlewares/authMiddleware';
-// Exemplo: Importar middlewares de autorização específicos
+// Middlewares de autorização que podem ser utilizados
 // import { isOwnerOrAdmin } from '../middlewares/authorizationMiddleware';
 // import { isOwner } from '../middlewares/authorizationMiddleware';
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 
+// Inicialização do router
 const router: Router = Router();
 
 // === ROTAS PÚBLICAS (ou requerem apenas login básico) ===
 
-// GET /api/comunidade : Lista publicações aprovadas (feed principal) (CU8)
-// Controller deve filtrar por status: 'aprovado' e implementar paginação/ordenação
+// Rota: GET /api/comunidade
+// Descrição: Retorna a lista de publicações aprovadas para o feed principal
+// Caso de Uso: CU8
+// Observação: O controlador filtra por status 'aprovado' e implementa paginação/ordenação
 router.get(
   '/',
-  // authMiddleware, // Descomentar se feed exigir login
-  publicacaoController.getPublicacoesAprovadas // Nome mais específico
+  // authMiddleware, // Ative este middleware se o feed exigir autenticação
+  publicacaoController.getPublicacoesAprovadas
 );
 
-// GET /api/comunidade/:publicacaoId : Obtém detalhes de uma publicação específica (aprovada)
-// Controller deve verificar status: 'aprovado'
+// Rota: GET /api/comunidade/:publicacaoId
+// Descrição: Obtém os detalhes de uma publicação específica que já foi aprovada
+// Observação: O controlador verifica se o status é 'aprovado'
 router.get(
   '/:publicacaoId',
-  // authMiddleware, // Descomentar se visualização exigir login
-  publicacaoController.getPublicacaoAprovadaById // Função a ser criada
+  // authMiddleware, // Ative este middleware se a visualização exigir autenticação
+  publicacaoController.getPublicacaoAprovadaById
 );
 
 // === ROTAS PRIVADAS (Requerem Autenticação) ===
 
-// POST /api/comunidade : Cria uma nova publicação (post ou evento) (CU8)
-// Controller pode verificar permissões adicionais se necessário
+// Rota: POST /api/comunidade
+// Descrição: Cria uma nova publicação (post ou evento) na comunidade
+// Caso de Uso: CU8
+// Observação: Requer autenticação e pode ter verificações adicionais de permissão
 router.post(
   '/',
   authMiddleware,
   publicacaoController.createPublicacao
 );
 
-// PUT /api/comunidade/:publicacaoId : Autor edita sua própria publicação (Sugestão)
-// Controller deve verificar se req.user é o autor da publicação
+// Rota: PUT /api/comunidade/:publicacaoId
+// Descrição: Permite que o autor edite sua própria publicação
+// Observação: O controlador verifica se o usuário autenticado é o autor da publicação
 router.put(
   '/:publicacaoId',
   authMiddleware,
-  // isOwner, // Middleware opcional
-  publicacaoController.updateMinhaPublicacao // Função a ser criada
+  // isOwner, // Middleware opcional para verificação de propriedade
+  publicacaoController.updateMinhaPublicacao
 );
 
-
-// DELETE /api/comunidade/:publicacaoId : Autor ou Admin deleta uma publicação (CU8)
-// Controller deve verificar se req.user é o autor OU admin
+// Rota: DELETE /api/comunidade/:publicacaoId
+// Descrição: Permite que o autor ou um administrador exclua uma publicação
+// Caso de Uso: CU8
+// Observação: O controlador verifica se o usuário é o autor OU um administrador
 router.delete(
   '/:publicacaoId',
   authMiddleware,
-  // isOwnerOrAdmin, // Middleware opcional
+  // isOwnerOrAdmin, // Middleware opcional para verificação de propriedade ou admin
   publicacaoController.deletePublicacao
 );
 
-
 // === ROTAS DE ADMINISTRAÇÃO (Requerem Autenticação + Admin) ===
 
-// PATCH /api/comunidade/:publicacaoId/status : Admin aprova/rejeita/oculta publicação (Moderação)
-// Corpo da requisição deve conter o novo status e talvez um motivo.
+// Rota: PATCH /api/comunidade/:publicacaoId/status
+// Descrição: Permite que um administrador aprove, rejeite ou oculte uma publicação
+// Observação: O corpo da requisição deve conter o novo status e possivelmente um motivo
 router.patch(
   '/:publicacaoId/status',
   authMiddleware,
-  // isAdmin, // Middleware OBRIGATÓRIO
-  publicacaoController.moderarPublicacao // Renomeado de 'moderarPublicacao', recebe status no body
+  // isAdmin, // Middleware obrigatório para verificação de administrador
+  publicacaoController.moderarPublicacao
 );
 
-// GET /api/comunidade/pending : Admin lista publicações pendentes de aprovação
+// Rota: GET /api/comunidade/pending
+// Descrição: Permite que um administrador liste as publicações pendentes de aprovação
 // router.get(
 //     '/pending',
 //     authMiddleware,
-//     // isAdmin, // Middleware OBRIGATÓRIO
-//     publicacaoController.listarPublicacoesPendentes // Função a ser criada
+//     // isAdmin, // Middleware obrigatório para verificação de administrador
+//     publicacaoController.listarPublicacoesPendentes
 // );
 
+// === ROTAS DE INTERAÇÃO ===
+// Observação: As rotas para likes e comentários foram movidas para seus próprios arquivos
+// É necessário criar os arquivos comentarioRoutes.ts e curtidaRoutes.ts
 
-// === ROTAS DE INTERAÇÃO (Likes/Comentários - MOVIDAS para seus próprios arquivos) ===
-// Lembrete: Criar comentarioRoutes.ts e curtidaRoutes.ts
-// router.post('/:publicacaoId/comentario', authMiddleware, publicacaoController.addComentario); // REMOVIDA daqui
-
-
-// Exporta o router configurado
+// Exportação do router configurado
 export default router;

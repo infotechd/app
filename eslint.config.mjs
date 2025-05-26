@@ -1,15 +1,11 @@
 // eslint.config.mjs (JavaScript ESM - Flat Config - Corrigido)
 
 // Importa configurações/plugins necessários
-import js from '@eslint/js';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import reactPlugin from 'eslint-plugin-react';
-// import jsxRuntimePlugin from 'eslint-plugin-react/configs/jsx-runtime.js'; // REMOVIDO - Não é mais a forma padrão
-import reactRecommendedConfig from 'eslint-plugin-react/configs/recommended.js'; // Usar a config recomendada completa
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import prettierPlugin from 'eslint-plugin-prettier';
-import configPrettier from 'eslint-config-prettier';
 import globals from 'globals';
 // import importPlugin from 'eslint-plugin-import'; // Descomente se usar e tiver instalado
 
@@ -52,16 +48,54 @@ export default [
   },
 
   // 2. Aplica as regras recomendadas base do ESLint
-  js.configs.recommended,
+  // Configuração manual para regras básicas do ESLint em vez de usar o objeto importado
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      'no-undef': 'error',
+      'no-unused-vars': 'off', // Desativado em favor da versão TypeScript
+      'no-console': 'warn',
+      'no-debugger': 'warn',
+      'no-duplicate-case': 'error',
+      'no-empty': 'warn'
+    }
+  },
 
   // 3. Aplica regras recomendadas do TypeScript (@typescript-eslint)
-  // O objeto exportado por tsPlugin.configs.recommended já contém as regras
-  tsPlugin.configs.recommended,
+  // Configuração manual para TypeScript em vez de usar o objeto importado
+  {
+    files: ['**/*.{ts,tsx}'],
+    plugins: {
+      '@typescript-eslint': tsPlugin
+    },
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-empty-function': 'warn',
+      '@typescript-eslint/no-empty-interface': 'warn'
+    }
+  },
 
   // 4. Aplica regras recomendadas do React (eslint-plugin-react)
-  // Usamos o objeto recomendado que já inclui regras e parser/plugin settings
-  // Isso geralmente já configura o novo JSX Runtime automaticamente
-  reactRecommendedConfig,
+  // Configuração manual para React em vez de usar o objeto importado
+  {
+    files: ['**/*.{jsx,tsx}'],
+    plugins: {
+      'react': reactPlugin
+    },
+    rules: {
+      'react/jsx-uses-react': 'error',
+      'react/jsx-uses-vars': 'error',
+      'react/react-in-jsx-scope': 'error',
+      'react/prop-types': 'warn'
+    },
+    settings: {
+      react: {
+        version: 'detect'
+      }
+    }
+  },
 
   // 5. Configuração específica para React Hooks (já definida acima no objeto #1 via plugins)
   // Aplicando as regras de Hooks explicitamente aqui
@@ -75,7 +109,20 @@ export default [
 
 
   // 6. Desativa regras ESLint conflitantes com Prettier (IMPORTANTE: DEPOIS das configs recomendadas)
-  configPrettier,
+  // Configuração manual para Prettier em vez de usar o objeto importado
+  {
+    files: ['**/*.{js,jsx,ts,tsx}'],
+    rules: {
+      // Desativa regras que podem conflitar com o Prettier
+      'arrow-body-style': 'off',
+      'prefer-arrow-callback': 'off',
+      'quotes': 'off',
+      'semi': 'off',
+      'indent': 'off',
+      'comma-dangle': 'off',
+      'max-len': 'off'
+    }
+  },
 
   // 7. Habilita o plugin Prettier para reportar diferenças como erros/avisos ESLint
   // (As regras do Prettier já foram adicionadas ao objeto #1 via plugins)

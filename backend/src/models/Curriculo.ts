@@ -1,44 +1,44 @@
-// models/Curriculo.ts (Backend - Convertido para TypeScript)
+// Arquivo de modelo para Currículo no backend (TypeScript)
 
 import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 // Importa a interface do usuário para referenciação correta
-import { IUser } from './User'; // Ajuste o caminho se necessário
+import { IUser } from './User'; 
 
 // --- Interfaces ---
 
-// Interface para o subdocumento Experiencia
+// Interface que define a estrutura de uma experiência profissional
 export interface IExperiencia {
   cargo: string;
   empresa: string;
   periodoInicio: Date;
-  periodoFim?: Date; // Opcional
-  descricao?: string; // Opcional
+  periodoFim?: Date; // Campo opcional
+  descricao?: string; // Campo opcional
 }
 
-// Interface para o subdocumento Projeto (Portfólio)
+// Interface que define a estrutura de um projeto no portfólio
 export interface IProjeto {
   nome: string;
-  descricao?: string; // Opcional
-  link?: string; // Opcional
-  imagemUrl?: string; // Opcional
+  descricao?: string; // Campo opcional
+  link?: string; // Campo opcional
+  imagemUrl?: string; // Campo opcional
 }
 
-// Interface principal que define a estrutura de um documento Curriculo
+// Interface principal que define a estrutura completa de um documento Currículo
 export interface ICurriculo extends Document {
-  prestadorId: Types.ObjectId | IUser; // Pode ser populado com IUser
-  resumoProfissional?: string; // Opcional
-  experiencias?: IExperiencia[]; // Array opcional de experiências
-  habilidades?: string[]; // Array opcional de habilidades
-  projetos?: IProjeto[]; // Array opcional de projetos
-  // Timestamps (adicionados pelo Mongoose)
+  prestadorId: Types.ObjectId | IUser; // Referência ao usuário prestador de serviço
+  resumoProfissional?: string; // Campo opcional
+  experiencias?: IExperiencia[]; // Lista opcional de experiências profissionais
+  habilidades?: string[]; // Lista opcional de habilidades
+  projetos?: IProjeto[]; // Lista opcional de projetos
+  // Campos de data gerados automaticamente pelo Mongoose
   createdAt: Date;
   updatedAt: Date;
-  // Adicionar outros campos estruturados se necessário (formacaoAcademica, certificacoes, etc.)
+  // Possibilidade de adicionar outros campos estruturados no futuro (formacaoAcademica, certificacoes, etc.)
 }
 
 // --- Schemas Mongoose ---
 
-// Sub-schema Mongoose para Experiencia Profissional, tipado com IExperiencia
+// Esquema para Experiência Profissional, baseado na interface IExperiencia
 const ExperienciaSchema: Schema<IExperiencia> = new Schema({
   cargo: {
     type: String,
@@ -56,17 +56,17 @@ const ExperienciaSchema: Schema<IExperiencia> = new Schema({
   },
   periodoFim: {
     type: Date,
-    required: false // Data fim é opcional
+    required: false // Campo opcional para experiências atuais
   },
   descricao: {
     type: String,
     trim: true,
     maxlength: 1000,
-    required: false // Descrição opcional
+    required: false // Campo opcional para detalhes adicionais
   }
-}, { _id: false });
+}, { _id: false }); // Não cria IDs separados para subdocumentos
 
-// Sub-schema Mongoose para Projetos (Portfólio), tipado com IProjeto
+// Esquema para Projetos do portfólio, baseado na interface IProjeto
 const ProjetoSchema: Schema<IProjeto> = new Schema({
   nome: {
     type: String,
@@ -77,65 +77,66 @@ const ProjetoSchema: Schema<IProjeto> = new Schema({
     type: String,
     trim: true,
     maxlength: 1000,
-    required: false
+    required: false // Campo opcional para detalhes do projeto
   },
   link: {
     type: String,
     trim: true,
-    // match: [urlRegex, 'URL inválida para o link do projeto.'], // Adicionar regex de URL se necessário
-    required: false
+    // Possibilidade de adicionar validação de URL no futuro
+    required: false // Campo opcional para link do projeto
   },
   imagemUrl: {
     type: String,
     trim: true,
-    // match: [urlRegex, 'URL inválida para a imagem do projeto.'], // Adicionar regex de URL se necessário
-    required: false
+    // Possibilidade de adicionar validação de URL no futuro
+    required: false // Campo opcional para imagem do projeto
   }
-}, { _id: false });
+}, { _id: false }); // Não cria IDs separados para subdocumentos
 
-// Schema Mongoose principal para Curriculo, tipado com ICurriculo
+// Esquema principal do Currículo, baseado na interface ICurriculo
 const CurriculoSchema: Schema<ICurriculo> = new Schema(
   {
     prestadorId: {
       type: Schema.Types.ObjectId,
       ref: 'User',
       required: true,
-      unique: true, // Garante um currículo por prestador
-      index: true
+      unique: true, // Garante que cada prestador tenha apenas um currículo
+      index: true // Otimiza consultas por prestador
     },
     resumoProfissional: {
       type: String,
       trim: true,
-      maxlength: 2000,
-      required: false
+      maxlength: 2000, // Limite de caracteres para o resumo
+      required: false // Campo opcional
     },
-    experiencias: { // Array do sub-schema ExperienciaSchema
-      type: [ExperienciaSchema],
-      required: false // O array como um todo não é obrigatório
+    experiencias: { 
+      type: [ExperienciaSchema], // Lista de experiências usando o esquema definido
+      required: false // Campo opcional
     },
-    habilidades: { // Array de strings
-      type: [String],
-      index: true, // Pode ajudar em buscas futuras
-      required: false,
-      validate: [ // Validador para evitar strings vazias no array
+    habilidades: { 
+      type: [String], // Lista de strings representando habilidades
+      index: true, // Otimiza buscas por habilidades
+      required: false, // Campo opcional
+      validate: [ 
+        // Validador que garante que não existam strings vazias na lista
         (arr: string[]) => !arr || arr.every(h => typeof h === 'string' && h.trim().length > 0),
         'Habilidades não podem ser strings vazias.'
       ]
     },
-    projetos: { // Array do sub-schema ProjetoSchema
-      type: [ProjetoSchema],
-      required: false
+    projetos: { 
+      type: [ProjetoSchema], // Lista de projetos usando o esquema definido
+      required: false // Campo opcional
     },
-    // Outros campos estruturados podem ser adicionados aqui
+    // Possibilidade de adicionar outros campos estruturados no futuro
     // formacaoAcademica: { type: [FormacaoSchema], required: false },
     // certificacoes: { type: [CertificacaoSchema], required: false },
   },
   {
-    timestamps: true // Adiciona createdAt e updatedAt
+    timestamps: true // Adiciona campos automáticos de data de criação e atualização
   }
 );
 
-// Exporta o modelo 'Curriculo' tipado
+// Cria e exporta o modelo 'Curriculo' baseado no esquema definido
 const Curriculo = mongoose.model<ICurriculo>('Curriculo', CurriculoSchema);
 
 export default Curriculo;
