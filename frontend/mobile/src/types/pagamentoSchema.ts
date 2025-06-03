@@ -1,15 +1,17 @@
 import { z } from 'zod';
 
 /**
- * Zod schema for PaymentMethod
+ * Schema Zod para os métodos de pagamento
+ * Define as opções válidas para métodos de pagamento no sistema
  */
 export const paymentMethodSchema = z.enum(['cartao', 'boleto', 'pix']);
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type PaymentMethod = z.infer<typeof paymentMethodSchema>;
 
 /**
- * Zod schema for PaymentData
+ * Schema Zod para os dados de pagamento
+ * Define a estrutura e validações para os dados enviados na requisição de pagamento
  */
 export const paymentDataSchema = z.object({
   contratacaoId: z.string(),
@@ -17,18 +19,19 @@ export const paymentDataSchema = z.object({
   metodo: paymentMethodSchema,
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type PaymentData = z.infer<typeof paymentDataSchema>;
 
 /**
- * Zod schema for PaymentResponse
+ * Schema Zod para a resposta de pagamento
+ * Define a estrutura esperada da resposta da API de processamento de pagamento
  */
 export const paymentResponseSchema = z.object({
   message: z.string(),
-  // Optional fields that might be returned by the API
+  // Campos opcionais que podem ser retornados pela API
   transactionId: z.string().optional(),
   statusPagamento: z.string().optional(),
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type PaymentResponse = z.infer<typeof paymentResponseSchema>;

@@ -22,7 +22,7 @@ import User, { TipoUsuarioEnum } from '../models/User'; // Importa enum e talvez
  */
 export const criarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado e é um anunciante
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido: Apenas anunciantes podem criar anúncios.' });
     return;
   }
@@ -67,7 +67,7 @@ export const criarAnuncio = async (req: Request, res: Response, next: NextFuncti
  * Esta função permite que um anunciante envie um anúncio em estado de rascunho para ser revisado pelos administradores.
  */
 export const submeterParaRevisao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido: Apenas anunciantes podem submeter anúncios.' });
     return;
   }
@@ -116,7 +116,7 @@ export const submeterParaRevisao = async (req: Request, res: Response, next: Nex
  * Esta função recupera todos os anúncios criados pelo anunciante atual, ordenados por data de criação.
  */
 export const listarMeusAnuncios = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido: Apenas anunciantes podem listar seus anúncios.' });
     return;
   }
@@ -137,7 +137,7 @@ export const listarMeusAnuncios = async (req: Request, res: Response, next: Next
  * Esta função busca informações detalhadas de um anúncio específico, verificando se o anunciante tem permissão para acessá-lo.
  */
 export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -176,7 +176,7 @@ export const obterMeuAnuncioDetalhes = async (req: Request, res: Response, next:
  * Esta função permite modificar os campos de um anúncio existente, com validações de permissão e estado.
  */
 export const atualizarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -321,7 +321,7 @@ export const obterDetalhesAnuncioPublico = async (req: Request, res: Response, n
  * com validações para garantir que apenas transições permitidas sejam realizadas.
  */
 export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -389,7 +389,7 @@ export const atualizarStatusAnuncioAnunciante = async (req: Request, res: Respon
  * Esta função permite que um anunciante exclua permanentemente um de seus anúncios do sistema.
  */
 export const deletarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -434,7 +434,7 @@ export const deletarAnuncio = async (req: Request, res: Response, next: NextFunc
  */
 export const listarAnunciosPendentes = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado E é um ADMIN
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) {
+  if (!req.user || !req.user.isAdmin) {
     res.status(403).json({ message: 'Acesso proibido: Apenas administradores.' });
     return;
   }
@@ -459,7 +459,7 @@ export const listarAnunciosPendentes = async (req: Request, res: Response, next:
  */
 export const revisarAnuncio = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está logado E é um ADMIN
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) {
+  if (!req.user || !req.user.isAdmin) {
     res.status(403).json({ message: 'Acesso proibido: Apenas administradores.' });
     return;
   }

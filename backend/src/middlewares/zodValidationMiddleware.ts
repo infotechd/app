@@ -13,9 +13,23 @@ import logger from '../config/logger';
 export const validate = (schema: ZodType<any, any, any>, source: 'body' | 'query' | 'params' = 'body') => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // Log detalhado da estrutura dos dados recebidos antes da validação
+      logger.debug(`[VALIDAÇÃO] Dados recebidos antes da validação (${source}):`, {
+        path: req.path,
+        method: req.method,
+        data: JSON.stringify(req[source], null, 2)
+      });
+
       // Realiza a validação dos dados da fonte especificada (body, query ou params) utilizando o schema Zod fornecido
       // O método parseAsync valida e também transforma os dados conforme as regras definidas no schema
       const data = await schema.parseAsync(req[source]);
+
+      // Log dos dados após a validação e transformação pelo Zod
+      logger.debug(`[VALIDAÇÃO] Dados após validação (${source}):`, {
+        path: req.path,
+        method: req.method,
+        data: JSON.stringify(data, null, 2)
+      });
 
       // Substitui os dados originais da requisição pelos dados já validados e transformados pelo Zod
       // Isso garante que apenas dados válidos e no formato correto sejam processados pela aplicação
@@ -26,14 +40,37 @@ export const validate = (schema: ZodType<any, any, any>, source: 'body' | 'query
       // Tratamento específico para erros de validação gerados pelo Zod
       // Estes erros ocorrem quando os dados não atendem às regras definidas no schema
       if (error instanceof ZodError) {
-        // Registra os erros de validação no log para depuração
-        logger.debug('Erro de validação Zod:', { errors: error.errors });
+        // Registra os erros de validação no log para depuração com detalhes completos
+        logger.error('=== ERRO DE VALIDAÇÃO ZOD DETALHADO ===', {
+          path: req.path,
+          method: req.method,
+          requestBody: JSON.stringify(req[source], null, 2),
+          errors: error.errors,
+          formattedIssues: error.format(),
+          zodErrorMessage: error.message
+        });
+
+        // Log específico para erros relacionados a campos de ID
+        const idErrors = error.errors.filter(err => 
+          err.path.includes('idUsuario') || 
+          err.path.includes('id') || 
+          err.path.join('.').includes('user.idUsuario') || 
+          err.path.join('.').includes('user.id')
+        );
+
+        if (idErrors.length > 0) {
+          logger.error('=== ERRO DE VALIDAÇÃO DE ID DETECTADO ===', {
+            idErrors,
+            requestBody: JSON.stringify(req[source], null, 2)
+          });
+        }
 
         // Formata os erros de validação para um formato mais amigável e estruturado
         // Cada erro contém o caminho do campo com problema e a mensagem descritiva
         const formattedErrors = error.errors.map(err => ({
           path: err.path.join('.'),
-          message: err.message
+          message: err.message,
+          code: err.code
         }));
 
         // Retorna resposta com status 400 (Bad Request) contendo os detalhes dos erros de validação

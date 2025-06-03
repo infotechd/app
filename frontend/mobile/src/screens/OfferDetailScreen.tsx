@@ -14,7 +14,6 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { fetchPublicOfferById, fetchMyOfferById, deleteOffer } from '@/services/api';
 import { Offer, IDisponibilidade, IRecorrenciaSemanal } from '@/types/offer';
-import { TipoUsuarioEnum } from '@/types/user';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '@/navigation/types';
 import { Ionicons } from '@expo/vector-icons';
@@ -47,7 +46,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
   const isOwner = user && offer && user.idUsuario === (typeof offer.prestadorId === 'object' ? offer.prestadorId._id : offer.prestadorId);
 
   // Verificar se o usuário é um prestador
-  const isPrestador = user?.tipoUsuario === TipoUsuarioEnum.PRESTADOR;
+  const isPrestador = user?.isPrestador === true;
 
   // Função para carregar os detalhes da oferta
   const loadOfferDetails = useCallback(async () => {

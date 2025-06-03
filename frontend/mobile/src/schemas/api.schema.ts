@@ -4,8 +4,8 @@ import { offerSchema } from './offer.schema';
 import { contratacaoSchema } from './contratacao.schema';
 
 /**
- * Zod schema for LoginResponse
- * Validates the structure of a login response from the API
+ * Schema Zod para LoginResponse
+ * Valida a estrutura de uma resposta de login da API
  * 
  * Nota: Embora o backend envie o token separadamente do objeto user,
  * no frontend o token é adicionado ao objeto user antes da validação
@@ -22,16 +22,16 @@ export const loginResponseSchema = z.object({
 });
 
 /**
- * Zod schema for RegistrationResponse
- * Validates the structure of a registration response from the API
+ * Schema Zod para RegistrationResponse
+ * Valida a estrutura de uma resposta de registro da API
  */
 export const registrationResponseSchema = z.object({
   message: z.string(),
 });
 
 /**
- * Zod schema for ApiErrorResponse
- * Validates the structure of an error response from the API
+ * Schema Zod para ApiErrorResponse
+ * Valida a estrutura de uma resposta de erro da API
  */
 export const apiErrorResponseSchema = z.object({
   message: z.string(),
@@ -39,8 +39,8 @@ export const apiErrorResponseSchema = z.object({
 });
 
 /**
- * Zod schema for UpdateProfileResponse
- * Validates the structure of a profile update response from the API
+ * Schema Zod para UpdateProfileResponse
+ * Valida a estrutura de uma resposta de atualização de perfil da API
  * 
  * Nota: Consistente com loginResponseSchema, garantindo que o token
  * seja preservado se estiver presente no objeto user retornado.
@@ -48,19 +48,20 @@ export const apiErrorResponseSchema = z.object({
 export const updateProfileResponseSchema = z.object({
   message: z.string(),
   user: userSchema.optional(),
+  token: z.string().optional(),
 });
 
 /**
- * Zod schema for DeleteAccountResponse
- * Validates the structure of an account deletion response from the API
+ * Schema Zod para DeleteAccountResponse
+ * Valida a estrutura de uma resposta de exclusão de conta da API
  */
 export const deleteAccountResponseSchema = z.object({
   message: z.string(),
 });
 
 /**
- * Zod schema for FetchOffersResponse
- * Validates the structure of a response containing a list of offers
+ * Schema Zod para FetchOffersResponse
+ * Valida a estrutura de uma resposta contendo uma lista de ofertas
  */
 export const fetchOffersResponseSchema = z.object({
   offers: z.array(offerSchema),
@@ -69,8 +70,8 @@ export const fetchOffersResponseSchema = z.object({
 });
 
 /**
- * Zod schema for OfferMutationResponse
- * Validates the structure of a response from creating or updating an offer
+ * Schema Zod para OfferMutationResponse
+ * Valida a estrutura de uma resposta de criação ou atualização de uma oferta
  */
 export const offerMutationResponseSchema = z.object({
   message: z.string(),
@@ -79,8 +80,8 @@ export const offerMutationResponseSchema = z.object({
 });
 
 /**
- * Zod schema for ContratacaoResponse
- * Validates the structure of a response from creating a contract
+ * Schema Zod para ContratacaoResponse
+ * Valida a estrutura de uma resposta de criação de um contrato
  */
 export const contratacaoResponseSchema = z.object({
   message: z.string(),
@@ -88,8 +89,8 @@ export const contratacaoResponseSchema = z.object({
 });
 
 /**
- * Zod schema for FetchContratacoesResponse
- * Validates the structure of a response containing a list of contracts
+ * Schema Zod para FetchContratacoesResponse
+ * Valida a estrutura de uma resposta contendo uma lista de contratos
  */
 export const fetchContratacoesResponseSchema = z.object({
   contratacoes: z.array(contratacaoSchema),
@@ -98,8 +99,8 @@ export const fetchContratacoesResponseSchema = z.object({
 });
 
 /**
- * Type inferences from the Zod schemas
- * These ensure that the TypeScript types are always in sync with the schemas
+ * Inferências de tipo dos schemas Zod
+ * Isso garante que os tipos TypeScript estejam sempre sincronizados com os schemas
  */
 export type LoginResponseSchemaType = z.infer<typeof loginResponseSchema>;
 export type RegistrationResponseSchemaType = z.infer<typeof registrationResponseSchema>;

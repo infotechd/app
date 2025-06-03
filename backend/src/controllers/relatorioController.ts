@@ -17,19 +17,40 @@ import Pagamento, { IPagamento, PagamentoStatusEnum } from '../models/Pagamento'
  */
 export const gerarRelatorioDemografiaAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se a autorização já foi realizada pelo middleware isAdmin
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) {
+  if (!req.user || !req.user.isAdmin) {
     res.status(403).json({ message: 'Acesso proibido.' }); return;
   }
   try {
     // TODO: Implementar leitura de parâmetros de data (req.query.startDate, req.query.endDate) para filtrar por período de cadastro
 
-    // Pipeline de agregação que agrupa os usuários por tipo
+    // Pipeline de agregação que conta usuários por capacidade
     const usuariosPorTipoPipeline: PipelineStage[] = [
       // { $match: { createdAt: { $gte: startDate, $lte: endDate } } }, // Exemplo de filtro por data
-      { $group: { _id: "$tipoUsuario", count: { $sum: 1 } } },
-      { $sort: { _id: 1 } } // Ordena os resultados por tipo de usuário
+      { 
+        $facet: {
+          admins: [
+            { $match: { isAdmin: true } },
+            { $count: "total" }
+          ],
+          prestadores: [
+            { $match: { isPrestador: true } },
+            { $count: "total" }
+          ],
+          anunciantes: [
+            { $match: { isAnunciante: true } },
+            { $count: "total" }
+          ],
+          compradores: [
+            { $match: { isComprador: true } },
+            { $count: "total" }
+          ],
+          total: [
+            { $count: "total" }
+          ]
+        }
+      }
     ];
-    const usuariosPorTipo = await User.aggregate(usuariosPorTipoPipeline);
+    const [usuariosPorTipo] = await User.aggregate(usuariosPorTipoPipeline);
 
     // TODO: Implementar outras métricas demográficas (exemplo: por localização, se disponível)
 
@@ -50,7 +71,7 @@ export const gerarRelatorioDemografiaAdmin = async (req: Request, res: Response,
  * Permite analisar métricas de interação dos usuários com o conteúdo da plataforma.
  */
 export const gerarRelatorioEngajamentoAdmin = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) {
+  if (!req.user || !req.user.isAdmin) {
     res.status(403).json({ message: 'Acesso proibido.' }); return;
   }
   try {
@@ -103,7 +124,7 @@ export const gerarRelatorioEngajamentoAdmin = async (req: Request, res: Response
  * Permite ao prestador visualizar suas métricas de desempenho e faturamento.
  */
 export const gerarRelatorioVendasPrestador = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
+  if (!req.user || !req.user.isPrestador) {
     res.status(403).json({ message: 'Acesso proibido.' }); return;
   }
   const prestadorId = req.user.userId;
@@ -153,7 +174,7 @@ export const gerarRelatorioVendasPrestador = async (req: Request, res: Response,
  * Permite ao anunciante analisar o desempenho de suas campanhas publicitárias.
  */
 export const gerarRelatorioPerformanceAnuncios = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' }); return;
   }
   const anuncianteId = req.user.userId;

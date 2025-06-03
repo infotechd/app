@@ -3,7 +3,44 @@ import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 
 // 1. Importar o hook useAuth e o tipo UserRole
 import { useAuth } from "@/context/AuthContext";
-import { UserRole } from "@/types/user"; // Importar o tipo centralizado
+import { UserRole, User } from "@/types/user"; // Importar o tipo centralizado
+
+/**
+ * Verifica se um usuário possui a role específica requerida
+ * @param user O objeto do usuário
+ * @param role A role requerida
+ * @returns true se o usuário possui a role, false caso contrário
+ */
+function hasRequiredRole(user: User, role: UserRole): boolean {
+  switch (role) {
+    case 'comprador':
+      return !!user.isComprador;
+    case 'prestador':
+      return !!user.isPrestador;
+    case 'anunciante':
+      return !!user.isAnunciante;
+    case 'admin':
+      return !!user.isAdmin;
+    default:
+      return false;
+  }
+}
+
+/**
+ * Gera uma representação textual das roles que um usuário possui
+ * @param user O objeto do usuário
+ * @returns String com as roles do usuário separadas por vírgula
+ */
+function getUserRolesText(user: User): string {
+  const roles: string[] = [];
+
+  if (user.isComprador) roles.push('comprador');
+  if (user.isPrestador) roles.push('prestador');
+  if (user.isAnunciante) roles.push('anunciante');
+  if (user.isAdmin) roles.push('admin');
+
+  return roles.length > 0 ? roles.join(', ') : 'nenhum';
+}
 
 // 2. Definir a interface para as Props do componente
 interface PrivateScreenProps {
@@ -47,7 +84,7 @@ export default function PrivateScreen({ requiredRole, children }: PrivateScreenP
   }
 
   // 6. Verificar se uma role específica é exigida e se o usuário a possui
-  if (requiredRole && user.tipoUsuario !== requiredRole) {
+  if (requiredRole && !hasRequiredRole(user, requiredRole)) {
     // Se a role é exigida mas não corresponde, nega o acesso
     return (
       <View style={styles.container}>
@@ -56,7 +93,7 @@ export default function PrivateScreen({ requiredRole, children }: PrivateScreenP
           Esta área é restrita para usuários do tipo '{requiredRole}'.
         </Text>
         <Text style={styles.messageText}>
-          Seu tipo é '{user.tipoUsuario}'.
+          Seus tipos são: {getUserRolesText(user)}
         </Text>
       </View>
     );

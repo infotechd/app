@@ -1,22 +1,33 @@
 import { z } from 'zod';
 
 /**
- * Zod schema for OfferStatus
+ * Esquema Zod para StatusOferta
+ * 
+ * Este esquema define os possíveis estados de uma oferta:
+ * - rascunho: oferta em criação
+ * - pronta: oferta publicada e ativa
+ * - inativa: oferta temporariamente indisponível
+ * - arquivada: oferta permanentemente indisponível
  */
-export const offerStatusSchema = z.enum(['draft', 'ready', 'inactive', 'archived']);
+export const statusOfertaSchema = z.enum(['rascunho', 'pronta', 'inativa', 'arquivada']);
 
-// Type inference from the schema
-export type OfferStatus = z.infer<typeof offerStatusSchema>;
+// Inferência de tipo a partir do esquema
+export type StatusOferta = z.infer<typeof statusOfertaSchema>;
 
 /**
- * Zod schema for categorias (service categories)
+ * Esquema Zod para categorias (categorias de serviço)
+ * 
+ * Define um array de strings que representa as categorias de serviço.
+ * Requer pelo menos uma categoria para ser válido.
  */
 export const categoriasSchema = z.array(z.string()).min(1, { 
   message: "Pelo menos uma categoria é obrigatória" 
 });
 
 /**
- * Zod schema for estados (Brazilian states)
+ * Esquema Zod para estados (estados brasileiros)
+ * 
+ * Define uma enumeração com todos os estados do Brasil.
  */
 export const estadoSchema = z.enum([
   'Acre', 'Alagoas', 'Amapá', 'Amazonas', 'Bahia', 'Ceará', 'Distrito Federal',
@@ -27,7 +38,9 @@ export const estadoSchema = z.enum([
 ]);
 
 /**
- * Zod schema for localizacao (location)
+ * Esquema Zod para localização
+ * 
+ * Define um objeto com estado (obrigatório) e cidade (opcional).
  */
 export const localizacaoSchema = z.object({
   estado: estadoSchema,
@@ -35,7 +48,10 @@ export const localizacaoSchema = z.object({
 });
 
 /**
- * Zod schema for IHorarioDisponivel
+ * Esquema Zod para HorarioDisponivel
+ * 
+ * Define um objeto com horário de início e fim, ambos no formato HH:MM.
+ * Inclui validação para garantir que o horário de fim seja posterior ao de início.
  */
 export const horarioDisponivelSchema = z.object({
   inicio: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, { 
@@ -58,11 +74,14 @@ export const horarioDisponivelSchema = z.object({
   path: ["fim"]
 });
 
-// Type inference from the schema
-export type IHorarioDisponivel = z.infer<typeof horarioDisponivelSchema>;
+// Inferência de tipo a partir do esquema
+export type HorarioDisponivel = z.infer<typeof horarioDisponivelSchema>;
 
 /**
- * Zod schema for IRecorrenciaSemanal
+ * Esquema Zod para RecorrenciaSemanal
+ * 
+ * Define um objeto com dia da semana (0-6, onde 0 é domingo) e
+ * um array de horários disponíveis para esse dia.
  */
 export const recorrenciaSemanalSchema = z.object({
   diaSemana: z.number().min(0).max(6),
@@ -71,11 +90,16 @@ export const recorrenciaSemanalSchema = z.object({
   }),
 });
 
-// Type inference from the schema
-export type IRecorrenciaSemanal = z.infer<typeof recorrenciaSemanalSchema>;
+// Inferência de tipo a partir do esquema
+export type RecorrenciaSemanal = z.infer<typeof recorrenciaSemanalSchema>;
 
 /**
- * Zod schema for IDisponibilidade
+ * Esquema Zod para Disponibilidade
+ * 
+ * Define um objeto com informações sobre disponibilidade do prestador:
+ * - recorrenciaSemanal: padrão semanal de disponibilidade (opcional)
+ * - duracaoMediaMinutos: duração média do serviço em minutos (opcional)
+ * - observacoes: informações adicionais sobre disponibilidade (opcional)
  */
 export const disponibilidadeSchema = z.object({
   recorrenciaSemanal: z.array(recorrenciaSemanalSchema).optional(),
@@ -83,17 +107,24 @@ export const disponibilidadeSchema = z.object({
   observacoes: z.string().optional(),
 });
 
-// Type inference from the schema
-export type IDisponibilidade = z.infer<typeof disponibilidadeSchema>;
+// Inferência de tipo a partir do esquema
+export type Disponibilidade = z.infer<typeof disponibilidadeSchema>;
 
 /**
- * Zod schema for Offer
+ * Esquema Zod para Oferta
+ * 
+ * Define a estrutura completa de uma oferta de serviço, incluindo:
+ * - Informações básicas (descrição, preço, status)
+ * - Disponibilidade do prestador
+ * - Categorias e localização do serviço
+ * - Informações sobre o prestador
+ * - Datas de criação e atualização
  */
-export const offerSchema = z.object({
+export const ofertaSchema = z.object({
   _id: z.string(),
   descricao: z.string().min(1, { message: "Descrição é obrigatória" }),
   preco: z.number().positive({ message: "Preço deve ser um valor positivo" }),
-  status: offerStatusSchema,
+  status: statusOfertaSchema,
   disponibilidade: z.union([
     disponibilidadeSchema,
     z.string()
@@ -105,7 +136,7 @@ export const offerSchema = z.object({
   categorias: categoriasSchema,
   localizacao: localizacaoSchema,
 
-  // Optional fields
+  // Campos opcionais
   dataCriacao: z.string().optional(),
   dataAtualizacao: z.string().optional(),
 
@@ -119,42 +150,50 @@ export const offerSchema = z.object({
   ]).optional(),
 });
 
-// Type inference from the schema
-export type Offer = z.infer<typeof offerSchema>;
+// Inferência de tipo a partir do esquema
+export type Oferta = z.infer<typeof ofertaSchema>;
 
 /**
- * Zod schema for OfferData (create/update)
+ * Esquema Zod para DadosOferta (criação/atualização)
+ * 
+ * Define os campos necessários para criar ou atualizar uma oferta.
+ * É uma versão simplificada do esquema Oferta, sem campos gerados pelo sistema.
  */
-export const offerDataSchema = z.object({
+export const dadosOfertaSchema = z.object({
   descricao: z.string().min(1, { message: "Descrição é obrigatória" }),
   preco: z.number().positive({ message: "Preço deve ser um valor positivo" }),
-  status: offerStatusSchema,
+  status: statusOfertaSchema,
   disponibilidade: disponibilidadeSchema,
   categorias: categoriasSchema,
   localizacao: localizacaoSchema,
 });
 
-// Type inference from the schema
-export type OfferData = z.infer<typeof offerDataSchema>;
+// Inferência de tipo a partir do esquema
+export type DadosOferta = z.infer<typeof dadosOfertaSchema>;
 
 /**
- * Zod schema for FetchOffersParams
+ * Esquema Zod para ParametrosBuscaOfertas
+ * 
+ * Define os parâmetros de busca e filtragem para consultar ofertas:
+ * - Filtros de texto, preço, categoria, localização
+ * - Opções de ordenação e paginação
+ * - Configurações para inclusão de dados relacionados
  */
-export const fetchOffersParamsSchema = z.object({
+export const parametrosBuscaOfertasSchema = z.object({
   textoPesquisa: z.string().optional(),
   precoMax: z.number().optional(),
   precoMin: z.number().optional(),
   categorias: z.array(z.string()).optional(),
   estado: z.string().optional(),
   cidade: z.string().optional(),
-  status: offerStatusSchema.optional(),
+  status: statusOfertaSchema.optional(),
   prestadorId: z.string().optional(),
-  sortBy: z.enum(['preco', 'dataCriacao', 'avaliacao']).optional(),
-  sortOrder: z.enum(['asc', 'desc']).optional(),
-  page: z.number().optional(),
-  limit: z.number().optional(),
-  includeProvider: z.boolean().optional(),
+  ordenarPor: z.enum(['preco', 'dataCriacao', 'avaliacao']).optional(),
+  ordemClassificacao: z.enum(['asc', 'desc']).optional(),
+  pagina: z.number().optional(),
+  limite: z.number().optional(),
+  incluirPrestador: z.boolean().optional(),
 });
 
-// Type inference from the schema
-export type FetchOffersParams = z.infer<typeof fetchOffersParamsSchema>;
+// Inferência de tipo a partir do esquema
+export type ParametrosBuscaOfertas = z.infer<typeof parametrosBuscaOfertasSchema>;

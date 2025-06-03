@@ -26,7 +26,7 @@ interface TreinamentoPayload {
  */
 export const createTreinamento = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado e é um anunciante
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido: Apenas anunciantes podem criar treinamentos.' });
     return;
   }
@@ -89,7 +89,7 @@ export const createTreinamento = async (req: Request, res: Response, next: NextF
  */
 export const updateTreinamento = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado e é um anunciante
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -173,7 +173,7 @@ export const updateTreinamento = async (req: Request, res: Response, next: NextF
  */
 export const listarMeusTreinamentos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado e é um anunciante
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.'}); return;
   }
   // TODO: Implementar busca por treinamentos com anuncianteId = req.user.userId
@@ -201,7 +201,7 @@ export const deleteTreinamento = async (req: Request, res: Response, next: NextF
  */
 export const submeterOuPublicarTreinamento = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado e é um anunciante
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ANUNCIANTE) {
+  if (!req.user || !req.user.isAnunciante) {
     res.status(403).json({ message: 'Acesso proibido.'}); return;
   }
 

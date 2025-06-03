@@ -3,7 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import User, { IUser, TipoUsuarioEnum } from '../models/User'; // Importa modelo e interface/enum
+import User, { IUser } from '../models/User'; // Importa modelo e interface
 import Contratacao, { ContratacaoStatusEnum } from '../models/Contratacao';
 import { DecodedUserToken } from '../server'; // Importa a interface do payload JWT
 // import { validate as isValidEmail } from 'email-validator';
@@ -16,7 +16,7 @@ import { DecodedUserToken } from '../server'; // Importa a interface do payload 
  */
 export const register = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Desestrutura o corpo da requisição validado pelo middleware de validação
-  const { nome, email, senha, telefone, cpfCnpj, tipoUsuario, endereco, foto } = req.body;
+  const { nome, email, senha, telefone, cpfCnpj, isComprador, isPrestador, isAnunciante, endereco, foto } = req.body;
 
   try {
     // Verifica se o usuário já existe no banco de dados
@@ -36,7 +36,10 @@ export const register = async (req: Request, res: Response, next: NextFunction):
       senha, // A senha é passada em texto plano, o hook pre-save fará o hash
       telefone,
       cpfCnpj,
-      tipoUsuario,
+      isAdmin: false, // Por padrão, novos usuários não são administradores
+      isComprador: isComprador === true,
+      isPrestador: isPrestador === true,
+      isAnunciante: isAnunciante === true,
       endereco,
       foto
     });
@@ -79,7 +82,10 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     // Utiliza a interface DecodedUserToken para definir o tipo do payload
     const payload: DecodedUserToken = {
       userId: String(user._id),
-      tipoUsuario: user.tipoUsuario
+      isAdmin: user.isAdmin,
+      isComprador: user.isComprador,
+      isPrestador: user.isPrestador,
+      isAnunciante: user.isAnunciante
     };
 
     const secret = process.env.JWT_SECRET as string;
@@ -104,7 +110,10 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
         email: user.email,
         telefone: user.telefone,
         cpfCnpj: user.cpfCnpj,
-        tipoUsuario: user.tipoUsuario,
+        isAdmin: user.isAdmin,
+        isComprador: user.isComprador,
+        isPrestador: user.isPrestador,
+        isAnunciante: user.isAnunciante,
         endereco: user.endereco,
         foto: user.foto
       }
@@ -141,36 +150,81 @@ export const logout = (req: Request, res: Response, next: NextFunction): void =>
  * Edita o perfil do usuário logado (CU17)
  */
 export const editProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // Log detalhado da requisição recebida no controller
+  console.log('=== EDIT PROFILE - DADOS RECEBIDOS NO CONTROLLER ===');
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body completo:', JSON.stringify(req.body, null, 2));
+  console.log('User do token:', JSON.stringify(req.user, null, 2));
+
   // Verifica se o usuário está autenticado (req.user é populado pelo authMiddleware)
   if (!req.user) {
     // Verificação de segurança adicional, embora o authMiddleware já deva garantir isso
+    console.log('=== ERRO: USUÁRIO NÃO AUTENTICADO ===');
     res.status(401).json({ message: 'Não autorizado.' });
     return;
   }
   const userId = req.user.userId;
+  console.log('ID do usuário autenticado:', userId);
 
   // Define os tipos para os campos que podem ser atualizados
-  type UpdatableUserFields = Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha'>;
+  type UpdatableUserFields = Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha' | 'isComprador' | 'isPrestador' | 'isAnunciante'>;
   type UpdatableFieldKey = keyof UpdatableUserFields;
 
   const allowedUpdates: Partial<UpdatableUserFields> = {}; // Objeto para armazenar campos permitidos
   const receivedUpdates = req.body;
 
+  // Log para verificar se há um objeto 'user' aninhado
+  if (receivedUpdates.user) {
+    console.log('=== OBJETO USER ENCONTRADO NO BODY ===');
+    console.log('Estrutura do objeto user:', JSON.stringify(receivedUpdates.user, null, 2));
+
+    // Verifica se os IDs estão presentes no objeto user
+    if (receivedUpdates.user.idUsuario || receivedUpdates.user.id) {
+      console.log('IDs encontrados no objeto user:', {
+        idUsuario: receivedUpdates.user.idUsuario,
+        id: receivedUpdates.user.id
+      });
+    } else {
+      console.log('ALERTA: Nenhum ID encontrado no objeto user');
+    }
+  } else {
+    console.log('=== NENHUM OBJETO USER ENCONTRADO NO BODY ===');
+  }
+
   // Filtra apenas os campos permitidos do corpo da requisição
-  const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha'];
+  const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha', 'isComprador', 'isPrestador', 'isAnunciante'];
+  console.log('Campos atualizáveis:', updatableFields);
+  console.log('Campos recebidos:', Object.keys(receivedUpdates));
+
   updatableFields.forEach(field => {
+    // Verifica se o campo está no nível superior do body
     if (receivedUpdates[field] !== undefined) {
-      // Usa type assertion para garantir tipagem correta
-      allowedUpdates[field] = receivedUpdates[field] as UpdatableUserFields[typeof field];
+      console.log(`Campo ${field} encontrado no nível superior:`, receivedUpdates[field]);
+      const value = receivedUpdates[field];
+      (allowedUpdates as any)[field] = value;
+    } 
+    // Verifica se o campo está dentro do objeto user
+    else if (receivedUpdates.user && receivedUpdates.user[field] !== undefined) {
+      console.log(`Campo ${field} encontrado dentro do objeto user:`, receivedUpdates.user[field]);
+      const value = receivedUpdates.user[field];
+      (allowedUpdates as any)[field] = value;
     }
   });
 
   // Verifica se há campos válidos para atualização
   // Campos sensíveis como email, cpfCnpj e tipoUsuario não podem ser atualizados por esta rota
   if (Object.keys(allowedUpdates).length === 0) {
+    console.log('=== ERRO: NENHUM CAMPO VÁLIDO PARA ATUALIZAÇÃO ===');
+    console.log('Campos permitidos:', updatableFields);
+    console.log('Campos recebidos no nível superior:', Object.keys(receivedUpdates));
+    if (receivedUpdates.user) {
+      console.log('Campos recebidos no objeto user:', Object.keys(receivedUpdates.user));
+    }
     res.status(400).json({ message: 'Nenhum campo válido para atualização fornecido.' });
     return;
   }
+
+  console.log('=== CAMPOS PERMITIDOS PARA ATUALIZAÇÃO ===', allowedUpdates);
 
   try {
     // Tratamento especial para atualização de senha
@@ -197,10 +251,32 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
+    // Log dos dados do usuário após a atualização
+    console.log('=== USUÁRIO ATUALIZADO COM SUCESSO ===');
+    console.log('Dados atualizados:', JSON.stringify(updatedUser, null, 2));
+
     // Retorna sucesso com os dados atualizados do usuário
     res.status(200).json({ message: 'Perfil atualizado com sucesso.', user: updatedUser });
 
   } catch (error) {
+    // Log detalhado do erro
+    console.error('=== ERRO AO ATUALIZAR PERFIL ===');
+    console.error('Tipo de erro:', error instanceof Error ? 'Error' : typeof error);
+    console.error('Mensagem de erro:', error instanceof Error ? error.message : String(error));
+    console.error('Stack trace:', error instanceof Error ? error.stack : 'Não disponível');
+
+    // Se for um erro de validação, registra detalhes adicionais
+    if (error instanceof Error && error.message.includes('validação')) {
+      console.error('=== ERRO DE VALIDAÇÃO DETECTADO ===');
+      console.error('Detalhes completos do erro:', error);
+
+      // Verifica se há menção a campos de ID no erro
+      if (error.message.includes('idUsuario') || error.message.includes('id')) {
+        console.error('=== ERRO RELACIONADO A CAMPOS DE ID ===');
+        console.error('Body da requisição:', JSON.stringify(req.body, null, 2));
+      }
+    }
+
     next(error);
   }
 };
@@ -270,7 +346,7 @@ export const listUsers = async (req: Request, res: Response, next: NextFunction)
   try {
     // --- VERIFICAÇÃO DE AUTORIZAÇÃO ---
     // Verifica se o usuário é administrador
-    if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.ADMIN) {
+    if (!req.user || !req.user.isAdmin) {
       res.status(403).json({ message: 'Acesso proibido: Requer privilégios de administrador.' });
       return;
     }

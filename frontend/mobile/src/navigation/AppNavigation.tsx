@@ -14,7 +14,7 @@ import { RootStackParamList } from './types';
 import LoginScreen from '../screens/LoginScreen';
 import RegistrationScreen from '../screens/RegistrationScreen';
 // Telas que não existem ainda, mas estão definidas em types.ts
-// import OnboardingScreen from '../screens/OnboardingScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 // import ResetPasswordScreen from '../screens/ResetPasswordScreen';
 
 // Telas Privadas (Autenticadas)
@@ -39,6 +39,7 @@ import BuscarOfertasScreen from '../screens/BuscarOfertasScreen';
 import AvaliacaoScreen from '../screens/AvaliacaoScreen';
 import AgendaScreen from '../screens/AgendaScreen';
 import AdvertiserDashboardScreen from '../screens/AdvertiserDashboardScreen';
+import UnifiedDashboardScreen from '../screens/UnifiedDashboardScreen';
 
 // Telas definidas em types.ts mas que ainda não existem como arquivos
 import OfferDetailScreen from '../screens/OfferDetailScreen';
@@ -101,6 +102,7 @@ export default function AppNavigation() {
           // O usuário está logado, mostrar telas privadas/principais
           <>
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Início' }}/>
+            <Stack.Screen name="UnifiedDashboard" component={UnifiedDashboardScreen} options={{ title: 'Meu Painel' }} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Editar Perfil' }} />
             <Stack.Screen name="TreinamentoList" component={TreinamentoListScreen} options={{ title: 'Treinamentos' }} />
             <Stack.Screen name="TreinamentoDetail" component={TreinamentoDetailScreen} options={{ title: 'Detalhe Treinamento' }} />
@@ -131,7 +133,7 @@ export default function AppNavigation() {
           // O usuário NÃO está logado, mostrar telas de Onboarding, Login, Cadastro
           <>
             {/* Telas definidas em types.ts mas que ainda não existem como arquivos */}
-            <Stack.Screen name="Onboarding" component={PlaceholderScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Registration" component={RegistrationScreen} options={{ title: 'Criar Conta' }} />
             <Stack.Screen name="ResetPassword" component={PlaceholderScreen} options={{ title: 'Redefinir Senha' }} />

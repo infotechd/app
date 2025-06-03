@@ -2,29 +2,38 @@ import { z } from 'zod';
 import { userSchema } from './userSchema';
 
 /**
- * Zod schema for PublicacaoType
+ * Este arquivo define os esquemas Zod para validação de dados relacionados a publicações no sistema.
+ * Os esquemas Zod são utilizados para validar a estrutura e os tipos de dados das publicações,
+ * garantindo que os dados estejam no formato correto antes de serem processados.
+ */
+
+/**
+ * Esquema Zod para o tipo de Publicação
+ * Define os tipos possíveis de publicação: post ou evento
  */
 export const publicacaoTypeSchema = z.enum(['post', 'evento']);
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type PublicacaoType = z.infer<typeof publicacaoTypeSchema>;
 
 /**
- * Zod schema for PublicacaoStatus
+ * Esquema Zod para o Status da Publicação
+ * Define os possíveis estados de uma publicação no sistema
  */
 export const publicacaoStatusSchema = z.enum([
-  'pending_approval',
-  'approved',
-  'rejected',
-  'hidden_by_user',
-  'hidden_by_admin'
+  'pending_approval', // aguardando aprovação
+  'approved',         // aprovado
+  'rejected',         // rejeitado
+  'hidden_by_user',   // ocultado pelo usuário
+  'hidden_by_admin'   // ocultado pelo administrador
 ]);
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type PublicacaoStatus = z.infer<typeof publicacaoStatusSchema>;
 
 /**
- * Zod schema for EventoDetails
+ * Esquema Zod para Detalhes de Evento
+ * Define a estrutura de dados para informações específicas de eventos
  */
 export const eventoDetailsSchema = z.object({
   dataEvento: z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?Z?)?$/, {
@@ -34,11 +43,12 @@ export const eventoDetailsSchema = z.object({
   tema: z.string().optional(),
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type EventoDetails = z.infer<typeof eventoDetailsSchema>;
 
 /**
- * Zod schema for Publicacao
+ * Esquema Zod para Publicação
+ * Define a estrutura completa de uma publicação no sistema
  */
 export const publicacaoSchema = z.object({
   _id: z.string(),
@@ -50,7 +60,7 @@ export const publicacaoSchema = z.object({
   }),
   autorId: z.string(),
 
-  // Optional fields
+  // Campos opcionais
   autor: z.object({
     idUsuario: z.string(),
     nome: z.string(),
@@ -59,11 +69,12 @@ export const publicacaoSchema = z.object({
   detalhesEvento: eventoDetailsSchema.optional(),
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type Publicacao = z.infer<typeof publicacaoSchema>;
 
 /**
- * Zod schema for PublicacaoData
+ * Esquema Zod para Dados de Publicação
+ * Define a estrutura de dados necessária para criar uma nova publicação
  */
 export const publicacaoDataSchema = z.object({
   conteudo: z.string().min(1, { message: "Conteúdo é obrigatório" }),
@@ -80,26 +91,28 @@ export const publicacaoDataSchema = z.object({
   }
 );
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type PublicacaoData = z.infer<typeof publicacaoDataSchema>;
 
 /**
- * Zod schema for FetchPublicacoesResponse
+ * Esquema Zod para Resposta de Busca de Publicações
+ * Define a estrutura da resposta ao buscar publicações no sistema
  */
 export const fetchPublicacoesResponseSchema = z.object({
   publicacoes: z.array(publicacaoSchema),
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type FetchPublicacoesResponse = z.infer<typeof fetchPublicacoesResponseSchema>;
 
 /**
- * Zod schema for CreatePublicacaoResponse
+ * Esquema Zod para Resposta de Criação de Publicação
+ * Define a estrutura da resposta ao criar uma nova publicação
  */
 export const createPublicacaoResponseSchema = z.object({
   message: z.string(),
   publicacao: publicacaoSchema.optional(),
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do esquema
 export type CreatePublicacaoResponse = z.infer<typeof createPublicacaoResponseSchema>;

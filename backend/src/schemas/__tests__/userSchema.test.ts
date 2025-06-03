@@ -3,8 +3,8 @@ import {
   createUserSchema, 
   updateUserSchema, 
   loginUserSchema 
-} from './userSchema';
-import { TipoUsuarioEnum } from '../models/User';
+} from '../userSchema';
+import { TipoUsuarioEnum } from '../../models/User';
 
 describe('User Schemas', () => {
   // Valid test data

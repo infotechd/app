@@ -15,7 +15,8 @@
     "test:unit": "jest --testMatch='**/__tests__/**/*.ts'",
     "test:negociacao": "jest src/models/__tests__/Negociacao.test.ts --coverage",
     "test:treinamento": "jest src/models/__tests__/Treinamento.test.ts --coverage",
-    "prestart": "pnpm run build"
+    "prestart": "pnpm run build",
+    "migrate:user-types": "ts-node src/migrations/migrateUserTypes.ts"
   },
   "dependencies": {
     "@types/multer": "^1.4.12",

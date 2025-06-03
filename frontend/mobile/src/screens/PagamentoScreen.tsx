@@ -11,7 +11,7 @@ import {
   ScrollView
 } from 'react-native';
 
-// 1. Imports
+// 1. Importações
 import { useAuth } from "@/context/AuthContext";
 import { processPayment as apiProcessPayment } from '../services/api';
 import { PaymentData, PaymentMethod } from "@/types/pagamento"; // Importa tipos de pagamento
@@ -19,6 +19,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types";
 
 // Valores válidos para o método (para validação ou futuro Picker)
+// Define os métodos de pagamento aceitos pelo sistema
 const validPaymentMethods: PaymentMethod[] = ['cartao', 'boleto', 'pix'];
 
 // 2. Tipo das Props (recebe contratacaoId via route.params)
@@ -27,18 +28,22 @@ type PagamentoScreenProps = NativeStackScreenProps<RootStackParamList, 'Pagament
 /**
  * PagamentoScreen – Tela para Processamento de Pagamento (Mobile)
  * Permite que o usuário efetue o pagamento de um serviço.
+ * Este componente gerencia todo o fluxo de pagamento, incluindo validação de dados e comunicação com a API.
  */
 export default function PagamentoScreen({ route, navigation }: PagamentoScreenProps) {
   // 3. Extrair contratacaoId e obter usuário/token
+  // Obtém o ID da contratação dos parâmetros da rota e as informações do usuário do contexto de autenticação
   const { contratacaoId } = route.params;
   const { user } = useAuth();
 
-  // 4. Tipar Estados Locais
+  // 4. Definir Estados Locais
+  // Declaração dos estados que armazenam os dados do formulário e o estado de carregamento
   const [valor, setValor] = useState<string>(''); // Input é string
   const [metodo, setMetodo] = useState<PaymentMethod>('cartao'); // Usa o tipo PaymentMethod
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLoading, setIsLoading] = useState<boolean>(false); // Controla o estado de carregamento durante o processamento
 
-  // 5. Refatorar handleProcessarPagamento
+  // 5. Função de Processamento de Pagamento
+  // Função assíncrona que valida os dados e envia a requisição de pagamento para a API
   const handleProcessarPagamento = async () => {
     if (!user?.token) {
       Alert.alert('Erro', 'Autenticação necessária para realizar pagamento.');
@@ -49,7 +54,8 @@ export default function PagamentoScreen({ route, navigation }: PagamentoScreenPr
       return;
     }
 
-    // Validação
+    // Validação dos dados de entrada
+    // Converte o valor de string para número para validação e uso na API
     const valorNumero = Number(valor);
     if (!valor || isNaN(valorNumero) || valorNumero <= 0) {
       Alert.alert('Erro de Validação', 'Valor inválido. Insira um número maior que zero.');
@@ -65,7 +71,7 @@ export default function PagamentoScreen({ route, navigation }: PagamentoScreenPr
     const paymentData: PaymentData = {
       contratacaoId,
       valor: valorNumero,
-      metodo, // Já é do tipo PaymentMethod
+      metodo, // Já é do tipo PaymentMethod - define o método de pagamento selecionado
     };
 
     try {
@@ -75,6 +81,7 @@ export default function PagamentoScreen({ route, navigation }: PagamentoScreenPr
       // - Navegar para uma tela de sucesso?
       // - Voltar para a tela anterior?
       // - Atualizar o status da contratação localmente ou buscando novamente?
+      // Atualmente apenas retorna para a tela anterior após o pagamento bem-sucedido
       navigation.goBack();
 
     } catch (error) {
@@ -106,12 +113,12 @@ export default function PagamentoScreen({ route, navigation }: PagamentoScreenPr
           editable={!isLoading}
         />
 
-        {/* TODO: Usar Picker ou Radio Buttons para o método */}
+        {/* TODO: Implementar Picker ou Radio Buttons para seleção do método de pagamento */}
         <Text style={styles.label}>Método de Pagamento *</Text>
         <TextInput
           placeholder={`(${validPaymentMethods.join(', ')})`}
           value={metodo}
-          // Força lowercase e garante que é um dos métodos válidos
+          // Força texto em minúsculas e garante compatibilidade com os métodos válidos
           onChangeText={(text) => setMetodo(text.toLowerCase() as PaymentMethod)}
           autoCapitalize='none'
           style={styles.input}
@@ -132,7 +139,8 @@ export default function PagamentoScreen({ route, navigation }: PagamentoScreenPr
   );
 }
 
-// 6. Estilos
+// 6. Estilos da Interface
+// Define a aparência visual dos componentes da tela
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,

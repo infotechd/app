@@ -12,23 +12,27 @@ import logger from "../config/logger";
 
 // --- Tipos e Interfaces ---
 
-// Enumeração para definir os tipos de usuário disponíveis no sistema
+// Enumeração para definir o tipo de usuário administrador
 export enum TipoUsuarioEnum {
-  COMPRADOR = 'comprador',
-  PRESTADOR = 'prestador',
-  ANUNCIANTE = 'anunciante',
   ADMIN = 'admin'
+}
+
+// Interface para definir as capacidades do usuário
+export interface IUserCapabilities {
+  isComprador: boolean;
+  isPrestador: boolean;
+  isAnunciante: boolean;
 }
 
 // Interface que define a estrutura de um documento de usuário no banco de dados
 // Estende a classe Document do Mongoose para herdar propriedades como _id e __v
-export interface IUser extends Document {
+export interface IUser extends Document, IUserCapabilities {
   nome: string;
   email: string;
   senha?: string; // Campo opcional na interface porque é excluído das consultas por padrão
   telefone?: string;
   cpfCnpj: string;
-  tipoUsuario: TipoUsuarioEnum;
+  isAdmin: boolean; // Indica se o usuário é administrador
   endereco?: string;
   foto?: string;
   dataNascimento?: Date; // Armazena a data de nascimento do usuário
@@ -126,13 +130,24 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
         message: 'CPF deve ter 11 dígitos e CNPJ deve ter 14 dígitos. Não pode conter todos os dígitos iguais.'
       }
     },
-    tipoUsuario: {
-      type: String,
-      enum: {
-        values: Object.values(TipoUsuarioEnum), // Usa os valores do Enum TypeScript
-        message: 'O tipo de usuário fornecido ({VALUE}) não é válido.'
-      },
-      required: [true, 'O tipo de usuário é obrigatório.'],
+    isAdmin: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isComprador: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isPrestador: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    isAnunciante: {
+      type: Boolean,
+      default: false,
       index: true,
     },
     endereco: {

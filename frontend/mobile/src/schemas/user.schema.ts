@@ -2,9 +2,12 @@ import { z } from 'zod';
 import { TipoUsuarioEnum } from '../types/user';
 
 /**
- * Zod schema for TipoUsuarioEnum
- * Validates that the tipo is one of the allowed values
- * Matches the backend TipoUsuarioEnum
+ * Esquema Zod para TipoUsuarioEnum
+ * Valida que o tipo é um dos valores permitidos
+ * Corresponde ao TipoUsuarioEnum do backend
+ * 
+ * Este esquema define os possíveis tipos de usuário no sistema,
+ * garantindo que apenas valores válidos sejam aceitos.
  */
 export const tipoUsuarioEnumSchema = z.enum([
   'comprador',
@@ -13,13 +16,19 @@ export const tipoUsuarioEnumSchema = z.enum([
   'admin'
 ]);
 
-// Use tipoUsuarioEnumSchema for userRoleSchema to ensure consistency
+// Usa tipoUsuarioEnumSchema para userRoleSchema para garantir consistência
+// Este esquema é utilizado para validar os papéis dos usuários no sistema
 export const userRoleSchema = tipoUsuarioEnumSchema;
 
 /**
- * Zod schema for User
- * Validates the structure of a user object
+ * Esquema Zod para Usuário
+ * Valida a estrutura de um objeto de usuário
  * Alinhado com a interface User em types/user.ts
+ * 
+ * Este esquema define todos os campos de um usuário no sistema,
+ * incluindo identificadores, dados pessoais, permissões e timestamps.
+ * Ele garante que os dados do usuário estejam em um formato válido
+ * antes de serem processados pelo sistema.
  */
 export const userSchema = z.object({
   // Identificadores - pelo menos um deve estar presente
@@ -29,7 +38,13 @@ export const userSchema = z.object({
   // Campos obrigatórios
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
   email: z.string().email({ message: 'Email inválido' }),
-  tipoUsuario: tipoUsuarioEnumSchema,
+  tipoUsuario: tipoUsuarioEnumSchema.optional(),
+
+  // Capacidades do usuário
+  isComprador: z.boolean().optional(),
+  isPrestador: z.boolean().optional(),
+  isAnunciante: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
 
   // Token (opcional)
   token: z.string().optional(),
@@ -53,13 +68,21 @@ export const userSchema = z.object({
 });
 
 /**
- * Type inference from the Zod schema
- * This ensures that the TypeScript type is always in sync with the schema
+ * Inferência de tipo a partir do esquema Zod
+ * Isso garante que o tipo TypeScript esteja sempre sincronizado com o esquema
+ * 
+ * Este tipo é derivado automaticamente do esquema userSchema,
+ * permitindo que o TypeScript forneça verificação de tipo e autocompletar
+ * para objetos que seguem este esquema.
  */
 export type UserSchemaType = z.infer<typeof userSchema>;
 
 /**
- * Zod schema for login credentials
+ * Esquema Zod para credenciais de login
+ * 
+ * Este esquema valida os dados de entrada durante o processo de login,
+ * garantindo que o email seja válido e que a senha atenda aos requisitos
+ * mínimos de segurança (comprimento e complexidade).
  */
 export const loginCredentialsSchema = z.object({
   email: z.string()
@@ -75,7 +98,11 @@ export const loginCredentialsSchema = z.object({
 });
 
 /**
- * Zod schema for registration data
+ * Esquema Zod para dados de registro
+ * 
+ * Este esquema valida os dados fornecidos durante o processo de registro de um novo usuário,
+ * garantindo que todos os campos obrigatórios estejam presentes e válidos.
+ * Inclui validações para nome, email, senha, telefone, CPF/CNPJ e outros dados pessoais.
  */
 export const registrationDataSchema = z.object({
   nome: z.string().min(3, { message: 'Nome deve ter pelo menos 3 caracteres' }),
@@ -109,13 +136,21 @@ export const registrationDataSchema = z.object({
       },
       { message: 'CPF/CNPJ não pode conter todos os dígitos iguais' }
     ),
-  tipoUsuario: tipoUsuarioEnumSchema,
+  tipoUsuario: tipoUsuarioEnumSchema.optional(),
+  isComprador: z.boolean().optional(),
+  isPrestador: z.boolean().optional(),
+  isAnunciante: z.boolean().optional(),
   endereco: z.string().optional(),
   foto: z.string().url({ message: 'URL da foto inválida' }).optional(),
 });
 
 /**
- * Zod schema for profile update data
+ * Esquema Zod para dados de atualização de perfil
+ * 
+ * Este esquema valida os dados fornecidos durante o processo de atualização do perfil do usuário,
+ * permitindo que apenas campos específicos sejam atualizados e garantindo que os novos valores
+ * sejam válidos. Diferente do esquema de registro, a maioria dos campos aqui é opcional,
+ * pois o usuário pode querer atualizar apenas parte de suas informações.
  */
 export const profileUpdateDataSchema = z.object({
   idUsuario: z.string().optional(),
@@ -130,7 +165,7 @@ export const profileUpdateDataSchema = z.object({
   cpfCnpj: z.string()
     .refine(
       (value) => {
-        if (!value) return true; // Skip validation if empty
+        if (!value) return true; // Pula a validação se estiver vazio
         const numeroLimpo = value.replace(/\D/g, '');
         return numeroLimpo.length === 11 || numeroLimpo.length === 14;
       },
@@ -138,7 +173,7 @@ export const profileUpdateDataSchema = z.object({
     )
     .refine(
       (value) => {
-        if (!value) return true; // Skip validation if empty
+        if (!value) return true; // Pula a validação se estiver vazio
         const numeroLimpo = value.replace(/\D/g, '');
         return !/^(\d)\1+$/.test(numeroLimpo);
       },
@@ -150,14 +185,19 @@ export const profileUpdateDataSchema = z.object({
   dataNascimento: z.union([z.string(), z.date()])
     .refine(
       (value) => {
-        if (!value) return true; // Skip validation if empty
+        if (!value) return true; // Pula a validação se estiver vazio
         const date = typeof value === 'string' ? new Date(value) : value;
-        return date <= new Date(); // Ensure date is not in the future
+        return date <= new Date(); // Garante que a data não esteja no futuro
       },
       { message: 'A data de nascimento não pode ser no futuro' }
     )
     .optional(),
   genero: z.enum(['Feminino', 'Masculino', 'Prefiro não dizer']).optional(),
+  // Capacidades do usuário
+  isComprador: z.boolean().optional(),
+  isPrestador: z.boolean().optional(),
+  isAnunciante: z.boolean().optional(),
+  isAdmin: z.boolean().optional(),
 }).refine(data => data.idUsuario || data.id, {
   message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
   path: ["idUsuario"]

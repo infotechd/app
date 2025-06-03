@@ -3,7 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import OfertaServico, { IOfertaServico, OfertaStatusEnum, IDisponibilidade } from '../models/OfertaServico'; // Importa modelo e interface/enum
-import { TipoUsuarioEnum } from '../models/User'; // Importa enum do User
+// Import for TipoUsuarioEnum removed as it's no longer used
 
 // Interface que define a estrutura de dados para criação/atualização de ofertas
 interface OfertaPayload {
@@ -25,11 +25,14 @@ interface OfertaPayload {
  * Requer que o usuário seja um Prestador. Status inicial é RASCUNHO.
  */
 export const createOferta = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está autenticado e é um prestador de serviços
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
-    res.status(403).json({ message: 'Acesso proibido: Apenas prestadores podem criar ofertas.' });
+  // Verifica se o usuário está autenticado
+  if (!req.user) {
+    res.status(401).json({ message: 'Autenticação necessária.' });
     return;
   }
+
+  // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode criar ofertas
+  // Não é mais necessário verificar o papel específico do usuário
 
   // TODO: Validar robustamente o req.body (Joi, express-validator) incluindo a estrutura de disponibilidade
   // Extrai os dados da requisição
@@ -123,11 +126,14 @@ export const createOferta = async (req: Request, res: Response, next: NextFuncti
  * Lista todas as ofertas criadas pelo prestador logado (CU3).
  */
 export const listOfertasByPrestador = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está autenticado e é um prestador de serviços
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
-    res.status(403).json({ message: 'Acesso proibido.' });
+  // Verifica se o usuário está autenticado
+  if (!req.user) {
+    res.status(401).json({ message: 'Autenticação necessária.' });
     return;
   }
+
+  // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode listar suas ofertas
+  // Não é mais necessário verificar o papel específico do usuário
   try {
     // Extrai e processa os parâmetros de paginação da requisição
     const page = parseInt(req.query.page as string) || 1;
@@ -171,11 +177,14 @@ export const listOfertasByPrestador = async (req: Request, res: Response, next: 
  * Obtém detalhes de uma oferta específica pertencente ao prestador logado.
  */
 export const getOwnOfertaDetails = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está autenticado e é um prestador de serviços
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
-    res.status(403).json({ message: 'Acesso proibido.' });
+  // Verifica se o usuário está autenticado
+  if (!req.user) {
+    res.status(401).json({ message: 'Autenticação necessária.' });
     return;
   }
+
+  // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode ver detalhes de suas ofertas
+  // Não é mais necessário verificar o papel específico do usuário
   // Extrai o ID da oferta dos parâmetros da requisição
   const { ofertaId } = req.params;
   // Obtém o ID do prestador logado
@@ -209,11 +218,14 @@ export const getOwnOfertaDetails = async (req: Request, res: Response, next: Nex
  * Permite atualizar apenas campos específicos e talvez apenas certos status.
  */
 export const updateOferta = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está autenticado e é um prestador de serviços
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
-    res.status(403).json({ message: 'Acesso proibido.' });
+  // Verifica se o usuário está autenticado
+  if (!req.user) {
+    res.status(401).json({ message: 'Autenticação necessária.' });
     return;
   }
+
+  // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode atualizar suas ofertas
+  // Não é mais necessário verificar o papel específico do usuário
 
   // Extrai o ID da oferta dos parâmetros da requisição
   const { ofertaId } = req.params;
@@ -317,11 +329,14 @@ export const updateOferta = async (req: Request, res: Response, next: NextFuncti
  * Deleta uma oferta do prestador logado (CU3).
  */
 export const deleteOferta = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está autenticado e é um prestador de serviços
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
-    res.status(403).json({ message: 'Acesso proibido.' });
+  // Verifica se o usuário está autenticado
+  if (!req.user) {
+    res.status(401).json({ message: 'Autenticação necessária.' });
     return;
   }
+
+  // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode excluir suas ofertas
+  // Não é mais necessário verificar o papel específico do usuário
   // Extrai o ID da oferta dos parâmetros da requisição
   const { ofertaId } = req.params;
   // Obtém o ID do prestador logado
@@ -376,7 +391,11 @@ export const searchPublicOfertas = async (req: Request, res: Response, next: Nex
     const sort = (req.query.sort as string) || '-createdAt'; // Ordenação padrão: mais recentes primeiro
     const precoMax = req.query.precoMax ? Number(req.query.precoMax) : undefined;
     const textoPesquisa = req.query.textoPesquisa as string | undefined;
-    // TODO: Receber outros filtros: categoria, localização (lat/lon/raio?), etc.
+
+    // Extrai filtros de categoria e localização
+    const categorias = req.query.categorias as string | string[] | undefined;
+    const estado = req.query.estado as string | undefined;
+    const cidade = req.query.cidade as string | undefined;
 
     // Constrói a query base para buscar apenas ofertas disponíveis
     const query: mongoose.FilterQuery<IOfertaServico> = {
@@ -398,7 +417,27 @@ export const searchPublicOfertas = async (req: Request, res: Response, next: Nex
         { descricao: regex } // Busca na descrição
       ];
     }
-    // TODO: Adicionar filtro de localização se usar APIGeolocalizacao
+
+    // Aplica filtro de categorias, se fornecido
+    if (categorias) {
+      if (Array.isArray(categorias)) {
+        // Se for um array, filtra por ofertas que contenham pelo menos uma das categorias
+        query.categorias = { $in: categorias };
+      } else {
+        // Se for uma string única, filtra por ofertas que contenham essa categoria
+        query.categorias = categorias;
+      }
+    }
+
+    // Aplica filtro de localização (estado e cidade), se fornecido
+    if (estado) {
+      query['localizacao.estado'] = estado;
+
+      // Adiciona filtro de cidade apenas se o estado também for fornecido
+      if (cidade) {
+        query['localizacao.cidade'] = cidade;
+      }
+    }
 
     // Define opções para a consulta
     const options = {

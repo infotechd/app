@@ -30,15 +30,15 @@ export enum AnuncioTipoEnum {
 // Lista de tipos de usuário que podem ser alvo de segmentação
 // Não inclui administradores na segmentação
 const tiposUsuarioSegmentacaoValidos = [
-  TipoUsuarioEnum.COMPRADOR,
-  TipoUsuarioEnum.PRESTADOR,
-  TipoUsuarioEnum.ANUNCIANTE
+  'comprador',
+  'prestador',
+  'anunciante'
 ];
 
 // Interface que define a estrutura de segmentação para direcionar anúncios
 interface ISegmentacao {
   regioes?: string[];                // Regiões geográficas para segmentação
-  tiposUsuario?: TipoUsuarioEnum[];  // Tipos de usuário para segmentação
+  tiposUsuario?: string[];           // Tipos de usuário para segmentação ('comprador', 'prestador', 'anunciante')
   // interesses?: string[];          // Possível implementação futura para segmentação por interesses
 }
 

@@ -7,93 +7,96 @@ import {
   ActivityIndicator,
   RefreshControl,
   ListRenderItemInfo,
-  SectionList, // Usar SectionList para múltiplas seções de dados
+  SectionList, // Usar SectionList para múltiplas seções de dados (permite organizar conteúdo em seções)
   SectionListRenderItemInfo
 } from 'react-native';
 
-// 1. Imports
-import { useAuth } from "@/context/AuthContext"; // Contexto de autenticação
+// 1. Imports (Importações necessárias para o funcionamento da tela)
+import { useAuth } from "@/context/AuthContext"; // Contexto de autenticação para obter dados do usuário logado
 import {
-  fetchMyOffers as apiFetchMyOffers,
-  fetchReceivedContratacoes as apiFetchReceivedContratacoes
-} from '../services/api'; // Funções da API tipadas
-import { Offer } from "@/types/offer"; // Tipo Offer
-import { Contratacao } from "@/types/contratacao"; // Tipo Contratacao
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { RootStackParamList } from "@/navigation/types"; // Tipos de Navegação
+  fetchMyOffers as apiFetchMyOffers, // Função para buscar ofertas do prestador
+  fetchReceivedContratacoes as apiFetchReceivedContratacoes // Função para buscar contratações recebidas
+} from '../services/api'; // Funções da API tipadas para comunicação com o backend
+import { Offer } from "@/types/offer"; // Tipo Offer (define a estrutura de dados de uma oferta)
+import { Contratacao } from "@/types/contratacao"; // Tipo Contratacao (define a estrutura de dados de uma contratação)
+import type { NativeStackScreenProps } from '@react-navigation/native-stack'; // Tipo para as props de navegação
+import { RootStackParamList } from "@/navigation/types"; // Tipos de Navegação (define as rotas disponíveis no app)
 
-// 2. Tipo das Props
+// 2. Tipo das Props (Define o tipo de propriedades que este componente recebe)
 type ProviderDashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'ProviderDashboard'>;
 
 export default function ProviderDashboardScreen({ navigation }: ProviderDashboardScreenProps) {
-  // 3. Obter usuário/token do contexto
+  // 3. Obter usuário/token do contexto (Recupera informações do usuário autenticado)
   const { user } = useAuth();
 
-  // 4. Tipar Estados
-  const [offers, setOffers] = useState<Offer[]>([]);
-  const [bookings, setBookings] = useState<Contratacao[]>([]); // Renomeado para clareza e tipado
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // 4. Definição dos Estados com Tipagem (Armazena e gerencia os dados da tela)
+  const [offers, setOffers] = useState<Offer[]>([]); // Lista de ofertas do prestador
+  const [bookings, setBookings] = useState<Contratacao[]>([]); // Lista de contratações recebidas (renomeado para clareza e tipado)
+  const [loading, setLoading] = useState<boolean>(true); // Controla o estado de carregamento
+  const [error, setError] = useState<string | null>(null); // Armazena mensagens de erro, se houver
 
-  // 5. Refatorar Fetching de Dados
+  // 5. Função para Carregamento de Dados (Busca dados da API de forma otimizada)
   const loadDashboardData = useCallback(async (isRefreshing = false) => {
+    // Verifica se o usuário está autenticado
     if (!user?.token) {
       setError("Autenticação necessária.");
       if (!isRefreshing) setLoading(false);
       return;
     }
-    if (!isRefreshing) setLoading(true); // Loading inicial
-    setError(null);
+    if (!isRefreshing) setLoading(true); // Ativa indicador de carregamento apenas no carregamento inicial
+    setError(null); // Limpa erros anteriores
 
     try {
-      // Busca ofertas e contratações em paralelo
+      // Busca ofertas e contratações em paralelo para melhor performance
       const [offersResponse, bookingsResponse] = await Promise.all([
-        apiFetchMyOffers(user.token),
-        apiFetchReceivedContratacoes(user.token)
+        apiFetchMyOffers(user.token), // Chamada à API para buscar ofertas do prestador
+        apiFetchReceivedContratacoes(user.token) // Chamada à API para buscar contratações recebidas
       ]);
-      setOffers(offersResponse.offers);
-      setBookings(bookingsResponse.contratacoes); // Nome do array na resposta da API
+      setOffers(offersResponse.offers); // Atualiza o estado com as ofertas recebidas
+      setBookings(bookingsResponse.contratacoes); // Atualiza o estado com as contratações (nome do array na resposta da API)
     } catch (err) {
+      // Tratamento de erro com mensagem amigável
       const msg = err instanceof Error ? err.message : 'Erro ao carregar dados do dashboard.';
       setError(msg);
-      // Não limpar dados antigos em caso de erro no refresh? Opcional.
+      // Não limpar dados antigos em caso de erro no refresh para manter a experiência do usuário
       // setOffers([]);
       // setBookings([]);
     } finally {
+      // Finaliza o estado de carregamento apenas se não for um refresh
       if (!isRefreshing) setLoading(false);
     }
-  }, [user?.token]); // Depende do token
+  }, [user?.token]); // Recria a função apenas quando o token do usuário mudar
 
-  // Busca inicial
+  // Efeito para Carregamento Inicial de Dados (Executa quando o componente é montado)
   useEffect(() => {
     const fetchData = async () => {
       try {
-        await loadDashboardData();
+        await loadDashboardData(); // Carrega os dados do dashboard
       } catch (error) {
-        console.error('Error loading dashboard data:', error);
+        console.error('Erro ao carregar dados do dashboard:', error);
       }
     };
 
     fetchData().catch(error => {
-      console.error('Failed to fetch dashboard data:', error);
+      console.error('Falha ao buscar dados do dashboard:', error);
     });
-  }, [loadDashboardData]);
+  }, [loadDashboardData]); // Executa novamente se a função loadDashboardData mudar
 
-  // 6. Refatorar Navegação
+  // 6. Funções de Navegação (Gerenciam a navegação para outras telas)
   const handleOfferPress = (offer: Offer) => {
-    // Navega para a tela de detalhes da oferta, passando o ID
+    // Navega para a tela de detalhes da oferta, passando o ID como parâmetro
     navigation.navigate('OfferDetail', { offerId: offer._id });
   };
 
   const handleBookingPress = (booking: Contratacao) => {
-    // Navega para a tela de detalhes da contratação, passando o ID
+    // Navega para a tela de detalhes da contratação, passando o ID como parâmetro
     navigation.navigate('ContratacaoDetalhe', { contratacaoId: booking._id });
   };
 
-  // 7. Tipar Renderização das Listas
+  // 7. Funções de Renderização com Tipagem (Definem como cada item será exibido na interface)
   const renderOfferItem = ({ item }: ListRenderItemInfo<Offer>): React.ReactElement => (
     <TouchableOpacity style={styles.offerCard} onPress={() => handleOfferPress(item)}>
-      {/* Usar campos da interface Offer */}
+      {/* Renderiza os campos da interface Offer de forma estruturada */}
       <Text style={styles.offerTitle}>{item.descricao}</Text>
       <Text style={styles.offerStatus}>Status: {item.status}</Text>
       <Text style={styles.offerPrice}>Preço: R$ {item.preco.toFixed(2)}</Text>
@@ -102,25 +105,27 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
 
   const renderBookingItem = ({ item }: ListRenderItemInfo<Contratacao>): React.ReactElement => (
     <TouchableOpacity style={styles.bookingCard} onPress={() => handleBookingPress(item)}>
-      {/* Usar campos da interface Contratacao */}
-      {/* Idealmente, a API traria o título da oferta ou nome do comprador */}
+      {/* Renderiza os campos da interface Contratacao de forma estruturada */}
+      {/* Idealmente, a API traria o título da oferta ou nome do comprador para melhor experiência */}
       <Text style={styles.bookingTitle}>Contrato ID: {item._id}</Text>
       <Text style={styles.bookingStatus}>Status: {item.status}</Text>
       <Text style={styles.bookingDate}>
         Contratado em: {new Date(item.dataContratacao).toLocaleDateString('pt-BR')}
       </Text>
-      {/* Adicionar nome do comprador se a API fornecer */}
+      {/* Renderização condicional: adiciona nome do comprador se a API fornecer esse dado */}
       {/* item.compradorNome && <Text>Comprador: {item.compradorNome}</Text> */}
     </TouchableOpacity>
   );
 
+  // Função para renderizar mensagem quando a lista estiver vazia
   const renderListEmpty = (message: string) => (
     <Text style={styles.emptyMessage}>{message}</Text>
   );
 
-  // --- Renderização Principal ---
+  // --- Renderização Principal (Lógica de exibição condicional da interface) ---
 
-  if (loading && offers.length === 0 && bookings.length === 0) { // Mostra loading apenas na carga inicial
+  // Exibe tela de carregamento quando estiver buscando dados pela primeira vez
+  if (loading && offers.length === 0 && bookings.length === 0) { // Mostra loading apenas na carga inicial para melhor experiência
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#007BFF" />
@@ -129,6 +134,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
     );
   }
 
+  // Exibe tela de erro quando ocorrer falha na busca de dados e não houver conteúdo para mostrar
   // Mostra erro apenas se não houver dados para exibir e não estiver carregando
   if (error && offers.length === 0 && bookings.length === 0 && !loading) {
     return (
@@ -141,29 +147,31 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
     );
   }
 
+  // Implementação com SectionList (Solução otimizada para exibição de múltiplas seções)
   // Usando SectionList para evitar o erro de VirtualizedLists aninhadas
   // e para melhor performance com múltiplas seções de dados
 
-  // Preparar as seções para o SectionList
+  // Definição de tipos para o SectionList
   // Define um tipo de união para todos os possíveis tipos de itens nas seções
-  type SectionItem = string | Offer | Contratacao;
+  type SectionItem = string | Offer | Contratacao; // Pode ser uma string para itens especiais ou objetos de dados
 
-  // Define o tipo para as seções
+  // Define o tipo para as seções do SectionList
   type Section = {
-    title: string;
-    data: readonly SectionItem[];
-    renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => React.ReactElement;
+    title: string; // Título da seção
+    data: readonly SectionItem[]; // Array de itens da seção (somente leitura para otimização)
+    renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => React.ReactElement; // Função de renderização específica para cada seção
   };
 
+  // Definição das seções do SectionList (Estrutura de dados para a interface)
   const sections: readonly Section[] = [
     {
-      title: "Cabeçalho",
-      data: ["header"] as const, // Usamos um item dummy para renderizar o cabeçalho
+      title: "Cabeçalho", // Seção de cabeçalho da tela
+      data: ["header"] as const, // Usamos um item dummy para renderizar o cabeçalho (apenas um marcador)
       renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
         <View style={styles.header}>
           <Text style={styles.welcomeMessage}>Bem-vindo, {user?.nome || 'Prestador'}!</Text>
           <Text style={styles.subheader}>Gerencie suas ofertas e contratações</Text>
-          {/* Mostra erro discreto se ocorreu durante refresh */}
+          {/* Exibe mensagem de erro discreta se ocorreu durante atualização (refresh) */}
           {error && (offers.length > 0 || bookings.length > 0) && !loading && (
             <Text style={styles.errorRefreshMessage}>Erro ao atualizar: {error}</Text>
           )}
@@ -171,10 +179,11 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
       )
     },
     {
-      title: "Minhas Ofertas",
-      data: (offers.length > 0 ? offers : ["empty_offers"]) as readonly SectionItem[],
+      title: "Minhas Ofertas", // Seção que lista as ofertas do prestador
+      data: (offers.length > 0 ? offers : ["empty_offers"]) as readonly SectionItem[], // Usa dados reais ou marcador de lista vazia
       renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
         const item = info.item;
+        // Renderização condicional: mensagem para lista vazia ou item de oferta
         if (item === "empty_offers") {
           return renderListEmpty("Você ainda não criou nenhuma oferta.");
         }
@@ -182,10 +191,11 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
       }
     },
     {
-      title: "Contratações Recebidas",
-      data: (bookings.length > 0 ? bookings : ["empty_bookings"]) as readonly SectionItem[],
+      title: "Contratações Recebidas", // Seção que lista as contratações recebidas
+      data: (bookings.length > 0 ? bookings : ["empty_bookings"]) as readonly SectionItem[], // Usa dados reais ou marcador de lista vazia
       renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => {
         const item = info.item;
+        // Renderização condicional: mensagem para lista vazia ou item de contratação
         if (item === "empty_bookings") {
           return renderListEmpty("Nenhuma contratação recebida no momento.");
         }
@@ -193,10 +203,11 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
       }
     },
     {
-      title: "Ações Rápidas",
-      data: ["actions"] as const,
+      title: "Ações Rápidas", // Seção com botões de ação para navegação rápida
+      data: ["actions"] as const, // Marcador único para renderizar os botões de ação
       renderItem: (info: SectionListRenderItemInfo<SectionItem, Section>) => (
         <View style={styles.actionButtonsContainer}>
+          {/* Botão para gerenciar ofertas */}
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate('OfertaServico', { offerId: '', mode: 'list' })}
@@ -204,6 +215,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
             <Text style={styles.actionButtonText}>Gerenciar Minhas Ofertas</Text>
           </TouchableOpacity>
 
+          {/* Botão para acessar agenda */}
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate('Agenda')}
@@ -211,6 +223,7 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
             <Text style={styles.actionButtonText}>Minha Agenda</Text>
           </TouchableOpacity>
 
+          {/* Botão para atualizar currículo */}
           <TouchableOpacity 
             style={styles.actionButton}
             onPress={() => navigation.navigate('CurriculoForm')}
@@ -222,30 +235,35 @@ export default function ProviderDashboardScreen({ navigation }: ProviderDashboar
     }
   ];
 
+  // Renderização do componente SectionList (Componente principal da interface)
   return (
     <SectionList<SectionItem, Section>
       style={styles.container}
-      sections={sections}
+      sections={sections} // Array de seções definido anteriormente
       keyExtractor={(item, index) => {
-        if (typeof item === 'string') return item + index;
-        return (item as any)._id || index.toString();
+        // Função para gerar chaves únicas para cada item
+        if (typeof item === 'string') return item + index; // Para itens de marcação (strings)
+        return (item as any)._id || index.toString(); // Para objetos de dados (ofertas e contratações)
       }}
       renderSectionHeader={({section}) => (
+        // Renderiza o cabeçalho de cada seção, exceto para a seção "Cabeçalho"
         section.title !== "Cabeçalho" ? (
           <Text style={styles.sectionTitle}>{section.title}</Text>
         ) : null
       )}
-      renderItem={(info) => info.section.renderItem(info)}
+      renderItem={(info) => info.section.renderItem(info)} // Usa a função de renderização específica de cada seção
       refreshControl={
+        // Componente para permitir atualização por gesto de puxar para baixo
         <RefreshControl refreshing={loading} onRefresh={() => loadDashboardData(true)} />
       }
-      ListFooterComponent={() => <View style={{ height: 40 }} />}
-      stickySectionHeadersEnabled={false}
+      ListFooterComponent={() => <View style={{ height: 40 }} />} // Espaço em branco no final da lista
+      stickySectionHeadersEnabled={false} // Desativa cabeçalhos fixos durante a rolagem
     />
   );
 }
 
-// Estilos completos para o ProviderDashboardScreen
+// Definição de Estilos (Estilização completa para todos os componentes da tela)
+// Cada objeto define as propriedades visuais de um elemento específico da interface
 const styles = StyleSheet.create({
   container: {
     flex: 1,

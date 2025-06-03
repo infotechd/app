@@ -22,10 +22,29 @@ const updateField = async (
 ): Promise<UpdateProfileResponse> => {
   // Garante que o userId tenha pelo menos um campo de ID
   const validUserId = { ...userId };
+
+  // Verifica se temos algum ID disponível
+  const availableId = userId.idUsuario || userId.id;
+
   if (!validUserId.idUsuario && !validUserId.id) {
-    console.log(`[updateFieldApi] Adicionando ID alternativo para update${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`);
-    validUserId.id = 'temp-id-' + Date.now();
-    console.log('[updateFieldApi] ID alternativo criado:', validUserId.id);
+    console.log(`[updateFieldApi] Adicionando ID para update${fieldName.charAt(0).toUpperCase() + fieldName.slice(1)}`);
+
+    // Se temos um ID disponível, determinar qual campo usar com base no formato
+    if (availableId) {
+      if (availableId.match(/^[0-9a-fA-F]{24}$/)) {
+        // Parece ser um ObjectId do MongoDB, use como id
+        validUserId.id = availableId;
+        console.log('[updateFieldApi] Usando ID existente como id:', validUserId.id);
+      } else {
+        // Use como idUsuario por padrão
+        validUserId.idUsuario = availableId;
+        console.log('[updateFieldApi] Usando ID existente como idUsuario:', validUserId.idUsuario);
+      }
+    } else {
+      // Se não temos nenhum ID, criar um temporário
+      validUserId.id = 'temp-id-' + Date.now();
+      console.log('[updateFieldApi] ID alternativo criado:', validUserId.id);
+    }
   }
 
   // Verifica novamente se temos pelo menos um campo de ID

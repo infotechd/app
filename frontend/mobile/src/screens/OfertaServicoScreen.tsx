@@ -148,6 +148,14 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
       setLoadingList(false);
       return;
     }
+
+    // Verifica se o usuário tem o papel de Prestador
+    if (!user.isPrestador) {
+      setError("Acesso proibido: Apenas prestadores podem ver ofertas.");
+      setLoadingList(false);
+      return;
+    }
+
     setLoadingList(true);
     setError(null);
     try {
@@ -199,6 +207,13 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   // Função para carregar os detalhes da oferta em modo de edição
   const fetchOfferDetails = useCallback(async () => {
     if (!isEditMode || !editOfferId || !user?.token) {
+      return;
+    }
+
+    // Verifica se o usuário tem o papel de Prestador
+    if (!user.isPrestador) {
+      setError("Acesso proibido: Apenas prestadores podem editar ofertas.");
+      setIsLoadingOffer(false);
       return;
     }
 
@@ -644,6 +659,12 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
   const handleSubmitOffer = async () => {
     if (!user?.token) {
       Alert.alert('Erro', 'Autenticação necessária.');
+      return;
+    }
+
+    // Verifica se o usuário tem o papel de Prestador
+    if (!user.isPrestador) {
+      Alert.alert('Erro', 'Acesso proibido: Apenas prestadores podem criar ou editar ofertas.');
       return;
     }
 
@@ -1515,6 +1536,23 @@ export default function OfertaServicoScreen({ navigation, route }: OfertaServico
 
     return null;
   };
+
+  // Verifica se o usuário tem o papel de Prestador
+  if (!user?.isPrestador) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorMessageText}>
+          Acesso proibido: Apenas prestadores podem acessar esta tela.
+        </Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.retryButtonText}>Voltar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView

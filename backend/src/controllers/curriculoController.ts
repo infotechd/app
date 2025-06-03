@@ -3,7 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Curriculo, { ICurriculo, IExperiencia, IProjeto } from '../models/Curriculo'; // Importa modelo e interfaces
-import { TipoUsuarioEnum } from '../models/User'; // Importa enum do User
+import { IUserCapabilities } from '../models/User'; // Importa interface de capacidades do User
 
 // Interface que define a estrutura de dados para criação ou atualização de um currículo
 interface CurriculoPayload {
@@ -20,7 +20,7 @@ interface CurriculoPayload {
  * Retorna erro 409 se o prestador já possuir um currículo.
  */
 export const createCurriculo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
+  if (!req.user || !req.user.isPrestador) {
     res.status(403).json({ message: 'Acesso proibido: Apenas prestadores podem criar currículos.' });
     return;
   }
@@ -62,7 +62,7 @@ export const createCurriculo = async (req: Request, res: Response, next: NextFun
  * Obtém o currículo do prestador que está autenticado no sistema.
  */
 export const getCurriculoByPrestador = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
+  if (!req.user || !req.user.isPrestador) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }
@@ -89,7 +89,7 @@ export const getCurriculoByPrestador = async (req: Request, res: Response, next:
  * Substitui completamente os campos fornecidos (experiencias, habilidades, projetos).
  */
 export const updateCurriculo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.PRESTADOR) {
+  if (!req.user || !req.user.isPrestador) {
     res.status(403).json({ message: 'Acesso proibido.' });
     return;
   }

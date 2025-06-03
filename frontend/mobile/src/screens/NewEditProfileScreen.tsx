@@ -87,9 +87,12 @@ interface FieldUpdateConfig {
  */
 export default function NewEditProfileScreen({ navigation }: EditProfileScreenProps) {
   // Obtém o usuário atual e as funções para atualizar o contexto de autenticação
+  // O hook useAuth fornece acesso aos dados do usuário logado e métodos para atualizar esses dados
   const { user, updateUser } = useAuth();
 
   // Reducer para gerenciar o estado dos campos
+  // Este reducer centraliza a lógica de atualização de estado para todos os campos do formulário
+  // Ele gerencia os estados de carregamento, sucesso e erro para cada campo individualmente
   const fieldsReducer = useCallback((state: Record<string, FieldState>, action: FieldAction): Record<string, FieldState> => {
     switch (action.type) {
       case 'SET_LOADING':
@@ -120,16 +123,22 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, []);
 
   // Estado para controle de UI
+  // isLoading controla o estado de carregamento global da tela
+  // setSelectedImageUrl gerencia a URL da imagem selecionada para o perfil
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [, setSelectedImageUrl] = useState<string | null>(null);
 
   // Estado para controlar a visibilidade do modal de alteração de email
+  // Este estado determina quando o modal de alteração de email deve ser exibido
   const [isEmailModalVisible, setIsEmailModalVisible] = useState<boolean>(false);
 
   // Estado para o date picker
+  // Controla a visibilidade do seletor de data de nascimento
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
   // Estado para controle de carregamento e feedback de cada campo usando useReducer
+  // Este reducer gerencia os estados individuais de cada campo do formulário
+  // Cada campo pode estar em um dos estados: idle (padrão), loading, success ou error
   const [fieldStates, dispatch] = React.useReducer(fieldsReducer, {
     nome: { status: 'idle' },
     telefone: { status: 'idle' },
@@ -237,6 +246,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [generoUpdateStatus, setFieldStatus]);
 
   // Memoização dos valores padrão do formulário para evitar recálculos desnecessários
+  // Esta memoização garante que os valores padrão só sejam recalculados quando os dados do usuário mudarem
+  // Isso melhora a performance evitando renderizações desnecessárias
   const defaultValues = useMemo(() => ({
     nome: user?.nome || '',
     telefone: user?.telefone || '',
@@ -254,6 +265,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   ]);
 
   // Configuração do formulário com react-hook-form e validação Zod
+  // O hook useForm gerencia todo o estado do formulário, incluindo valores, erros e validação
+  // Utilizamos o zodResolver para integrar o schema de validação Zod com o react-hook-form
   const { control, setValue, formState: { errors }, reset } = useForm<FormData>({
     resolver: zodResolver(profileUpdateDataSchema),
     defaultValues,
@@ -261,6 +274,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   });
 
   // Efeito para atualizar os valores do formulário e limpar a imagem selecionada quando o usuário do contexto for alterado
+  // Este useEffect garante que o formulário seja atualizado sempre que os dados do usuário mudarem
+  // Por exemplo, após um login ou quando os dados são atualizados em outra parte da aplicação
   useEffect(() => {
     if (user) {
       // Usa os valores padrão memoizados para resetar o formulário
@@ -272,12 +287,16 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [user, reset, defaultValues]);
 
 
-  // Removed duplicate FieldUpdateConfig type definition
+  // Definição duplicada de FieldUpdateConfig removida
 
   /**
-   * Função genérica para atualizar um campo do perfil
-   * Reduz a duplicação de código entre as funções de atualização
-   * Versão melhorada com melhor tratamento de erros e feedback de acessibilidade
+   * Função genérica para atualizar um campo do perfil.
+   * Reduz a duplicação de código entre as funções de atualização.
+   * Versão melhorada com melhor tratamento de erros e feedback de acessibilidade.
+   * 
+   * Esta função centraliza toda a lógica de atualização de campos do perfil,
+   * incluindo validação, tratamento de erros, feedback ao usuário e atualização
+   * do contexto de autenticação.
    */
   const handleUpdateField = useCallback(async ({
     fieldName,
@@ -410,6 +429,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [user, navigation, updateUser, setFieldLoading, setFieldStatus]);
 
   // Função para atualizar o campo nome - memoizada para evitar recriações desnecessárias
+  // Esta função é responsável por validar e atualizar o nome do usuário
   const handleUpdateNome = useCallback((nome: string) => {
     return handleUpdateField({
       fieldName: 'nome',
@@ -430,6 +450,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [handleUpdateField, user?.nome]);
 
   // Função para atualizar o campo telefone - memoizada para evitar recriações desnecessárias
+  // Esta função valida e atualiza o número de telefone do usuário, garantindo que esteja no formato correto
   const handleUpdateTelefone = useCallback((telefone: string) => {
     return handleUpdateField({
       fieldName: 'telefone',
@@ -448,6 +469,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [handleUpdateField, user?.telefone]);
 
   // Função para atualizar o campo endereço - memoizada para evitar recriações desnecessárias
+  // Esta função valida e atualiza o endereço do usuário, verificando se tem o comprimento mínimo necessário
   const handleUpdateEndereco = useCallback((endereco: string) => {
     return handleUpdateField({
       fieldName: 'endereco',
@@ -465,6 +487,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [handleUpdateField, user?.endereco]);
 
   // Função para formatar a data para exibição
+  // Converte um objeto Date ou string em uma string formatada no padrão brasileiro (DD/MM/AAAA)
   const formatDate = (date: Date | string | undefined): string => {
     if (!date) return 'Não informado';
 
@@ -476,6 +499,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   };
 
   // Função para atualizar a data de nascimento
+  // Esta função valida e atualiza a data de nascimento do usuário, verificando se é válida e se atende aos requisitos de idade
   const handleUpdateDataNascimento = useCallback((dataNascimento: Date) => {
     return handleUpdateField({
       fieldName: 'dataNascimento',
@@ -575,6 +599,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [setValue, formatDate, handleUpdateDataNascimento]);
 
   // Função para atualizar o gênero
+  // Esta função valida e atualiza o gênero do usuário, garantindo que seja um dos valores permitidos
   const handleUpdateGenero = useCallback((genero: string) => {
     return handleUpdateField({
       fieldName: 'genero',
@@ -598,6 +623,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [handleUpdateField, user?.genero]);
 
   // Função auxiliar para botões de gênero - melhorada com acessibilidade e feedback visual
+  // Esta função renderiza um botão de seleção de gênero com estados visuais e suporte a acessibilidade
+  // Cada botão mostra um valor de gênero diferente e destaca visualmente a opção selecionada
   const renderGenderButton = useCallback((value: string, title: string) => {
     const isSelected = user?.genero === value;
 
@@ -665,6 +692,9 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [user?.genero, isLoading, isLoadingGenero, setValue, handleUpdateGenero]);
 
   // Função para atualizar a foto do perfil - refatorada para usar o mesmo padrão das outras funções
+  // Esta função gerencia o processo de atualização da foto de perfil do usuário
+  // Ela valida a URL da imagem, atualiza o estado local e o contexto de autenticação
+  // Também fornece feedback visual e de acessibilidade durante o processo
   const handleUpdatePhoto = useCallback(async (imageUrl: string) => {
     // Verifica se o usuário está autenticado
     if (!user?.token) {
@@ -776,6 +806,8 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   }, [user, navigation, updateUser]);
 
   // Memoiza o indicador de carregamento para evitar re-renderizações desnecessárias
+  // Este componente é memoizado para melhorar a performance, evitando recriações a cada renderização
+  // Ele exibe um spinner de carregamento e uma mensagem informativa para o usuário
   const LoadingIndicator = useMemo(() => (
     <View style={styles.container}>
       <ActivityIndicator size="large" color="#4a80f5" />
@@ -785,7 +817,352 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
     </View>
   ), []);
 
+  // Memoização dos componentes para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedProfileImagePicker = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <ProfileImagePicker
+        currentImageUrl={user.foto}
+        userToken={user.token}
+        onImageUploaded={(imageUrl) => {
+          console.log('[NewEditProfileScreen] onImageUploaded chamada com URL:', imageUrl);
+
+          // Verificar se a URL é válida antes de atualizar o estado
+          if (!imageUrl) {
+            console.warn('[NewEditProfileScreen] URL recebida é inválida ou vazia');
+            return;
+          }
+
+          // Atualizar o valor do formulário
+          setValue('foto', imageUrl, { 
+            shouldDirty: true, 
+            shouldValidate: true,
+            shouldTouch: true
+          });
+
+          // Chamar a função de atualização de foto
+          handleUpdatePhoto(imageUrl)
+            .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar foto:', error));
+        }}
+        disabled={isLoading}
+      />
+    );
+  }, [user, isLoading, setValue, handleUpdatePhoto]);
+
+  // Memoização do campo de nome para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedNomeField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <ProfileField
+        name="nome"
+        control={control}
+        label="Nome"
+        placeholder="Nome"
+        icon="person"
+        errors={errors}
+        isLoading={isLoadingNome}
+        updateStatus={nomeUpdateStatus}
+        onSave={(value) => {
+          console.log('[NewEditProfileScreen] Save nome button pressed with value:', value);
+          handleUpdateNome(value)
+            .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar nome:', error));
+        }}
+        accessibilityLabel="Campo de nome"
+        accessibilityHint="Digite seu nome completo"
+      />
+    );
+  }, [user, control, errors, isLoadingNome, nomeUpdateStatus, handleUpdateNome]);
+
+  // Memoização do campo de email para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedEmailField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <View style={styles.inputContainer}>
+        <Text style={styles.label}>Email</Text>
+        <View style={styles.emailContainer}>
+          <View style={[styles.inputWrapper, { flex: 0.8 }]}>
+            <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
+            <TextInput
+              placeholder="Email"
+              value={user.email}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              style={styles.emailInput}
+              editable={false} // Email não é editável diretamente
+              accessibilityLabel="Campo de email"
+              accessibilityHint="Seu email atual"
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.changeEmailButton}
+            onPress={() => setIsEmailModalVisible(true)}
+            disabled={isLoading}
+            accessibilityLabel="Botão para alterar email"
+            accessibilityHint="Toque para abrir o formulário de alteração de email"
+          >
+            <Text style={styles.changeEmailButtonText}>Alterar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }, [user, isLoading, setIsEmailModalVisible]);
+
+  // Memoização do campo de telefone para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedTelefoneField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <ProfileField
+        name="telefone"
+        control={control}
+        label="Telefone"
+        placeholder="Telefone"
+        icon="phone"
+        errors={errors}
+        isLoading={isLoadingTelefone}
+        updateStatus={telefoneUpdateStatus}
+        keyboardType="phone-pad"
+        onSave={(value) => {
+          console.log('[NewEditProfileScreen] Save telefone button pressed with value:', value);
+          handleUpdateTelefone(value)
+            .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar telefone:', error));
+        }}
+        accessibilityLabel="Campo de telefone"
+        accessibilityHint="Digite seu número de telefone com DDD"
+      />
+    );
+  }, [user, control, errors, isLoadingTelefone, telefoneUpdateStatus, handleUpdateTelefone]);
+
+  // Memoização do campo de endereço para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedEnderecoField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <ProfileField
+        name="endereco"
+        control={control}
+        label="Endereço"
+        placeholder="Endereço"
+        icon="location-on"
+        errors={errors}
+        isLoading={isLoadingEndereco}
+        updateStatus={enderecoUpdateStatus}
+        onSave={(value) => {
+          console.log('[NewEditProfileScreen] Save endereco button pressed with value:', value);
+          handleUpdateEndereco(value)
+            .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar endereço:', error));
+        }}
+        accessibilityLabel="Campo de endereço"
+        accessibilityHint="Digite seu endereço completo"
+      />
+    );
+  }, [user, control, errors, isLoadingEndereco, enderecoUpdateStatus, handleUpdateEndereco]);
+
+  // Memoização do campo de data de nascimento para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedDataNascimentoField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <View 
+        style={styles.inputContainer}
+        accessible={true}
+        accessibilityRole="none"
+        accessibilityLabel="Seção de data de nascimento"
+      >
+        <Text 
+          style={styles.label}
+          accessibilityRole="header"
+        >
+          Data de Nascimento
+        </Text>
+        <View style={styles.dateContainer}>
+          <TouchableOpacity 
+            style={[styles.inputWrapper, { flex: 0.8 }]}
+            onPress={() => setShowDatePicker(true)}
+            disabled={isLoading || isLoadingDataNascimento}
+            accessibilityLabel={`Data de nascimento: ${formatDate(user?.dataNascimento)}`}
+            accessibilityHint="Toque para abrir o seletor de data"
+            accessibilityRole="button"
+            accessibilityState={{ 
+              disabled: isLoading || isLoadingDataNascimento,
+              busy: isLoadingDataNascimento
+            }}
+          >
+            <MaterialIcons 
+              name="calendar-today" 
+              size={20} 
+              color="#666" 
+              style={styles.inputIcon}
+              accessibilityLabel="Ícone de calendário" 
+            />
+            <Text style={styles.dateText}>
+              {formatDate(user?.dataNascimento)}
+            </Text>
+          </TouchableOpacity>
+          {isLoadingDataNascimento ? (
+            <ActivityIndicator 
+              size="small" 
+              color="#4a80f5" 
+              style={{ marginLeft: 10 }}
+              accessibilityLabel="Atualizando data de nascimento"
+              accessibilityHint="Por favor aguarde enquanto salvamos suas alterações"
+              importantForAccessibility="yes"
+            />
+          ) : (
+            dataNascimentoUpdateStatus === 'success' && (
+              <MaterialIcons 
+                name="check-circle" 
+                size={24} 
+                color="#34c759" 
+                style={styles.fieldIndicator}
+                accessibilityLabel="Data de nascimento salva com sucesso"
+                importantForAccessibility="yes"
+              />
+            )
+          )}
+        </View>
+        {showDatePicker && (
+          <DateTimePicker
+            value={user?.dataNascimento ? new Date(user.dataNascimento) : new Date(2000, 0, 1)}
+            mode="date"
+            display="spinner"
+            onChange={(event, date) => onDateChange(event, date)}
+            maximumDate={new Date()}
+            accessibilityLabel="Seletor de data de nascimento"
+          />
+        )}
+        {dataNascimentoUpdateStatus === 'success' && (
+          <Text 
+            style={styles.successText}
+            accessibilityRole="alert"
+            accessibilityLabel="Data de nascimento atualizada com sucesso!"
+          >
+            Data de nascimento atualizada com sucesso!
+          </Text>
+        )}
+        {dataNascimentoUpdateStatus === 'error' && (
+          <Text 
+            style={styles.errorText}
+            accessibilityRole="alert"
+            accessibilityLabel="Erro ao atualizar data de nascimento. Tente novamente."
+          >
+            Erro ao atualizar data de nascimento. Tente novamente.
+          </Text>
+        )}
+      </View>
+    );
+  }, [
+    user,
+    isLoading, 
+    isLoadingDataNascimento, 
+    dataNascimentoUpdateStatus, 
+    formatDate, 
+    showDatePicker, 
+    onDateChange, 
+    setShowDatePicker
+  ]);
+
+  // Memoização do campo de gênero para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedGeneroField = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <View 
+        style={styles.inputContainer}
+        accessible={true}
+        accessibilityRole="radiogroup"
+        accessibilityLabel="Seção de gênero"
+      >
+        <Text 
+          style={styles.label}
+          accessibilityRole="header"
+        >
+          Gênero
+        </Text>
+        <View style={styles.buttonGroup}>
+          {renderGenderButton('Feminino', 'Feminino')}
+          {renderGenderButton('Masculino', 'Masculino')}
+          {renderGenderButton('Prefiro não dizer', 'Prefiro não dizer')}
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 5 }}>
+          {isLoadingGenero ? (
+            <ActivityIndicator 
+              size="small" 
+              color="#4a80f5"
+              accessibilityLabel="Atualizando gênero"
+              accessibilityHint="Por favor aguarde enquanto salvamos suas alterações"
+              importantForAccessibility="yes"
+            />
+          ) : (
+            generoUpdateStatus === 'success' && (
+              <MaterialIcons 
+                name="check-circle" 
+                size={24} 
+                color="#34c759"
+                accessibilityLabel="Gênero salvo com sucesso"
+                importantForAccessibility="yes"
+              />
+            )
+          )}
+        </View>
+        {generoUpdateStatus === 'success' && (
+          <Text 
+            style={styles.successText}
+            accessibilityRole="alert"
+            accessibilityLabel="Gênero atualizado com sucesso!"
+          >
+            Gênero atualizado com sucesso!
+          </Text>
+        )}
+        {generoUpdateStatus === 'error' && (
+          <Text 
+            style={styles.errorText}
+            accessibilityRole="alert"
+            accessibilityLabel="Erro ao atualizar gênero. Tente novamente."
+          >
+            Erro ao atualizar gênero. Tente novamente.
+          </Text>
+        )}
+      </View>
+    );
+  }, [user, renderGenderButton, isLoadingGenero, generoUpdateStatus]);
+
+  // Memoização do modal de alteração de email para evitar re-renderizações desnecessárias
+  // Movido antes do condicional para evitar o erro "React Hook useMemo is called conditionally"
+  const memoizedEmailChangeModal = useMemo(() => {
+    // Se o usuário não estiver disponível, retorna null
+    if (!user) return null;
+
+    return (
+      <EmailChangeModal 
+        isVisible={isEmailModalVisible}
+        onClose={() => setIsEmailModalVisible(false)}
+        userEmail={user.email || ''}
+        userToken={user.token || ''}
+      />
+    );
+  }, [user, isEmailModalVisible, setIsEmailModalVisible]);
+
   // Exibe um indicador de carregamento caso os dados do usuário ainda não estejam disponíveis
+  // Esta renderização condicional garante que a tela só seja exibida quando os dados do usuário estiverem carregados
+  // Isso evita erros de renderização e proporciona uma melhor experiência ao usuário
   if (!user) {
     return LoadingIndicator;
   }
@@ -802,301 +1179,30 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
 
             {/* Seção de Foto de Perfil */}
             <Text style={styles.label}>Foto de Perfil</Text>
-            {useMemo(() => (
-              <ProfileImagePicker
-                currentImageUrl={user.foto}
-                userToken={user.token}
-                onImageUploaded={(imageUrl) => {
-                  console.log('[NewEditProfileScreen] onImageUploaded chamada com URL:', imageUrl);
-
-                  // Verificar se a URL é válida antes de atualizar o estado
-                  if (!imageUrl) {
-                    console.warn('[NewEditProfileScreen] URL recebida é inválida ou vazia');
-                    return;
-                  }
-
-                  // Atualizar o valor do formulário
-                  setValue('foto', imageUrl, { 
-                    shouldDirty: true, 
-                    shouldValidate: true,
-                    shouldTouch: true
-                  });
-
-                  // Chamar a função de atualização de foto
-                  handleUpdatePhoto(imageUrl)
-                    .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar foto:', error));
-                }}
-                disabled={isLoading}
-              />
-            ), [user.foto, user.token, isLoading, setValue, handleUpdatePhoto])}
+            {memoizedProfileImagePicker}
 
             {/* Campo Nome */}
-            {useMemo(() => (
-              <ProfileField
-                name="nome"
-                control={control}
-                label="Nome"
-                placeholder="Nome"
-                icon="person"
-                errors={errors}
-                isLoading={isLoadingNome}
-                updateStatus={nomeUpdateStatus}
-                onSave={(value) => {
-                  console.log('[NewEditProfileScreen] Save nome button pressed with value:', value);
-                  handleUpdateNome(value)
-                    .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar nome:', error));
-                }}
-                accessibilityLabel="Campo de nome"
-                accessibilityHint="Digite seu nome completo"
-              />
-            ), [control, errors, isLoadingNome, nomeUpdateStatus, handleUpdateNome])}
+            {memoizedNomeField}
 
             {/* Campo Email (não editável diretamente) */}
-            {useMemo(() => (
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Email</Text>
-                <View style={styles.emailContainer}>
-                  <View style={[styles.inputWrapper, { flex: 0.8 }]}>
-                    <MaterialIcons name="email" size={20} color="#666" style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="Email"
-                      value={user.email}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      style={styles.emailInput}
-                      editable={false} // Email não é editável diretamente
-                      accessibilityLabel="Campo de email"
-                      accessibilityHint="Seu email atual"
-                    />
-                  </View>
-                  <TouchableOpacity
-                    style={styles.changeEmailButton}
-                    onPress={() => setIsEmailModalVisible(true)}
-                    disabled={isLoading}
-                    accessibilityLabel="Botão para alterar email"
-                    accessibilityHint="Toque para abrir o formulário de alteração de email"
-                  >
-                    <Text style={styles.changeEmailButtonText}>Alterar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ), [user.email, isLoading, setIsEmailModalVisible])}
+            {memoizedEmailField}
 
             {/* Campo Telefone */}
-            {useMemo(() => (
-              <ProfileField
-                name="telefone"
-                control={control}
-                label="Telefone"
-                placeholder="Telefone"
-                icon="phone"
-                errors={errors}
-                isLoading={isLoadingTelefone}
-                updateStatus={telefoneUpdateStatus}
-                keyboardType="phone-pad"
-                onSave={(value) => {
-                  console.log('[NewEditProfileScreen] Save telefone button pressed with value:', value);
-                  handleUpdateTelefone(value)
-                    .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar telefone:', error));
-                }}
-                accessibilityLabel="Campo de telefone"
-                accessibilityHint="Digite seu número de telefone com DDD"
-              />
-            ), [control, errors, isLoadingTelefone, telefoneUpdateStatus, handleUpdateTelefone])}
+            {memoizedTelefoneField}
 
             {/* Campo Endereço */}
-            {useMemo(() => (
-              <ProfileField
-                name="endereco"
-                control={control}
-                label="Endereço"
-                placeholder="Endereço"
-                icon="location-on"
-                errors={errors}
-                isLoading={isLoadingEndereco}
-                updateStatus={enderecoUpdateStatus}
-                onSave={(value) => {
-                  console.log('[NewEditProfileScreen] Save endereco button pressed with value:', value);
-                  handleUpdateEndereco(value)
-                    .catch(error => console.error('[NewEditProfileScreen] Erro ao atualizar endereço:', error));
-                }}
-                accessibilityLabel="Campo de endereço"
-                accessibilityHint="Digite seu endereço completo"
-              />
-            ), [control, errors, isLoadingEndereco, enderecoUpdateStatus, handleUpdateEndereco])}
+            {memoizedEnderecoField}
 
             {/* Campo Data de Nascimento */}
-            {useMemo(() => (
-              <View 
-                style={styles.inputContainer}
-                accessible={true}
-                accessibilityRole="none"
-                accessibilityLabel="Seção de data de nascimento"
-              >
-                <Text 
-                  style={styles.label}
-                  accessibilityRole="header"
-                >
-                  Data de Nascimento
-                </Text>
-                <View style={styles.dateContainer}>
-                  <TouchableOpacity 
-                    style={[styles.inputWrapper, { flex: 0.8 }]}
-                    onPress={() => setShowDatePicker(true)}
-                    disabled={isLoading || isLoadingDataNascimento}
-                    accessibilityLabel={`Data de nascimento: ${formatDate(user?.dataNascimento)}`}
-                    accessibilityHint="Toque para abrir o seletor de data"
-                    accessibilityRole="button"
-                    accessibilityState={{ 
-                      disabled: isLoading || isLoadingDataNascimento,
-                      busy: isLoadingDataNascimento
-                    }}
-                  >
-                    <MaterialIcons 
-                      name="calendar-today" 
-                      size={20} 
-                      color="#666" 
-                      style={styles.inputIcon}
-                      accessibilityLabel="Ícone de calendário" 
-                    />
-                    <Text style={styles.dateText}>
-                      {formatDate(user?.dataNascimento)}
-                    </Text>
-                  </TouchableOpacity>
-                  {isLoadingDataNascimento ? (
-                    <ActivityIndicator 
-                      size="small" 
-                      color="#4a80f5" 
-                      style={{ marginLeft: 10 }}
-                      accessibilityLabel="Atualizando data de nascimento"
-                      accessibilityHint="Por favor aguarde enquanto salvamos suas alterações"
-                      importantForAccessibility="yes"
-                    />
-                  ) : (
-                    dataNascimentoUpdateStatus === 'success' && (
-                      <MaterialIcons 
-                        name="check-circle" 
-                        size={24} 
-                        color="#34c759" 
-                        style={styles.fieldIndicator}
-                        accessibilityLabel="Data de nascimento salva com sucesso"
-                        importantForAccessibility="yes"
-                      />
-                    )
-                  )}
-                </View>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={user?.dataNascimento ? new Date(user.dataNascimento) : new Date(2000, 0, 1)}
-                    mode="date"
-                    display="spinner"
-                    onChange={(event, date) => onDateChange(event, date)}
-                    maximumDate={new Date()}
-                    accessibilityLabel="Seletor de data de nascimento"
-                  />
-                )}
-                {dataNascimentoUpdateStatus === 'success' && (
-                  <Text 
-                    style={styles.successText}
-                    accessibilityRole="alert"
-                    accessibilityLabel="Data de nascimento atualizada com sucesso!"
-                  >
-                    Data de nascimento atualizada com sucesso!
-                  </Text>
-                )}
-                {dataNascimentoUpdateStatus === 'error' && (
-                  <Text 
-                    style={styles.errorText}
-                    accessibilityRole="alert"
-                    accessibilityLabel="Erro ao atualizar data de nascimento. Tente novamente."
-                  >
-                    Erro ao atualizar data de nascimento. Tente novamente.
-                  </Text>
-                )}
-              </View>
-            ), [
-              isLoading, 
-              isLoadingDataNascimento, 
-              dataNascimentoUpdateStatus, 
-              user?.dataNascimento, 
-              formatDate, 
-              showDatePicker, 
-              onDateChange, 
-              setShowDatePicker
-            ])}
+            {memoizedDataNascimentoField}
 
             {/* Campo Gênero */}
-            {useMemo(() => (
-              <View 
-                style={styles.inputContainer}
-                accessible={true}
-                accessibilityRole="radiogroup"
-                accessibilityLabel="Seção de gênero"
-              >
-                <Text 
-                  style={styles.label}
-                  accessibilityRole="header"
-                >
-                  Gênero
-                </Text>
-                <View style={styles.buttonGroup}>
-                  {renderGenderButton('Feminino', 'Feminino')}
-                  {renderGenderButton('Masculino', 'Masculino')}
-                  {renderGenderButton('Prefiro não dizer', 'Prefiro não dizer')}
-                </View>
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 5 }}>
-                  {isLoadingGenero ? (
-                    <ActivityIndicator 
-                      size="small" 
-                      color="#4a80f5"
-                      accessibilityLabel="Atualizando gênero"
-                      accessibilityHint="Por favor aguarde enquanto salvamos suas alterações"
-                      importantForAccessibility="yes"
-                    />
-                  ) : (
-                    generoUpdateStatus === 'success' && (
-                      <MaterialIcons 
-                        name="check-circle" 
-                        size={24} 
-                        color="#34c759"
-                        accessibilityLabel="Gênero salvo com sucesso"
-                        importantForAccessibility="yes"
-                      />
-                    )
-                  )}
-                </View>
-                {generoUpdateStatus === 'success' && (
-                  <Text 
-                    style={styles.successText}
-                    accessibilityRole="alert"
-                    accessibilityLabel="Gênero atualizado com sucesso!"
-                  >
-                    Gênero atualizado com sucesso!
-                  </Text>
-                )}
-                {generoUpdateStatus === 'error' && (
-                  <Text 
-                    style={styles.errorText}
-                    accessibilityRole="alert"
-                    accessibilityLabel="Erro ao atualizar gênero. Tente novamente."
-                  >
-                    Erro ao atualizar gênero. Tente novamente.
-                  </Text>
-                )}
-              </View>
-            ), [renderGenderButton, isLoadingGenero, generoUpdateStatus])}
+            {memoizedGeneroField}
 
           </View>
 
           {/* Componente de modal para alteração de email */}
-          {useMemo(() => (
-            <EmailChangeModal 
-              isVisible={isEmailModalVisible}
-              onClose={() => setIsEmailModalVisible(false)}
-              userEmail={user.email || ''}
-              userToken={user.token || ''}
-            />
-          ), [isEmailModalVisible, user.email, user.token, setIsEmailModalVisible])}
+          {memoizedEmailChangeModal}
         </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
@@ -1104,31 +1210,39 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
 }
 
 // Definição dos estilos da tela
+// Este objeto contém todos os estilos utilizados na tela de edição de perfil
+// Os estilos são organizados por componente e funcionalidade para facilitar a manutenção
 const styles = StyleSheet.create({
+  // Estilos para o ScrollView principal
   scrollView: {
     flex: 1,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#f9f9f9', // Fundo claro para melhor legibilidade
   },
+  // Estilo para o container principal
   container: {
     flex: 1,
-    padding: 20,
+    padding: 20, // Espaçamento interno para todos os lados
   },
+  // Estilo para o título da tela
   title: {
     fontSize: 26,
     fontWeight: 'bold',
     marginBottom: 25,
     textAlign: 'center',
-    color: '#333',
+    color: '#333', // Cor escura para melhor contraste
   },
+  // Estilo para cada container de campo de entrada
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 16, // Espaçamento entre os campos
   },
+  // Estilo para os rótulos dos campos
   label: {
     fontSize: 16,
     marginBottom: 8,
     color: '#555',
     fontWeight: '500',
   },
+  // Estilo para o wrapper dos campos de entrada
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1138,35 +1252,43 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingHorizontal: 10,
   },
+  // Estilo para os ícones dentro dos campos
   inputIcon: {
     marginRight: 10,
   },
+  // Estilo para ícones dentro de botões
   buttonIcon: {
     marginRight: 8,
   },
+  // Estilo para os campos de entrada de texto
   input: {
     flex: 1,
     padding: 12,
     fontSize: 16,
   },
+  // Estilo para campos com erro de validação
   inputError: {
-    borderColor: '#ff3b30',
+    borderColor: '#ff3b30', // Vermelho para indicar erro
   },
+  // Estilo para campos com validação bem-sucedida
   inputSuccess: {
-    borderColor: '#34c759',
+    borderColor: '#34c759', // Verde para indicar sucesso
   },
+  // Estilo para mensagens de erro
   errorText: {
-    color: '#ff3b30',
+    color: '#ff3b30', // Vermelho para indicar erro
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
   },
+  // Estilo para mensagens de sucesso
   successText: {
-    color: '#34c759',
+    color: '#34c759', // Verde para indicar sucesso
     fontSize: 14,
     marginTop: 4,
     marginLeft: 4,
   },
+  // Estilo para indicadores de status dos campos
   fieldIndicator: {
     marginLeft: 10,
   },
@@ -1176,6 +1298,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // Estilo para o texto da data
   dateText: {
     flex: 1,
     padding: 12,
@@ -1194,15 +1317,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  // Estilo para o campo de email (não editável)
   emailInput: {
     flex: 1, // Ocupa todo o espaço disponível dentro do inputWrapper
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: '#f0f0f0', // Fundo cinza para indicar que não é editável
     maxWidth: '100%', // Garante que não ultrapasse os limites do container
   },
+  // Estilo para o botão de alteração de email
   changeEmailButton: {
-    backgroundColor: '#4a80f5',
+    backgroundColor: '#4a80f5', // Azul para destacar a ação
     paddingVertical: 12,
     paddingHorizontal: 15,
     borderRadius: 8,
@@ -1214,6 +1339,7 @@ const styles = StyleSheet.create({
     elevation: 2,
     minWidth: 80, // Garante uma largura mínima para o botão
   },
+  // Estilo para o texto do botão de alteração de email
   changeEmailButtonText: {
     color: 'white',
     fontWeight: '600',
@@ -1223,21 +1349,24 @@ const styles = StyleSheet.create({
   infoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6efff',
+    backgroundColor: '#e6efff', // Azul claro para destacar a informação
     padding: 15,
     borderRadius: 8,
     marginTop: 20,
     marginBottom: 30,
   },
+  // Estilo para o ícone de informação
   infoIcon: {
     marginRight: 10,
   },
+  // Estilo para o texto de informação
   infoText: {
     flex: 1,
-    color: '#4a80f5',
+    color: '#4a80f5', // Azul para combinar com o fundo
     fontSize: 14,
     lineHeight: 20,
   },
+  // Estilo para o botão de salvar
   saveButton: {
     padding: 8,
     marginLeft: 5,

@@ -35,6 +35,14 @@ export interface IHistoricoStatusPagamento extends Types.Subdocument {
   metadata?: Mixed; // Para armazenar dados adicionais da integração financeira
 }
 
+// Interface para criação de novos registros de histórico de status sem as propriedades do Mongoose
+export interface IHistoricoStatusPagamentoInput {
+  status: PagamentoStatusEnum;
+  timestamp: Date;
+  motivo?: string;
+  metadata?: Mixed; // Para armazenar dados adicionais da integração financeira
+}
+
 // Interface principal que define a estrutura completa de um documento de Pagamento
 export interface IPagamento extends Document {
   contratacaoId: Types.ObjectId | IContratacao; // Referência à contratação relacionada

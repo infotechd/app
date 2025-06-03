@@ -1,3 +1,4 @@
+/// <reference types="node" />
 // 1. Carrega variáveis de ambiente do arquivo .env (Deve ser uma das primeiras linhas!)
 // Importa e configura o dotenv para acessar as variáveis de ambiente
 import dotenv from 'dotenv';
@@ -9,6 +10,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose';
 import http from 'http';
+// NodeJS namespace is available globally with @types/node
 import { Server, Socket } from 'socket.io'; // Importa os tipos do Socket.IO para comunicação em tempo real
 import jwt, { JwtPayload } from 'jsonwebtoken'; // Importa os tipos do jsonwebtoken para autenticação
 import { TipoUsuarioEnum } from './models/User'; // Importa o enum que define os tipos de usuário
@@ -41,7 +43,10 @@ import authRoutes from './routes/authRoutes';
 // Define uma interface para o payload decodificado do JWT
 export interface DecodedUserToken extends JwtPayload {
   userId: string;
-  tipoUsuario: TipoUsuarioEnum;
+  isAdmin: boolean;
+  isComprador: boolean;
+  isPrestador: boolean;
+  isAnunciante: boolean;
 }
 
 // Estende a interface do Socket para incluir nossa propriedade 'user'
@@ -169,6 +174,7 @@ const startServer = (port: number) => {
   server.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
     console.log(`Frontend esperado em: ${CLIENT_URL || '(URL não definida!)'}`);
+  // eslint-disable-next-line no-undef
   }).on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EADDRINUSE') {
       console.warn(`Porta ${port} já está em uso, tentando porta ${port + 1}...`);

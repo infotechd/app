@@ -1,7 +1,7 @@
-// This file runs before any other setup files
-// It's used to mock problematic modules that might cause issues with Jest
+// Este arquivo é executado antes de quaisquer outros arquivos de configuração
+// É usado para simular módulos problemáticos que podem causar problemas com o Jest
 
-// Mock the global expo object
+// Simulação do objeto global expo
 globalThis.expo = {
   EventEmitter: jest.fn().mockImplementation(() => ({
     addListener: jest.fn(),
@@ -13,7 +13,7 @@ globalThis.expo = {
   SharedRef: jest.fn(),
 };
 
-// Mock the entire @react-native/js-polyfills module and its submodules
+// Simulação do módulo completo @react-native/js-polyfills e seus submódulos
 jest.mock('@react-native/js-polyfills', () => {
   return {
     ErrorUtils: {
@@ -25,7 +25,7 @@ jest.mock('@react-native/js-polyfills', () => {
   };
 }, { virtual: true });
 
-// Specifically mock the error-guard module
+// Simulação específica do módulo error-guard
 jest.mock('@react-native/js-polyfills/error-guard', () => {
   return {
     ErrorUtils: {

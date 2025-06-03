@@ -54,6 +54,11 @@ const userBaseSchema = z.object({
     errorMap: () => ({ message: 'Tipo de usuário inválido' })
   }),
 
+  // Campos para os papéis do usuário
+  isComprador: z.boolean().optional(),
+  isPrestador: z.boolean().optional(),
+  isAnunciante: z.boolean().optional(),
+
   // Campo opcional para o endereço do usuário
   endereco: z.string().trim().optional(),
 
@@ -95,18 +100,36 @@ export const createUserSchema = userBaseSchema.extend({
 
 // Esquema para atualização de dados do usuário
 // Torna todos os campos do esquema base opcionais e adiciona validação de senha opcional
-export const updateUserSchema = userBaseSchema
-  .partial()
-  .extend({
-    // Campo opcional para atualização de senha
-    // Mantém as mesmas regras de validação da criação quando fornecido
-    senha: z.string()
-      .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
-      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-        message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
+export const updateUserSchema = z.union([
+  // Opção 1: Campos diretamente no objeto raiz
+  userBaseSchema
+    .partial()
+    .extend({
+      // Campo opcional para atualização de senha
+      // Mantém as mesmas regras de validação da criação quando fornecido
+      senha: z.string()
+        .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
+        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+          message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
+        })
+        .optional(),
+    }),
+
+  // Opção 2: Campos dentro de um objeto 'user'
+  z.object({
+    user: userBaseSchema
+      .partial()
+      .extend({
+        // Campo opcional para atualização de senha
+        senha: z.string()
+          .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
+          .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+            message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
+          })
+          .optional(),
       })
-      .optional(),
-  });
+  })
+]);
 
 // Esquema para autenticação de usuário no sistema
 // Contém apenas os campos necessários para o login: email e senha

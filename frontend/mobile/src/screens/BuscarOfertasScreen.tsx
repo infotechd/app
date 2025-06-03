@@ -1,3 +1,19 @@
+/**
+ * BuscarOfertasScreen.tsx
+ * 
+ * Este componente implementa a tela de busca de ofertas do aplicativo.
+ * Permite aos usuários pesquisar ofertas por texto, filtrar por categorias,
+ * localização e preço máximo, e visualizar os resultados em uma lista.
+ * 
+ * Funcionalidades principais:
+ * - Pesquisa de ofertas por texto
+ * - Filtros por categoria, localização e preço
+ * - Histórico de buscas e filtros recentes
+ * - Suporte a acessibilidade (alto contraste, leitor de tela)
+ * - Exibição de ofertas em cards com informações detalhadas
+ * - Navegação para detalhes da oferta
+ */
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
@@ -48,6 +64,12 @@ type BuscarOfertasScreenProps = NativeStackScreenProps<RootStackParamList, 'Busc
  * Permite buscar por texto e filtrar por preço máximo.
  */
 export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenProps) {
+  /**
+   * Estados principais do componente
+   * 
+   * Aqui são definidos os estados que controlam a busca, os resultados,
+   * o carregamento e os erros da tela de busca de ofertas.
+   */
   // 3. Tipar Estados
   const [textoPesquisa, setTextoPesquisa] = useState<string>('');
   const [precoMax, setPrecoMax] = useState<string>(''); // Input é string
@@ -55,12 +77,23 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   const [loading, setLoading] = useState<boolean>(false); // Inicia como false, busca é manual
   const [error, setError] = useState<string | null>(null);
 
-  // Estados para acessibilidade
+  /**
+   * Estados para acessibilidade
+   * 
+   * Estes estados controlam as configurações de acessibilidade da tela,
+   * como o modo de alto contraste e a detecção do leitor de tela.
+   * Permitem adaptar a interface para usuários com necessidades especiais.
+   */
   const { fontScale } = useWindowDimensions();
   const [isHighContrastMode, setIsHighContrastMode] = useState<boolean>(false);
   const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
 
-  // Estados para filtros de categoria e localização
+  /**
+   * Estados para filtros de categoria e localização
+   * 
+   * Estes estados controlam os filtros de categoria e localização,
+   * incluindo as seleções do usuário e a exibição dos modais de seleção.
+   */
   const [categorias, setCategorias] = useState<string[]>([]);
   const [showCategoriasModal, setShowCategoriasModal] = useState<boolean>(false);
 
@@ -70,7 +103,11 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   const [showEstadosModal, setShowEstadosModal] = useState<boolean>(false);
   const [showCidadesModal, setShowCidadesModal] = useState<boolean>(false);
 
-  // Estados para controle de filtros expansíveis
+  /**
+   * Estados para controle de filtros expansíveis
+   * 
+   * Controlam a animação e exibição dos painéis de filtro expansíveis.
+   */
   const [expandedFilter, setExpandedFilter] = useState<string | null>(null);
   const filterAnimations = useRef({
     categorias: new Animated.Value(0),
@@ -239,7 +276,15 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     loadRecentSearchesAndFilters();
   }, [loadRecentSearchesAndFilters]);
 
-  // 4. Refatorar handleSearch
+  /**
+   * Função de busca de ofertas
+   * 
+   * Esta função é responsável por buscar ofertas com base nos filtros aplicados.
+   * Processa os parâmetros de busca, faz a requisição à API e atualiza o estado
+   * com os resultados obtidos. Também salva buscas e filtros recentes.
+   * 
+   * @param isUserInitiated Indica se a busca foi iniciada pelo usuário (true) ou pelo sistema (false)
+   */
   const handleSearch = useCallback(async (isUserInitiated: boolean = true) => {
     setLoading(true);
     setError(null);
@@ -264,7 +309,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
       // Adiciona parâmetro para incluir informações do prestador
       // Este parâmetro pode não ser suportado pelo backend, mas é uma tentativa
       // de solicitar que o backend inclua as informações do prestador na resposta
-      includeProvider: true,
+      incluirPrestador: true,
     };
 
     // Processa o texto de pesquisa para melhorar a correspondência
@@ -451,7 +496,17 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
         };
   }, [isHighContrastMode]);
 
-  // Renderiza um item da lista de ofertas
+  /**
+   * Renderiza um item da lista de ofertas
+   * 
+   * Esta função é responsável por renderizar cada oferta na lista de resultados.
+   * Cria um card com informações da oferta, incluindo título, prestador, preço,
+   * localização e categorias. Também aplica estilos condicionais baseados nas
+   * configurações de acessibilidade.
+   * 
+   * @param item A oferta a ser renderizada
+   * @returns Componente React representando o card da oferta
+   */
   const renderItem = useCallback(({ item }: ListRenderItemInfo<Offer>): React.ReactElement => {
     // Log para debug - ver o que está vindo na oferta
     console.log('[RENDER_ITEM] Dados do prestador:', JSON.stringify(item.prestadorId));
@@ -712,7 +767,13 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     </View>
   ), [isInitialRender, colors, getAdjustedFontSize]);
 
-  // Função para lidar com o botão "Ver Ofertas"
+  /**
+   * Função para lidar com o botão "Ver Ofertas"
+   * 
+   * Esta função é acionada quando o usuário clica no botão "Ver Ofertas".
+   * Limpa todos os filtros aplicados e busca todas as ofertas disponíveis,
+   * independentemente de categorias, localização ou preço.
+   */
   const handleVerTodasOfertas = useCallback(() => {
     console.log('[VER OFERTAS] Iniciando busca de todas as ofertas disponíveis...');
     console.log('[VER OFERTAS] API_URL configurada:', API_URL);
@@ -741,7 +802,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     const params: FetchOffersParams = {
       status: 'ready', // Busca apenas ofertas prontas
       // Adiciona parâmetro para incluir informações do prestador
-      includeProvider: true,
+      incluirPrestador: true,
     };
 
     console.log('[VER OFERTAS] Parâmetros de busca:', JSON.stringify(params));
@@ -836,7 +897,16 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   }, [user, isTokenValid, isScreenReaderEnabled, saveRecentFilter]);
 
 
-  // Função para expandir/recolher os filtros
+  /**
+   * Função para expandir/recolher os filtros
+   * 
+   * Esta função controla a expansão e recolhimento dos painéis de filtro.
+   * Quando um filtro é clicado, ele expande se estiver fechado ou recolhe
+   * se já estiver aberto. Também anima a transição e anuncia a mudança
+   * para leitores de tela.
+   * 
+   * @param filterName Nome do filtro a ser expandido/recolhido
+   */
   const toggleFilterExpand = useCallback((filterName: string) => {
     // Determina o novo estado expandido
     const newExpandedFilter = expandedFilter === filterName ? null : filterName;
@@ -970,7 +1040,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
           </TouchableOpacity>
         </View>
 
-        {/* Search box and button side by side */}
+        {/* Caixa de pesquisa e botão lado a lado */}
         <View style={styles.searchRow}>
           <TextInput
             placeholder="pesquise uma oferta"
@@ -1142,7 +1212,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
           </View>
         )}
 
-        {/* Filter tabs */}
+        {/* Abas de filtro */}
         <View style={[
           styles.filterTabsContainer,
           { 
@@ -1602,7 +1672,13 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   );
 }
 
-// 10. Estilos
+/**
+ * Estilos do componente
+ * 
+ * Define todos os estilos utilizados na tela de busca de ofertas.
+ * Inclui estilos para containers, inputs, botões, cards, filtros,
+ * modais e elementos de acessibilidade.
+ */
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,

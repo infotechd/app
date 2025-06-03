@@ -1,6 +1,9 @@
 // Arquivo: src/controllers/uploadController.ts
 // Controlador responsável pelo gerenciamento de uploads de arquivos
 import { Request, Response, NextFunction } from 'express';
+import express from 'express';
+// Import Express namespace for type definitions
+import { Express } from 'express';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';

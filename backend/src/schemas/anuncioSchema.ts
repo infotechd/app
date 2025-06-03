@@ -13,9 +13,9 @@ const urlRegex = /^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$
  * Exclui o tipo 'admin' pois anúncios não são direcionados a administradores
  */
 const tiposUsuarioSegmentacaoValidos = [
-  TipoUsuarioEnum.COMPRADOR,
-  TipoUsuarioEnum.PRESTADOR,
-  TipoUsuarioEnum.ANUNCIANTE
+  'comprador',
+  'prestador',
+  'anunciante'
 ];
 
 /**

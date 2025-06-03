@@ -1,50 +1,27 @@
 // src/middlewares/authorizationMiddleware.ts
 
 import { Request, Response, NextFunction } from 'express';
-import { TipoUsuarioEnum } from '../models/User'; // Importa o Enum de tipos de usuário
 
 /**
- * Função fábrica que gera middlewares para verificação de funções de usuário.
+ * Função fábrica que gera middlewares para verificação de capacidades de usuário.
  * Segue o princípio DRY (Não Se Repita) evitando duplicação de código.
  * 
- * @param role - O tipo de usuário (função) a ser verificado
+ * @param capabilityCheck - Função que verifica se o usuário possui a capacidade necessária
  * @param errorMessage - Mensagem de erro customizada (opcional)
- * @returns Middleware que verifica se o usuário possui a função especificada
+ * @returns Middleware que verifica se o usuário possui a capacidade especificada
  */
-export const checkRole = (role: TipoUsuarioEnum, errorMessage?: string) => {
+export const checkCapability = (
+  capabilityCheck: (req: Request) => boolean,
+  errorMessage: string
+) => {
   return (req: Request, res: Response, next: NextFunction): void => {
-    // Verifica se req.user existe e se o tipoUsuario corresponde à função especificada
-    if (req.user && req.user.tipoUsuario === role) {
-      // Se o usuário tiver a função correta, permite que a requisição continue
+    // Verifica se req.user existe e se o usuário possui a capacidade necessária
+    if (req.user && capabilityCheck(req)) {
+      // Se o usuário tiver a capacidade correta, permite que a requisição continue
       next();
     } else {
-      // Se não tiver a função correta, retorna erro 403 (Acesso Proibido)
-      const defaultMessage = `Acesso proibido: Requer privilégios de ${role}.`;
-      res.status(403).json({ message: errorMessage || defaultMessage });
-      // Não chama next() para interromper a cadeia de execução
-    }
-  };
-};
-
-/**
- * Função fábrica que gera middlewares para verificação de múltiplas funções de usuário.
- * Permite verificar se o usuário possui pelo menos uma das funções especificadas.
- * 
- * @param roles - Array de tipos de usuário (funções) a serem verificados
- * @param errorMessage - Mensagem de erro customizada (opcional)
- * @returns Middleware que verifica se o usuário possui pelo menos uma das funções especificadas
- */
-export const checkAnyRole = (roles: TipoUsuarioEnum[], errorMessage?: string) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    // Verifica se req.user existe e se o tipoUsuario está entre as funções especificadas
-    if (req.user && roles.includes(req.user.tipoUsuario as TipoUsuarioEnum)) {
-      // Se o usuário tiver pelo menos uma das funções, permite que a requisição continue
-      next();
-    } else {
-      // Se não tiver nenhuma das funções, retorna erro 403 (Acesso Proibido)
-      const rolesStr = roles.join(' ou ');
-      const defaultMessage = `Acesso proibido: Requer privilégios de ${rolesStr}.`;
-      res.status(403).json({ message: errorMessage || defaultMessage });
+      // Se não tiver a capacidade correta, retorna erro 403 (Acesso Proibido)
+      res.status(403).json({ message: errorMessage });
       // Não chama next() para interromper a cadeia de execução
     }
   };
@@ -55,8 +32,8 @@ export const checkAnyRole = (roles: TipoUsuarioEnum[], errorMessage?: string) =>
  * Middleware para verificar se o usuário logado é um Prestador de Serviço.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isPrestador = checkRole(
-  TipoUsuarioEnum.PRESTADOR, 
+export const isPrestador = checkCapability(
+  (req) => req.user?.isPrestador === true,
   'Acesso proibido: Requer privilégios de Prestador de Serviço.'
 );
 
@@ -64,8 +41,8 @@ export const isPrestador = checkRole(
  * Middleware para verificar se o usuário logado é um Administrador.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isAdmin = checkRole(
-  TipoUsuarioEnum.ADMIN,
+export const isAdmin = checkCapability(
+  (req) => req.user?.isAdmin === true,
   'Acesso proibido: Requer privilégios de Administrador.'
 );
 
@@ -73,8 +50,8 @@ export const isAdmin = checkRole(
  * Middleware para verificar se o usuário logado é um Comprador.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isComprador = checkRole(
-  TipoUsuarioEnum.COMPRADOR,
+export const isComprador = checkCapability(
+  (req) => req.user?.isComprador === true,
   'Acesso proibido: Requer privilégios de Comprador.'
 );
 
@@ -82,19 +59,19 @@ export const isComprador = checkRole(
  * Middleware para verificar se o usuário logado é um Anunciante.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isAnunciante = checkRole(
-  TipoUsuarioEnum.ANUNCIANTE,
+export const isAnunciante = checkCapability(
+  (req) => req.user?.isAnunciante === true,
   'Acesso proibido: Requer privilégios de Anunciante.'
 );
 
-// Exemplos de middlewares que verificam múltiplas funções
+// Exemplos de middlewares que verificam múltiplas capacidades
 /**
  * Middleware para verificar se o usuário logado é um Administrador ou um Prestador.
  * Útil para rotas que podem ser acessadas por ambos os tipos de usuário.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isAdminOrPrestador = checkAnyRole(
-  [TipoUsuarioEnum.ADMIN, TipoUsuarioEnum.PRESTADOR],
+export const isAdminOrPrestador = checkCapability(
+  (req) => req.user?.isAdmin === true || req.user?.isPrestador === true,
   'Acesso proibido: Requer privilégios de Administrador ou Prestador de Serviço.'
 );
 
@@ -103,8 +80,8 @@ export const isAdminOrPrestador = checkAnyRole(
  * Útil para rotas relacionadas a transações comerciais.
  * Assume que o authMiddleware já foi executado e populou req.user.
  */
-export const isCompradorOrAnunciante = checkAnyRole(
-  [TipoUsuarioEnum.COMPRADOR, TipoUsuarioEnum.ANUNCIANTE],
+export const isCompradorOrAnunciante = checkCapability(
+  (req) => req.user?.isComprador === true || req.user?.isAnunciante === true,
   'Acesso proibido: Requer privilégios de Comprador ou Anunciante.'
 );
 

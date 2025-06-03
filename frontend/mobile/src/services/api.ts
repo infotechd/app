@@ -86,6 +86,27 @@ import {
 import axios from 'axios';
 import { API_URL } from "../config/api";
 
+// Define RequestInit interface if not available
+interface RequestInit {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  mode?: 'cors' | 'no-cors' | 'same-origin';
+  credentials?: 'omit' | 'same-origin' | 'include';
+  cache?: 'default' | 'no-store' | 'reload' | 'no-cache' | 'force-cache' | 'only-if-cached';
+  redirect?: 'follow' | 'error' | 'manual';
+  referrer?: string;
+  referrerPolicy?: 'no-referrer' | 'no-referrer-when-downgrade' | 'origin' | 'origin-when-cross-origin' | 'same-origin' | 'strict-origin' | 'strict-origin-when-cross-origin' | 'unsafe-url';
+  integrity?: string;
+  keepalive?: boolean;
+  signal?: AbortSignal;
+}
+
+// Define HeadersInit interface if not available
+interface HeadersInit {
+  [key: string]: string;
+}
+
 // Interface para resposta de detalhes de uma oferta
 export interface FetchOfferDetailResponse {
   success?: boolean;
@@ -302,6 +323,31 @@ const handleApiError = async (response: Response): Promise<never> => {
   const errorMessage = errorData?.message || `Erro na API: ${response.status} ${response.statusText}`;
   const errorCode = errorData?.errorCode;
 
+  // Verifica se é um erro de token inválido ou expirado
+  if (
+    response.status === 401 && 
+    (errorMessage.includes('Token inválido') || 
+     errorMessage.includes('Token expirado') || 
+     errorMessage.includes('não autorizado'))
+  ) {
+    console.error('Token inválido ou expirado. Redirecionando para login...');
+
+    // Importa AsyncStorage diretamente para evitar dependência circular
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+    // Remove os dados do usuário do AsyncStorage
+    try {
+      AsyncStorage.removeItem('appUser');
+      console.log('Usuário deslogado devido a token expirado');
+
+      // Notifica o usuário sobre o token expirado
+      // Não podemos usar Alert diretamente aqui devido à estrutura do código
+      // O erro será capturado e tratado pelo componente que fez a chamada
+    } catch (storageError) {
+      console.error('Erro ao remover dados do usuário:', storageError);
+    }
+  }
+
   throw new ApiError(errorMessage, errorCode);
 };
 
@@ -506,6 +552,25 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
       response.user.token = response.token;
     }
 
+    // Garante que as propriedades de capacidade do usuário estejam presentes
+    // Isso é necessário porque o backend pode estar enviando dados incompletos
+    // mas o frontend espera as flags booleanas
+    if (response.user) {
+      // Se as propriedades não existirem, define valores padrão
+      if (response.user.isComprador === undefined) {
+        response.user.isComprador = false;
+      }
+      if (response.user.isPrestador === undefined) {
+        response.user.isPrestador = false;
+      }
+      if (response.user.isAnunciante === undefined) {
+        response.user.isAnunciante = false;
+      }
+      if (response.user.isAdmin === undefined) {
+        response.user.isAdmin = false;
+      }
+    }
+
     // Validar resposta com Zod
     const data = validateWithZod(loginResponseSchema, response);
 
@@ -582,6 +647,25 @@ export const getProfile = async (token: string): Promise<GetProfileResponse> => 
       token
     });
 
+    // Garante que as propriedades de capacidade do usuário estejam presentes
+    // Isso é necessário porque o backend pode estar enviando dados incompletos
+    // mas o frontend espera as flags booleanas
+    if (response) {
+      // Se as propriedades não existirem, define valores padrão
+      if (response.isComprador === undefined) {
+        response.isComprador = false;
+      }
+      if (response.isPrestador === undefined) {
+        response.isPrestador = false;
+      }
+      if (response.isAnunciante === undefined) {
+        response.isAnunciante = false;
+      }
+      if (response.isAdmin === undefined) {
+        response.isAdmin = false;
+      }
+    }
+
     // Validar resposta com Zod (GetProfileResponse é um User)
     const data = validateWithZod(userSchema, response);
 
@@ -638,6 +722,24 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
       token,
       body: validatedProfileData
     });
+
+    // Garante que as propriedades de capacidade do usuário estejam presentes na resposta
+    // Isso é necessário porque o backend pode estar enviando dados incompletos
+    if (response.user) {
+      // Se as propriedades não existirem, define valores padrão
+      if (response.user.isComprador === undefined) {
+        response.user.isComprador = false;
+      }
+      if (response.user.isPrestador === undefined) {
+        response.user.isPrestador = false;
+      }
+      if (response.user.isAnunciante === undefined) {
+        response.user.isAnunciante = false;
+      }
+      if (response.user.isAdmin === undefined) {
+        response.user.isAdmin = false;
+      }
+    }
 
     // Validar resposta com Zod
     console.log('Resposta recebida do servidor:', JSON.stringify(response, null, 2));

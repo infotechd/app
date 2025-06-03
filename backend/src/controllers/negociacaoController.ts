@@ -4,7 +4,6 @@ import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import Negociacao, { NegociacaoStatusEnum, HistoricoNegociacaoTipoEnum } from '../models/Negociacao';
 import Contratacao, { IContratacao, ContratacaoStatusEnum } from '../models/Contratacao';
-import { TipoUsuarioEnum } from '../models/User';
 
 // --- Funções do Controller ---
 
@@ -13,8 +12,8 @@ import { TipoUsuarioEnum } from '../models/User';
  * Apenas o Comprador da Contratação pode iniciar.
  */
 export const criarNegociacao = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-  // Verifica se o usuário está logado e se é do tipo comprador
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.COMPRADOR) {
+  // Verifica se o usuário está logado e se tem capacidade de comprador
+  if (!req.user || !req.user.isComprador) {
     res.status(403).json({ message: 'Acesso proibido: Apenas compradores podem iniciar negociações.' });
     return;
   }

@@ -3,7 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import Contratacao, { IContratacao, ContratacaoStatusEnum } from '../models/Contratacao'; // Importa modelo e interface/enum
 import OfertaServico, { IOfertaServico, OfertaStatusEnum } from '../models/OfertaServico'; // Importa modelo e interface/enum
-import { TipoUsuarioEnum } from '../models/User'; // Importa enum do User
+// No longer need to import TipoUsuarioEnum
 import mongoose, { HydratedDocument } from "mongoose"; // Para checar ObjectId válido
 
 // --- Função para Criar Contratação ---
@@ -14,7 +14,7 @@ import mongoose, { HydratedDocument } from "mongoose"; // Para checar ObjectId v
  */
 export const contratarOferta = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se há usuário logado e se é comprador
-  if (!req.user || req.user.tipoUsuario !== TipoUsuarioEnum.COMPRADOR) {
+  if (!req.user || !req.user.isComprador) {
     res.status(403).json({ message: 'Acesso proibido: Apenas compradores podem contratar ofertas.' });
     return;
   }
@@ -192,7 +192,6 @@ export const atualizarStatusContratacao = async (req: Request, res: Response, ne
     return;
   }
   const userId = req.user.userId;
-  const userType = req.user.tipoUsuario;
   const { contratacaoId } = req.params;
   const { status: novoStatus, ...outrosDados } = req.body; // Pega novo status do corpo
 
@@ -222,30 +221,30 @@ export const atualizarStatusContratacao = async (req: Request, res: Response, ne
 
     switch (novoStatus) {
       case ContratacaoStatusEnum.ACEITA:
-        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.PENDENTE);
+        permissaoConcedida = (req.user.isPrestador === true && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.PENDENTE);
         // Ao aceitar, definir dataInicioServico se vier no body
         if (novoStatus === ContratacaoStatusEnum.ACEITA && outrosDados.dataInicioServico) {
           contratacao.dataInicioServico = new Date(outrosDados.dataInicioServico);
         }
         break;
       case ContratacaoStatusEnum.EM_ANDAMENTO:
-        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.ACEITA);
+        permissaoConcedida = (req.user.isPrestador === true && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.ACEITA);
         // Registrar dataInicioServico se não estiver definido
         if (!contratacao.dataInicioServico) {
           contratacao.dataInicioServico = new Date();
         }
         break;
       case ContratacaoStatusEnum.CONCLUIDO: // CU16
-        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.EM_ANDAMENTO);
+        permissaoConcedida = (req.user.isPrestador === true && contratacao.prestadorId.toString() === userId && statusAtual === ContratacaoStatusEnum.EM_ANDAMENTO);
         // Registrar dataFimServico
         contratacao.dataFimServico = new Date();
         // TODO: Liberar fluxo de pagamento/avaliação em um serviço separado
         break;
       case ContratacaoStatusEnum.CANCELADO_BUYER:
-        permissaoConcedida = (userType === TipoUsuarioEnum.COMPRADOR && contratacao.buyerId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo: só pode cancelar antes de iniciar
+        permissaoConcedida = (req.user.isComprador === true && contratacao.buyerId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo: só pode cancelar antes de iniciar
         break;
       case ContratacaoStatusEnum.CANCELADO_PRESTADOR:
-        permissaoConcedida = (userType === TipoUsuarioEnum.PRESTADOR && contratacao.prestadorId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo
+        permissaoConcedida = (req.user.isPrestador === true && contratacao.prestadorId.toString() === userId && [ContratacaoStatusEnum.PENDENTE, ContratacaoStatusEnum.ACEITA].includes(statusAtual)); // Exemplo
         break;
       // Adicionar lógica para DISPUTA, etc.
       default:

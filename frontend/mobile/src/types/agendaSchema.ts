@@ -2,72 +2,91 @@ import { z } from 'zod';
 import { contratacaoStatusSchema } from './contratacaoSchema';
 
 /**
- * Zod schema for CompromissoStatus
+ * Schema Zod para CompromissoStatus
+ * 
+ * Este schema define os possíveis estados de um compromisso,
+ * combinando os estados de contratação com estados específicos
+ * de agendamento ('scheduled' e 'confirmed').
  */
 export const compromissoStatusSchema = z.union([
   contratacaoStatusSchema,
-  z.enum(['scheduled', 'confirmed'])
+  z.enum(['scheduled', 'confirmed']) // 'agendado', 'confirmado'
 ]);
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type CompromissoStatus = z.infer<typeof compromissoStatusSchema>;
 
 /**
- * Zod schema for Compromisso
+ * Schema Zod para Compromisso
+ * 
+ * Define a estrutura de dados para um compromisso na agenda,
+ * incluindo identificadores, data, status e informações opcionais.
  */
 export const compromissoSchema = z.object({
-  _id: z.string(),
-  contratacaoId: z.string(),
-  data: z.string(), // ISO 8601 date string
-  status: compromissoStatusSchema,
-  
-  // Optional fields
-  descricaoServico: z.string().optional(),
-  compradorNome: z.string().optional(),
+  _id: z.string(), // Identificador único do compromisso
+  contratacaoId: z.string(), // Referência à contratação relacionada
+  data: z.string(), // String de data no formato ISO 8601
+  status: compromissoStatusSchema, // Status atual do compromisso
+
+  // Campos opcionais
+  descricaoServico: z.string().optional(), // Descrição do serviço a ser prestado
+  compradorNome: z.string().optional(), // Nome do comprador/cliente
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type Compromisso = z.infer<typeof compromissoSchema>;
 
 /**
- * Zod schema for Agenda
+ * Schema Zod para Agenda
+ * 
+ * Define a estrutura de uma agenda completa, que pertence a um prestador
+ * e contém uma lista de compromissos.
  */
 export const agendaSchema = z.object({
-  _id: z.string(),
-  prestadorId: z.string(),
-  compromissos: z.array(compromissoSchema),
+  _id: z.string(), // Identificador único da agenda
+  prestadorId: z.string(), // Identificador do prestador de serviços
+  compromissos: z.array(compromissoSchema), // Lista de compromissos na agenda
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type Agenda = z.infer<typeof agendaSchema>;
 
 /**
- * Zod schema for FetchAgendaResponse
+ * Schema Zod para FetchAgendaResponse
+ * 
+ * Define a estrutura da resposta ao buscar uma agenda,
+ * que pode retornar uma agenda ou null caso não exista.
  */
 export const fetchAgendaResponseSchema = z.object({
-  agenda: agendaSchema.nullable(),
+  agenda: agendaSchema.nullable(), // Agenda encontrada ou null
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type FetchAgendaResponse = z.infer<typeof fetchAgendaResponseSchema>;
 
 /**
- * Zod schema for UpdateCompromissoStatusData
+ * Schema Zod para UpdateCompromissoStatusData
+ * 
+ * Define a estrutura dos dados necessários para atualizar
+ * o status de um compromisso.
  */
 export const updateCompromissoStatusDataSchema = z.object({
-  status: compromissoStatusSchema,
+  status: compromissoStatusSchema, // Novo status do compromisso
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type UpdateCompromissoStatusData = z.infer<typeof updateCompromissoStatusDataSchema>;
 
 /**
- * Zod schema for UpdateAgendaResponse
+ * Schema Zod para UpdateAgendaResponse
+ * 
+ * Define a estrutura da resposta após atualizar uma agenda,
+ * incluindo a agenda atualizada e uma mensagem opcional.
  */
 export const updateAgendaResponseSchema = z.object({
-  agenda: agendaSchema,
-  message: z.string().optional(),
+  agenda: agendaSchema, // Agenda atualizada
+  message: z.string().optional(), // Mensagem opcional sobre a atualização
 });
 
-// Type inference from the schema
+// Inferência de tipo a partir do schema
 export type UpdateAgendaResponse = z.infer<typeof updateAgendaResponseSchema>;

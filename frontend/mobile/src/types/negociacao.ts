@@ -1,4 +1,5 @@
 // src/types/negociacao.ts
+// Este arquivo define os tipos e interfaces relacionados ao processo de negociação entre compradores e prestadores de serviço
 
 /**
  * Define os status possíveis durante o processo de negociação de ajustes.
@@ -29,40 +30,57 @@ export interface PropostaAjuste {
 export interface Negociacao {
   _id: string;             // ID único da negociação
   contratacaoId: string;   // ID da Contratacao original que está sendo negociada
-  compradorId: string;     // ID do User Comprador
-  prestadorId: string;    // ID do User Prestador
+  compradorId: string;     // ID do Usuário Comprador
+  prestadorId: string;    // ID do Usuário Prestador
   propostaInicial: PropostaAjuste; // Proposta feita pelo comprador
   respostaProvider?: PropostaAjuste; // Contraproposta feita pelo prestador (opcional)
   status: NegociacaoStatus; // Status atual da negociação
-  dataCriacao?: string;    // Data de criação (ISO 8601 string)
-  dataUltimaAtualizacao?: string; // Data da última modificação (ISO 8601 string)
+  dataCriacao?: string;    // Data de criação (string no formato ISO 8601)
+  dataUltimaAtualizacao?: string; // Data da última modificação (string no formato ISO 8601)
 }
 
 
-// --- Tipos para Payloads de API ---
+// --- Tipos para Cargas de API ---
+// Esta seção define os tipos de dados que são enviados nas requisições para a API
 
 /** Dados enviados pelo Comprador para INICIAR uma negociação */
-export interface NegociacaoInitiateData {
+export interface DadosInicioNegociacao {
   contratacaoId: string;
-  providerId: string; // ID do prestador (enviado pela tela original)
+  prestadorId: string; // ID do prestador (enviado pela tela original)
   propostaInicial: PropostaAjuste;
   // compradorId é inferido pelo backend via token
 }
 
 /** Dados enviados pelo Prestador para RESPONDER a uma negociação */
-export interface NegociacaoRespondData {
-  respostaProvider: PropostaAjuste;
+export interface DadosRespostaNegociacao {
+  respostaPrestador: PropostaAjuste; // Resposta do prestador
   // Status é definido como 'contraproposta' pela API ou pela lógica da tela
   // status: 'contraproposta'; // Geralmente definido na lógica da chamada API
 }
 
-// A ação de CONFIRMAR do Comprador pode não precisar de body, apenas a chamada no endpoint correto
+/** Alias para DadosInicioNegociacao usado na tela NegociacaoScreen */
+export interface NegociacaoInitiateData {
+  contratacaoId: string;
+  providerId: string; // ID do prestador (enviado pela tela original)
+  propostaInicial: PropostaAjuste;
+}
+
+/** Alias para DadosRespostaNegociacao usado na tela NegociacaoScreen */
+export interface NegociacaoRespondData {
+  respostaProvider: PropostaAjuste; // Resposta do prestador
+}
+
+// A ação de CONFIRMAR do Comprador pode não precisar de corpo na requisição, apenas a chamada no ponto de extremidade correto
 
 
 // --- Tipos para Respostas de API (podem ir em src/types/api.ts) ---
+// Esta seção define os tipos de dados que são recebidos como resposta da API
 
 /** Resposta genérica para ações de negociação (iniciar, responder, confirmar) */
-export interface NegociacaoResponse {
+export interface RespostaNegociacao {
   message: string;
   negociacao?: Negociacao; // A API pode retornar o estado atualizado da negociação
 }
+
+/** Alias para RespostaNegociacao usado na API */
+export type NegociacaoResponse = RespostaNegociacao;

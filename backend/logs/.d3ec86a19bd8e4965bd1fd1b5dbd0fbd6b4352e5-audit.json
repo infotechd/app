@@ -6,41 +6,6 @@
     "auditLog": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\.d3ec86a19bd8e4965bd1fd1b5dbd0fbd6b4352e5-audit.json",
     "files": [
         {
-            "date": 1747049051866,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-12.log",
-            "hash": "694682dc42d0665b3cf5b7697f630f071c122d513b81256cde752025fa7c1dd4"
-        },
-        {
-            "date": 1747135073453,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-13.log",
-            "hash": "769927f6013bded194a88ad46205d6d3e35eab721c4a1a4e8cc9bb3b5c97720d"
-        },
-        {
-            "date": 1747217639406,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-14.log",
-            "hash": "f68c7b35963b667d45485fc3a72b200a51886346172211e4cb76502668a8b80c"
-        },
-        {
-            "date": 1747307608057,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-15.log",
-            "hash": "559bb74dd9c1f5ea3bd9d40e886b84d05edb91b922dbca008261338f9e0c3eb9"
-        },
-        {
-            "date": 1747393974434,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-16.log",
-            "hash": "0d3d2c70203fe5f8f47d055b1cbec4afea1393c46c1a95165a6fab1af1d2d688"
-        },
-        {
-            "date": 1747513765962,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-17.log",
-            "hash": "a686017667df11244d2db8b9d5196a034905a0ad8777ae9b0b6d53c1308e0ff4"
-        },
-        {
-            "date": 1747654859598,
-            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-19.log",
-            "hash": "2c41ebc213dee397fc71ab7897cb84019b7c3f156e21da97369540e08ad8c53c"
-        },
-        {
             "date": 1747740104799,
             "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-20.log",
             "hash": "4cebc43a85f1cf1ba24503fbae1f9aef5cc99950daf83255dc3627a960ba066c"
@@ -74,6 +39,36 @@
             "date": 1748258566747,
             "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-26.log",
             "hash": "d9c65c4b795c947af212e177c72a5be7bbafe15d467e442b73a060b672671474"
+        },
+        {
+            "date": 1748344879162,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-27.log",
+            "hash": "c41cb123f54bbe695df5d394e11c43b59a34fcfa12440fb026f89075c308ffbf"
+        },
+        {
+            "date": 1748431195865,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-28.log",
+            "hash": "8023fe8fdcf93cc2157814fa061454f7d687174993c3ab24090dcf9fea76f454"
+        },
+        {
+            "date": 1748518168953,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-29.log",
+            "hash": "21f7b29be4d4c20176581d1171691bd85b86c8ec09e92c21c1146d41ffd659ef"
+        },
+        {
+            "date": 1748612787729,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-05-30.log",
+            "hash": "37e781271f6d3f4646d907fcec8db0e32a78f676661a04a769d295d2edd17e39"
+        },
+        {
+            "date": 1748863027998,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-06-02.log",
+            "hash": "799c1ecaf135b6aa86a501f69f402323d39d493556a18714fa4a6bbe955b8ab4"
+        },
+        {
+            "date": 1748949698908,
+            "name": "C:\\Users\\maidn\\WebstormProjects\\app\\backend\\logs\\error-2025-06-03.log",
+            "hash": "84ecc8d74dffaf17beea0fbbe6b56a650efb864390c00c19e988519ab43e1e74"
         }
     ],
     "hashType": "sha256"

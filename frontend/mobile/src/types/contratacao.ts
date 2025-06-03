@@ -1,4 +1,9 @@
 // src/types/contratacao.ts
+/**
+ * Este arquivo define os tipos e interfaces relacionados às contratações de serviços na plataforma.
+ * Contém as estruturas de dados necessárias para gerenciar todo o ciclo de vida de uma contratação.
+ */
+
 // Importar Offer e User se precisar incluir detalhes deles aqui
 // import { Offer } from './offer';
 // import { User } from './user';
@@ -6,6 +11,8 @@
 /**
  * Define os status possíveis para uma Contratação.
  * Baseado no fluxo comum de contratação e casos de uso (Contratar, Gerenciar Agenda, Concluir).
+ * 
+ * Esta parte do código define os diferentes estados que uma contratação pode ter durante seu ciclo de vida.
  */
 export type ContratacaoStatus =
   | 'pending_acceptance' // Aguardando aceite do prestador
@@ -19,20 +26,23 @@ export type ContratacaoStatus =
   | 'disputed'; // Em disputa
 
 /**
- * Interface representando um objeto de Contratação (Hiring/Booking).
+ * Interface representando um objeto de Contratação (Contratação/Reserva).
  * Baseado no Diagrama de Classe, Caso de Uso 5 e telas relacionadas.
+ * 
+ * Esta parte do código define a estrutura de dados para uma contratação de serviço,
+ * contendo todas as informações necessárias para gerenciar o ciclo de vida de um serviço contratado.
  */
 export interface Contratacao {
   _id: string; // Identificador único da contratação
-  ofertaId: string; // ID da Offer contratada
-  compradorId: string; // ID do User (Comprador)
-  prestadorId: string; // ID do User (Prestador)
+  ofertaId: string; // ID da Oferta contratada
+  compradorId: string; // ID do Usuário (Comprador)
+  prestadorId: string; // ID do Usuário (Prestador)
   status: ContratacaoStatus;
   /** Preço final acordado para esta contratação (pode ser igual ao da oferta ou negociado) */
   precoContratado: number;
-  dataContratacao: string; // ISO 8601
-  dataInicioEstimada?: string | null; // ISO 8601
-  dataConclusao?: string | null; // ISO 8601
+  dataContratacao: string; // Formato ISO 8601
+  dataInicioEstimada?: string | null; // Formato ISO 8601
+  dataConclusao?: string | null; // Formato ISO 8601
 
   // Campos opcionais que podem ser úteis
   // detalhesAcordados?: string; // Notas sobre o serviço
@@ -49,6 +59,9 @@ export interface Contratacao {
 /**
  * Interface para os dados necessários ao CRIAR uma nova Contratação.
  * Baseado em ContratacaoScreen.tsx (que só envia ofertaId).
+ * 
+ * Esta parte do código define os dados mínimos necessários para criar uma nova contratação no sistema.
+ * A maioria dos campos é preenchida automaticamente pelo backend.
  */
 export interface ContratacaoData {
   ofertaId: string;
@@ -57,10 +70,16 @@ export interface ContratacaoData {
   // status inicial geralmente é definido no backend (ex: 'pending_acceptance')
 }
 
+/**
+ * Interface para os parâmetros de busca de contratações.
+ * 
+ * Esta parte do código define os parâmetros que podem ser usados para filtrar, 
+ * paginar e ordenar as contratações ao buscar no sistema.
+ */
 export interface FetchContratacoesParams {
   status?: ContratacaoStatus[]; // Filtrar por um ou mais status
-  page?: number;
-  limit?: number;
-  sortBy?: 'dataContratacao' | 'status' | 'precoContratado';
-  sortOrder?: 'asc' | 'desc';
+  page?: number; // Número da página para paginação
+  limit?: number; // Limite de itens por página
+  sortBy?: 'dataContratacao' | 'status' | 'precoContratado'; // Campo para ordenação
+  sortOrder?: 'asc' | 'desc'; // Ordem de classificação (ascendente ou descendente)
 }

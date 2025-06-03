@@ -1,35 +1,35 @@
-// jest.ci.config.js - Configuration for CI testing
+// jest.ci.config.js - Configuração para testes em ambiente de Integração Contínua (CI)
 module.exports = {
-  // Use jest-expo preset for React Native
+  // Usa o preset jest-expo para React Native - Define as configurações básicas para testes em aplicações React Native com Expo
   preset: 'jest-expo',
   testEnvironment: 'jsdom',
 
-  // Match test files
+  // Padrões para localizar arquivos de teste - Define quais arquivos serão reconhecidos como testes
   testMatch: ['**/__tests__/**/*.ts?(x)', '**/?(*.)+(spec|test).ts?(x)'],
 
-  // Configure transformIgnorePatterns to handle React Native and Expo modules
+  // Configura padrões de transformação para lidar com módulos React Native e Expo - Especifica quais módulos node_modules não devem ser transformados
   transformIgnorePatterns: [
     'node_modules/(?!(jest-)?react-native|@react-native|@react-native/.*|@react-native\\/js-polyfills|react-clone-referenced-element|expo(nent)?|@expo(nent)?/.*|expo-modules-core|@expo-google-fonts/.*|victory-.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|@sentry/.*|app-common|socket.io-client|engine.io-client|socket.io-parser|@socket.io/component-emitter|@testing-library/react-native)'
   ],
 
-  // Transform files
+  // Transforma arquivos - Define como os diferentes tipos de arquivos serão processados pelo Jest
   transform: {
     '^.+\\.(js|jsx|ts|tsx)$': 'babel-jest',
   },
 
-  // Configure modules
+  // Configura extensões de módulos - Lista as extensões de arquivo que o Jest deve reconhecer
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
 
-  // Configure path aliases (@/*) and module mocks
+  // Configura aliases de caminhos (@/*) e mocks de módulos - Define mapeamentos para facilitar importações e substituir módulos por versões simuladas
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
     '@react-native/js-polyfills/error-guard': '<rootDir>/__mocks__/error-guard-mock.js',
     'expo-modules-core': '<rootDir>/__mocks__/expo-modules-core.js'
   },
 
-  // Files to run before any tests
+  // Arquivos a serem executados antes de qualquer teste - Configura o ambiente antes da execução dos testes
   setupFiles: ['./jest.setup.pre.js'],
 
-  // Use setup files
+  // Usa arquivos de configuração - Arquivos que serão executados após o ambiente de teste ser configurado
   setupFilesAfterEnv: ['@testing-library/jest-native/extend-expect', './jest.setup.js'],
 };

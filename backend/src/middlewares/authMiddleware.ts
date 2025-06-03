@@ -7,8 +7,8 @@ import { promisify } from 'util';
 // Importa a interface do payload do usuário
 // Definida no arquivo server.ts
 import { DecodedUserToken } from '../server';
-// Importa o enum para validação de tipo de usuário
-import { TipoUsuarioEnum } from '../models/User';
+// Importa as interfaces do User model
+import { IUserCapabilities } from '../models/User';
 // Importa o logger configurado para registrar erros
 import logger from '../config/logger';
 
@@ -33,6 +33,14 @@ const verifyAsync = promisify<string, string, any>(jwt.verify);
  * - Suporta múltiplos métodos de envio do token (cookie ou header)
  */
 const authMiddleware = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // Log da estrutura da requisição antes do processamento do middleware
+  logger.debug('[AUTH MIDDLEWARE] Requisição recebida:', {
+    path: req.path,
+    method: req.method,
+    body: JSON.stringify(req.body, null, 2),
+    headers: JSON.stringify(req.headers, null, 2)
+  });
+
   // 1. Tenta extrair o token do cookie HttpOnly chamado 'token'
   // O cookie é a forma preferida de armazenar o token por questões de segurança
   let token: string | undefined = req.cookies?.token;
@@ -78,6 +86,14 @@ const authMiddleware = async (req: Request, res: Response, next: NextFunction): 
     // Isso permite que as rotas acessem informações do usuário autenticado
     req.user = decoded as DecodedUserToken;
 
+    // Log da estrutura da requisição após o processamento do middleware
+    logger.debug('[AUTH MIDDLEWARE] Requisição após processamento:', {
+      path: req.path,
+      method: req.method,
+      body: JSON.stringify(req.body, null, 2),
+      user: JSON.stringify(req.user, null, 2)
+    });
+
     // 6. Passa o controle para o próximo middleware ou rota na cadeia
     next();
 
@@ -112,13 +128,13 @@ function isValidDecodedToken(decoded: unknown): decoded is DecodedUserToken {
     return false;
   }
 
-  // Terceiro passo: verifica se o objeto possui a propriedade tipoUsuario
-  // Além de ser string, o valor deve corresponder a um dos tipos definidos no enum TipoUsuarioEnum
-  // Isso garante que apenas tipos de usuário válidos sejam aceitos
-  if (!('tipoUsuario' in decoded) || 
-      typeof (decoded as any).tipoUsuario !== 'string' || 
-      !Object.values(TipoUsuarioEnum).includes((decoded as any).tipoUsuario as TipoUsuarioEnum)) {
-    return false;
+  // Terceiro passo: verifica se o objeto possui as propriedades de capacidades do usuário
+  // Todas as propriedades devem ser booleanas
+  const roleProperties = ['isAdmin', 'isComprador', 'isPrestador', 'isAnunciante'];
+  for (const prop of roleProperties) {
+    if (!(prop in decoded) || typeof (decoded as any)[prop] !== 'boolean') {
+      return false;
+    }
   }
 
   // Se o objeto passou por todas as verificações acima, ele é considerado válido

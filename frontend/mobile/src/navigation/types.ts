@@ -47,6 +47,9 @@ export type RootStackParamList = {
   AdvertiserDashboard: undefined;
   AdDetail: { adId: string}; // Rota para detalhes do anúncio
 
+  // Nova tela de dashboard unificado
+  UnifiedDashboard: { initialRole?: string }; // Parâmetro opcional para definir qual papel deve estar ativo inicialmente
+
   // Adicione outras rotas como OfferDetails, BookingDetails etc. se aplicável
 };
 

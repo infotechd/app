@@ -109,7 +109,7 @@ export const fetchOffersParamsSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.number().positive().optional(),
   limit: z.number().positive().optional(),
-  includeProvider: z.boolean().optional(),
+  incluirPrestador: z.boolean().optional(),
 });
 
 /**

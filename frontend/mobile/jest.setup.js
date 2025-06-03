@@ -1,7 +1,7 @@
-// Setup React Native polyfills
-// Required for React Native when running in Jest environment
+// Configuração de polyfills para React Native
+// Necessário para React Native quando executado no ambiente Jest
 
-// Mock React Native error utilities
+// Simulação de utilitários de erro do React Native
 global.ErrorUtils = {
   setGlobalHandler: jest.fn(),
   getGlobalHandler: jest.fn(),
@@ -9,14 +9,14 @@ global.ErrorUtils = {
   reportFatalError: jest.fn(),
 };
 
-// Mock the entire @react-native/js-polyfills module
+// Simulação do módulo completo @react-native/js-polyfills
 jest.mock('@react-native/js-polyfills', () => {
   return {
     ErrorUtils: global.ErrorUtils,
   };
 }, { virtual: true });
 
-// Mock @react-native/js-polyfills/error-guard module
+// Simulação do módulo @react-native/js-polyfills/error-guard
 jest.mock('@react-native/js-polyfills/error-guard', () => ({
   ErrorUtils: global.ErrorUtils,
 }), { virtual: true });
@@ -24,11 +24,11 @@ global.fetch = require('node-fetch');
 global.TextEncoder = require('util').TextEncoder;
 global.TextDecoder = require('util').TextDecoder;
 
-// URL and URLSearchParams polyfills
+// Polyfills para URL e URLSearchParams
 global.URL = require('url').URL;
 global.URLSearchParams = require('url').URLSearchParams;
 
-// Animation frame polyfill
+// Polyfill para frames de animação
 global.requestAnimationFrame = function(callback) {
   return setTimeout(callback, 0);
 };
@@ -36,13 +36,13 @@ global.cancelAnimationFrame = function(id) {
   clearTimeout(id);
 };
 
-// setImmediate polyfill
+// Polyfill para setImmediate
 global.setImmediate = jest.fn((fn, ...args) => setTimeout(fn, 0, ...args));
 
-// Mock React Native components and APIs
+// Simulação de componentes e APIs do React Native
 jest.mock('react-native', () => {
   return {
-    // Components
+    // Componentes
     View: 'View',
     Text: 'Text',
     FlatList: 'FlatList',
@@ -88,7 +88,7 @@ jest.mock('react-native', () => {
   };
 });
 
-// Mock AsyncStorage
+// Simulação do AsyncStorage
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(),
   setItem: jest.fn(),
@@ -96,7 +96,7 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   clear: jest.fn(),
 }));
 
-// Mock navigation
+// Simulação da navegação
 jest.mock('@react-navigation/native', () => {
   return {
     ...jest.requireActual('@react-navigation/native'),
