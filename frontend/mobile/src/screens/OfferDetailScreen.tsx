@@ -239,7 +239,7 @@ export default function OfferDetailScreen({ route, navigation }: OfferDetailScre
         'Você precisa estar logado para contratar um serviço.',
         [
           { text: 'Cancelar', style: 'cancel' },
-          { text: 'Fazer login', onPress: () => navigation.navigate('Login') }
+          { text: 'Fazer login', onPress: () => navigation.navigate('Login', { returnTo: 'OfferDetail' }) }
         ]
       );
       return;

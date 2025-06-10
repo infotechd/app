@@ -15,7 +15,7 @@
  */
 export type RootStackParamList = {
   Onboarding: undefined;
-  Login: undefined;
+  Login: { returnTo?: keyof RootStackParamList };
   Registration: undefined;
   ResetPassword?: undefined; // Tela opcional (?)
   Home:  undefined ;

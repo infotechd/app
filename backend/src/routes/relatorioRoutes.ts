@@ -2,8 +2,8 @@
 
 import { Router } from 'express';
 // Importa os controladores e middlewares necessários para as rotas de relatórios
-import * as relatorioController from '../controllers/relatorioController';
-import authMiddleware from '../middlewares/authMiddleware';
+//import * as relatorioController from '../controllers/relatorioController';
+//import authMiddleware from '../middlewares/authMiddleware';
 // Middlewares de autorização que podem ser utilizados (comentados até implementação)
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
 // import { isPrestador } from '../middlewares/authorizationMiddleware';

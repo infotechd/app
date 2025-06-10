@@ -61,13 +61,13 @@ const RoleSection: React.FC<RoleSectionProps> = ({
             accessibilityRole="image"
             accessibilityLabel={`Ícone de ${roleTitle}`}
           >
-            <MaterialIcons name={config.icon as any} size={24} color={config.color} />
+            <MaterialIcons name={config.icon as any} size={20} color={config.color} />
           </View>
           <Text style={styles.roleSectionTitle}>{roleTitle}</Text>
         </View>
         <MaterialIcons 
           name={isActive ? "expand-less" : "expand-more"} 
-          size={24} 
+          size={20} 
           color="#555" 
           accessibilityElementsHidden={true}
           importantForAccessibility="no"
@@ -130,8 +130,8 @@ const RoleSection: React.FC<RoleSectionProps> = ({
 const styles = StyleSheet.create({
   roleSection: {
     backgroundColor: COLORS.surface,
-    borderRadius: BORDER_RADIUS.md,
-    marginBottom: SPACING.md,
+    borderRadius: BORDER_RADIUS.sm, // Reduzido de md para sm
+    marginBottom: SPACING.sm, // Reduzido de md para sm
     overflow: 'hidden',
     ...SHADOWS.small,
   },
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.md,
+    padding: SPACING.sm, // Reduzido de md para sm
     borderBottomWidth: 1,
     borderBottomColor: COLORS.divider,
   },
@@ -148,31 +148,31 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   roleIconContainer: {
-    width: 40,
-    height: 40,
+    width: 32, // Reduzido de 40 para 32
+    height: 32, // Reduzido de 40 para 32
     borderRadius: BORDER_RADIUS.round,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: SPACING.sm,
+    marginRight: SPACING.xs, // Reduzido de sm para xs
   },
   roleSectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontSize: TYPOGRAPHY.fontSize.md, // Reduzido de lg para md
     fontWeight: '600',
     color: COLORS.textPrimary,
   },
   roleSectionContent: {
-    padding: SPACING.md,
+    padding: SPACING.sm, // Reduzido de md para sm
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.sm, // Reduzido de md para sm
   },
   statItem: {
     alignItems: 'center',
   },
   statValue: {
-    fontSize: TYPOGRAPHY.fontSize.xl,
+    fontSize: TYPOGRAPHY.fontSize.lg, // Reduzido de xl para lg
     fontWeight: 'bold',
     color: COLORS.textPrimary,
   },
@@ -188,16 +188,16 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     backgroundColor: COLORS.background,
-    paddingVertical: SPACING.sm,
-    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs, // Reduzido de sm para xs
+    paddingHorizontal: SPACING.sm, // Reduzido de md para sm
     borderRadius: BORDER_RADIUS.sm,
-    marginBottom: SPACING.sm,
+    marginBottom: SPACING.xs, // Reduzido de sm para xs
     width: '48%',
     alignItems: 'center',
   },
   actionButtonText: {
     color: COLORS.textPrimary,
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs, // Reduzido de sm para xs
     fontWeight: '500',
   },
 });

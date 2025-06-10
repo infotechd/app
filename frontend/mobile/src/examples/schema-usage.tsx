@@ -20,12 +20,12 @@ const UserRegistrationForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleChange = (field: keyof CreateUser, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev: Partial<CreateUser>) => ({ ...prev, [field]: value }));
     // Clear error when user types
-    if (errors[field]) {
-      setErrors(prev => {
+    if (errors[field as string]) {
+      setErrors((prev: Record<string, string>) => {
         const newErrors = { ...prev };
-        delete newErrors[field];
+        delete newErrors[field as string];
         return newErrors;
       });
     }
@@ -43,12 +43,12 @@ const UserRegistrationForm: React.FC = () => {
     } else {
       // Form data is invalid, extract and format errors
       const formattedErrors: Record<string, string> = {};
-      
+
       result.error.issues.forEach(issue => {
         const path = issue.path[0] as string;
         formattedErrors[path] = issue.message;
       });
-      
+
       setErrors(formattedErrors);
     }
   };
@@ -56,7 +56,7 @@ const UserRegistrationForm: React.FC = () => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Register</Text>
-      
+
       <View style={styles.inputContainer}>
         <Text>Name</Text>
         <TextInput
@@ -67,7 +67,7 @@ const UserRegistrationForm: React.FC = () => {
         />
         {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
       </View>
-      
+
       <View style={styles.inputContainer}>
         <Text>Email</Text>
         <TextInput
@@ -80,7 +80,7 @@ const UserRegistrationForm: React.FC = () => {
         />
         {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
       </View>
-      
+
       <View style={styles.inputContainer}>
         <Text>Password</Text>
         <TextInput
@@ -92,7 +92,7 @@ const UserRegistrationForm: React.FC = () => {
         />
         {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
       </View>
-      
+
       <Button title="Register" onPress={handleSubmit} />
     </View>
   );
@@ -103,7 +103,7 @@ const UserRegistrationForm: React.FC = () => {
  */
 const validateSearchParams = (searchParams: any) => {
   const result = offerSearchSchema.safeParse(searchParams);
-  
+
   if (result.success) {
     return { valid: true, data: result.data };
   } else {

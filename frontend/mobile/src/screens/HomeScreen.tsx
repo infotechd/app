@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext";
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types"; // Importa a lista de parâmetros
 import { MaterialIcons } from '@expo/vector-icons'; // Importa ícones
+import { useUser } from "@/context/UserContext"; // Importa o hook de usuário para verificar autenticação
 
 // 2. Definir tipo das props da tela
 // Esta linha define o tipo de propriedades que a tela Home recebe, utilizando o sistema de navegação do React Navigation
@@ -20,20 +21,36 @@ type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 export default function HomeScreen({ navigation }: HomeScreenProps) {
   // Obter dados do usuário e função de logout do contexto
   // Esta linha utiliza o hook useAuth para acessar os dados do usuário logado e a função de logout
-  const { user, logout } = useAuth();
+  const { user, logout: authLogout } = useAuth();
+  // Obter o estado de autenticação do contexto unificado de usuário
+  const { user: userContext, logout: userLogout } = useUser();
 
   // Função que realiza o logout do usuário
   const handleLogout = async () => {
-    await logout();
-    // A navegação para a tela de Login deve acontecer automaticamente
-    // devido à lógica condicional em AppNavigation.tsx quando o 'user' se torna null.
+    try {
+      // Chama ambas as funções de logout para garantir que os dados sejam limpos de ambos os contextos
+      await Promise.all([
+        authLogout(),
+        userLogout()
+      ]);
+      console.log('Logout realizado com sucesso em ambos os contextos');
+      // A navegação para a tela de Login deve acontecer automaticamente
+      // devido à lógica condicional em AppNavigation.tsx quando o 'user' se torna null.
+    } catch (error) {
+      console.error('Erro ao realizar logout:', error);
+    }
+  };
+
+  // Função para navegar para a tela de login
+  const handleLoginPress = () => {
+    navigation.navigate('Login', {});
   };
 
   // Renderizar cards para cada papel do usuário
   // Esta função cria os cards visuais para cada papel que o usuário possui (Comprador, Prestador, Anunciante)
   const renderUserRoleCards = () => {
     // Verifica se existe um usuário logado, caso contrário não renderiza nada
-    if (!user) return null;
+    if (!user || !userContext) return null;
 
     return (
       <View style={styles.rolesContainer}>
@@ -128,49 +145,91 @@ export default function HomeScreen({ navigation }: HomeScreenProps) {
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <View style={styles.container}>
+        {/* Banner informativo sobre os benefícios de fazer login - só aparece quando o usuário não está logado */}
+        {!userContext && (
+          <View style={styles.loginBanner}>
+            <View style={styles.loginBannerIconContainer}>
+              <Text style={styles.loginBannerIcon}>🔐</Text>
+            </View>
+            <View style={styles.loginBannerTextContainer}>
+              <Text style={styles.loginBannerTitle}>Faça login para uma experiência completa!</Text>
+              <Text style={styles.loginBannerDescription}>
+                Acesse histórico de serviços, salve favoritos e receba ofertas exclusivas.
+              </Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.loginBannerButton}
+              onPress={handleLoginPress}
+            >
+              <Text style={styles.loginBannerButtonText}>ENTRAR</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Cabeçalho com boas-vindas - Esta seção exibe uma mensagem de boas-vindas personalizada com o nome do usuário */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Bem-vindo(a), {user?.nome || 'Usuário'}!</Text>
-          <Text style={styles.subtitle}>Selecione um dos seus papéis para começar</Text>
-        </View>
+        {userContext && (
+          <View style={styles.header}>
+            <Text style={styles.title}>Bem-vindo(a), {user?.nome || 'Usuário'}!</Text>
+            <Text style={styles.subtitle}>Selecione um dos seus papéis para começar</Text>
+          </View>
+        )}
 
         {/* Seção de cards de papéis do usuário - Esta seção renderiza os cards para cada papel que o usuário possui */}
         {renderUserRoleCards()}
 
-        {/* Seção de acesso rápido - Esta seção exibe botões para acesso rápido a funcionalidades comuns como notificações, comunidade e perfil */}
-        <View style={styles.quickAccessSection}>
-          <Text style={styles.sectionTitle}>Acesso Rápido</Text>
-          <View style={styles.quickAccessButtons}>
-            <TouchableOpacity 
-              style={styles.quickAccessButton} 
-              onPress={() => navigation.navigate('Notificacao')}>
-              <MaterialIcons name="notifications" size={24} color="#555" />
-              <Text style={styles.quickAccessButtonText}>Notificações</Text>
-            </TouchableOpacity>
+        {/* Conteúdo exibido apenas para usuários autenticados */}
+        {userContext && (
+          <>
+            {/* Seção de acesso rápido - Esta seção exibe botões para acesso rápido a funcionalidades comuns como notificações, comunidade e perfil */}
+            <View style={styles.quickAccessSection}>
+              <Text style={styles.sectionTitle}>Acesso Rápido</Text>
+              <View style={styles.quickAccessButtons}>
+                <TouchableOpacity 
+                  style={styles.quickAccessButton} 
+                  onPress={() => navigation.navigate('Notificacao')}>
+                  <MaterialIcons name="notifications" size={24} color="#555" />
+                  <Text style={styles.quickAccessButtonText}>Notificações</Text>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.quickAccessButton} 
-              onPress={() => navigation.navigate('Community')}>
-              <MaterialIcons name="people" size={24} color="#555" />
-              <Text style={styles.quickAccessButtonText}>Comunidade</Text>
-            </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.quickAccessButton} 
+                  onPress={() => navigation.navigate('Community')}>
+                  <MaterialIcons name="people" size={24} color="#555" />
+                  <Text style={styles.quickAccessButtonText}>Comunidade</Text>
+                </TouchableOpacity>
 
+                <TouchableOpacity 
+                  style={styles.quickAccessButton} 
+                  onPress={() => navigation.navigate('EditProfile')}>
+                  <MaterialIcons name="person" size={24} color="#555" />
+                  <Text style={styles.quickAccessButtonText}>Perfil</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Botão de logout - Este botão permite que o usuário saia da aplicação, encerrando sua sessão */}
             <TouchableOpacity 
-              style={styles.quickAccessButton} 
-              onPress={() => navigation.navigate('EditProfile')}>
-              <MaterialIcons name="person" size={24} color="#555" />
-              <Text style={styles.quickAccessButtonText}>Perfil</Text>
+              style={styles.logoutButton} 
+              onPress={handleLogout}>
+              <MaterialIcons name="exit-to-app" size={20} color="white" />
+              <Text style={styles.logoutButtonText}>Sair</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
+        {/* Conteúdo exibido apenas para usuários não autenticados */}
+        {!userContext && (
+          <View style={styles.nonAuthenticatedContent}>
+            <Text style={styles.nonAuthenticatedText}>
+              Faça login para acessar todas as funcionalidades do aplicativo.
+            </Text>
+            <TouchableOpacity 
+              style={styles.loginButton} 
+              onPress={handleLoginPress}>
+              <Text style={styles.loginButtonText}>Entrar na sua conta</Text>
             </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Botão de logout - Este botão permite que o usuário saia da aplicação, encerrando sua sessão */}
-        <TouchableOpacity 
-          style={styles.logoutButton} 
-          onPress={handleLogout}>
-          <MaterialIcons name="exit-to-app" size={20} color="white" />
-          <Text style={styles.logoutButtonText}>Sair</Text>
-        </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
@@ -337,5 +396,82 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Estilos para o banner de login
+  loginBanner: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 15,
+    marginBottom: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    width: '100%',
+  },
+  loginBannerIconContainer: {
+    marginRight: 10,
+  },
+  loginBannerIcon: {
+    fontSize: 24,
+  },
+  loginBannerTextContainer: {
+    flex: 1,
+  },
+  loginBannerTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 4,
+  },
+  loginBannerDescription: {
+    fontSize: 12,
+    color: '#666',
+  },
+  loginBannerButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    marginLeft: 10,
+  },
+  loginBannerButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  // Estilos para o conteúdo exibido apenas para usuários não autenticados
+  nonAuthenticatedContent: {
+    backgroundColor: '#f8f9fa',
+    borderRadius: 10,
+    padding: 20,
+    marginTop: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    width: '100%',
+  },
+  nonAuthenticatedText: {
+    fontSize: 16,
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  loginButton: {
+    backgroundColor: '#4A90E2',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+  },
+  loginButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

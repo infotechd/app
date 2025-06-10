@@ -15,16 +15,29 @@ import { validateCreateUser, validateLogin, validateUpdateUser } from '../middle
 // Configuração do limitador de requisições para login
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos de janela de tempo
-  max: 5, // Máximo de 5 tentativas por IP
+  limit: 3, // Máximo de 3 tentativas por IP (reduzido de 5 para maior segurança)
   message: { message: 'Muitas tentativas de login. Por favor, tente novamente mais tarde.' },
   standardHeaders: true, // Inclui informações de limite nos cabeçalhos
   legacyHeaders: false, // Desativa cabeçalhos antigos
 });
 
+// Configuração do limitador de requisições para login com bloqueio mais longo
+// Usado após muitas tentativas falhas para implementar bloqueio progressivo
+const strictLoginLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hora de janela de tempo
+  limit: 5, // Máximo de 5 tentativas por hora após bloqueio inicial
+  message: { 
+    message: 'Acesso temporariamente bloqueado devido a muitas tentativas de login. Tente novamente em 1 hora.' 
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Não conta requisições bem-sucedidas contra o limite
+});
+
 // Configuração do limitador de requisições para registro de usuários
 const registerLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hora de janela de tempo
-  max: 3, // Máximo de 3 registros por IP
+  limit: 3, // Máximo de 3 registros por IP (reduzido de 7 para maior segurança)
   message: { message: 'Muitos registros detectados. Por favor, tente novamente mais tarde.' },
   standardHeaders: true, // Inclui informações de limite nos cabeçalhos
   legacyHeaders: false, // Desativa cabeçalhos antigos
@@ -40,8 +53,9 @@ const router: Router = Router();
 router.post('/register', registerLimiter, validateCreateUser, authController.register);
 
 // Rota para realizar login e obter token JWT
-// Usa limitador de requisições e validação de dados
-router.post('/login', loginLimiter, validateLogin, authController.login);
+// Usa dois limitadores de requisições em sequência para implementar bloqueio progressivo
+// Primeiro aplica o limitador normal, depois o estrito para tentativas excessivas
+router.post('/login', loginLimiter, strictLoginLimiter, validateLogin, authController.login);
 
 // Rota para realizar logout e invalidar token
 // Requer autenticação prévia
@@ -64,6 +78,19 @@ router.delete('/profile', authMiddleware, authController.deleteAccount);
 // Rota para alterar email do usuário logado
 // Requer autenticação prévia
 router.post('/change-email', authMiddleware, authController.changeEmail);
+
+// Configuração do limitador de requisições para renovação de token
+const refreshTokenLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos de janela de tempo
+  limit: 10, // Máximo de 10 renovações por IP em 15 minutos
+  message: { message: 'Muitas tentativas de renovação de token. Por favor, tente novamente mais tarde.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Rota para renovar o token de acesso usando um refresh token
+// Não requer autenticação, mas usa limitador de requisições
+router.post('/refresh-token', refreshTokenLimiter, authController.refreshToken);
 
 // === ROTAS DE ADMINISTRAÇÃO (Protegidas e Autorizadas) ===
 

@@ -78,13 +78,19 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
       setCurrentIndex(currentIndex + 1);
     } else {
       // Se estiver no último slide, navega para a tela de login
-      navigation.navigate('Login');
+      navigation.navigate({
+        name: 'Login',
+        params: {}
+      });
     }
   };
 
   // Função para pular o onboarding e ir direto para o login
   const skipOnboarding = () => {
-    navigation.navigate('Login');
+    navigation.navigate({
+      name: 'Login',
+      params: {}
+    });
   };
 
   // Renderiza cada slide do onboarding com ícone, título e descrição

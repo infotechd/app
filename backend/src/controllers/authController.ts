@@ -89,21 +89,34 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     };
 
     const secret = process.env.JWT_SECRET as string;
-    const token = jwt.sign(payload, secret, { expiresIn: '1h' }); // Define o tempo de expiração do token
+
+    // Token de acesso com vida curta (1 hora)
+    const token = jwt.sign(payload, secret, { expiresIn: '1h' });
+
+    // Refresh token com vida mais longa (7 dias)
+    // Em uma implementação completa, armazenaríamos este token em um banco de dados
+    // com um identificador único e a capacidade de revogá-lo
+    const refreshToken = jwt.sign(
+      { ...payload, tokenType: 'refresh' }, 
+      secret, 
+      { expiresIn: '7d' }
+    );
 
     // Configura o cookie com o token JWT e opções de segurança
+    // Usa sameSite: 'none' para permitir requisições cross-site (importante para apps mobile)
+    // e secure: false em desenvolvimento para permitir HTTP
     res.cookie('token', token, {
       httpOnly: true, // Impede acesso via JavaScript
       secure: process.env.NODE_ENV === 'production', // HTTPS apenas em produção
-      sameSite: 'strict', // Proteção contra CSRF
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none', // Mais permissivo em desenvolvimento
       maxAge: 60 * 60 * 1000 // Tempo de vida do cookie: 1 hora em milissegundos
-      // path: '/' // Caminho do cookie (opcional)
     });
 
     // Retorna resposta de sucesso com dados do usuário (excluindo a senha)
     res.status(200).json({
       message: 'Login realizado com sucesso.',
-      token: token, // Inclui o token no corpo da resposta para clientes como aplicativos móveis
+      token: token, // Token de acesso para autenticação imediata
+      refreshToken: refreshToken, // Refresh token para renovar o token de acesso
       user: { // Objeto com dados seguros do usuário
         id: user._id,
         nome: user.nome,
@@ -194,17 +207,23 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
   // Filtra apenas os campos permitidos do corpo da requisição
   const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha', 'isComprador', 'isPrestador', 'isAnunciante'];
   console.log('Campos atualizáveis:', updatableFields);
-  console.log('Campos recebidos:', Object.keys(receivedUpdates));
 
+  // Verifica se o objeto user está presente no corpo da requisição
+  if (!receivedUpdates.user) {
+    console.log('=== ERRO: OBJETO USER NÃO ENCONTRADO NO BODY ===');
+    console.log('Campos recebidos no nível superior:', Object.keys(receivedUpdates));
+    res.status(400).json({ 
+      message: 'Formato de requisição inválido. Os dados devem estar dentro de um objeto "user".',
+      details: 'A API foi atualizada para aceitar apenas o formato padronizado com objeto "user".'
+    });
+    return;
+  }
+
+  console.log('Campos recebidos no objeto user:', Object.keys(receivedUpdates.user));
+
+  // Extrai apenas os campos permitidos do objeto user
   updatableFields.forEach(field => {
-    // Verifica se o campo está no nível superior do body
-    if (receivedUpdates[field] !== undefined) {
-      console.log(`Campo ${field} encontrado no nível superior:`, receivedUpdates[field]);
-      const value = receivedUpdates[field];
-      (allowedUpdates as any)[field] = value;
-    } 
-    // Verifica se o campo está dentro do objeto user
-    else if (receivedUpdates.user && receivedUpdates.user[field] !== undefined) {
+    if (receivedUpdates.user && receivedUpdates.user[field] !== undefined) {
       console.log(`Campo ${field} encontrado dentro do objeto user:`, receivedUpdates.user[field]);
       const value = receivedUpdates.user[field];
       (allowedUpdates as any)[field] = value;
@@ -438,9 +457,76 @@ export const getProfile = async (req: Request, res: Response, next: NextFunction
 };
 
 /**
- * Altera o email do usuário com verificação de segurança
- * Requer a senha atual do usuário para confirmar a identidade
+ * Renova o token de acesso usando um refresh token
+ * Esta função permite que os clientes obtenham um novo token de acesso
+ * sem precisar fornecer credenciais novamente
  */
+export const refreshToken = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  // Extrai o refresh token do corpo da requisição
+  const { refreshToken } = req.body;
+
+  // Valida se o refresh token foi fornecido
+  if (!refreshToken) {
+    res.status(400).json({ 
+      message: 'Refresh token não fornecido',
+      errorCode: 'REFRESH_TOKEN_MISSING'
+    });
+    return;
+  }
+
+  try {
+    // Verifica se o refresh token é válido
+    // Em uma implementação real, você armazenaria refresh tokens em um banco de dados
+    // e verificaria se o token fornecido existe e não expirou
+
+    // Decodifica o refresh token para obter o ID do usuário
+    // Nota: Em produção, use um segredo diferente para refresh tokens
+    const secret = process.env.JWT_SECRET as string;
+    let decoded;
+
+    try {
+      decoded = jwt.verify(refreshToken, secret) as DecodedUserToken;
+    } catch (jwtError) {
+      res.status(401).json({ 
+        message: 'Refresh token inválido ou expirado',
+        errorCode: 'REFRESH_TOKEN_INVALID'
+      });
+      return;
+    }
+
+    // Busca o usuário no banco de dados
+    const user = await User.findById(decoded.userId);
+
+    if (!user) {
+      res.status(404).json({ 
+        message: 'Usuário não encontrado',
+        errorCode: 'USER_NOT_FOUND'
+      });
+      return;
+    }
+
+    // Gera um novo token JWT com validade mais curta (1 hora)
+    const payload: DecodedUserToken = {
+      userId: String(user._id),
+      isAdmin: user.isAdmin,
+      isComprador: user.isComprador,
+      isPrestador: user.isPrestador,
+      isAnunciante: user.isAnunciante
+    };
+
+    const token = jwt.sign(payload, secret, { expiresIn: '1h' });
+
+    // Retorna o novo token
+    res.status(200).json({
+      message: 'Token renovado com sucesso',
+      token
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const changeEmail = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado
   if (!req.user) {

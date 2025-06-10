@@ -1,35 +1,24 @@
-import React, { useEffect, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useAuth } from "@/context/AuthContext";
+import React, { useEffect, useCallback } from "react";
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types";
 import { UserRole } from "@/types/user";
 import RoleSection from '@/components/RoleSection';
-import { useUserRoles } from '@/hooks/useUserRoles';
+import RoleManagement from '@/components/RoleManagement';
+import { useUser } from '@/context/UserContext';
 import { useDashboardState } from '@/hooks/useDashboardState';
-import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS, ROLE_CONFIG, SHADOWS, COMMON_STYLES } from '@/styles/theme';
-import { handleApiError } from '@/components/ErrorHandling';
+import { useUserRoles } from '@/hooks/useUserRoles';
+import { COLORS, SPACING, TYPOGRAPHY, BORDER_RADIUS,  COMMON_STYLES } from '@/styles/theme';
+
+// Define as roles válidas baseadas no tipo UserRole
+const VALID_USER_ROLES: UserRole[] = ['comprador', 'prestador', 'anunciante', 'admin'];
 
 // Define o tipo das props da tela, incluindo navegação e parâmetros da rota
 type UnifiedDashboardScreenProps = NativeStackScreenProps<RootStackParamList, 'UnifiedDashboard'>;
 
-// Mapeamento entre os nomes de papéis usados na interface e as propriedades do objeto User
-// Isso melhora a consistência e evita conversões manuais entre os diferentes formatos
-const ROLES_MAP = {
-  comprador: 'isComprador',
-  prestador: 'isPrestador',
-  anunciante: 'isAnunciante',
-  admin: 'isAdmin'
-} as const;
-
-// Mapeamento inverso para converter de propriedade do User para UserRole
-const ROLES_MAP_INVERSE = {
-  isComprador: 'comprador',
-  isPrestador: 'prestador',
-  isAnunciante: 'anunciante',
-  isAdmin: 'admin'
-} as const;
+// Os mapeamentos entre papéis e propriedades booleanas foram movidos para o módulo de permissões
+// Agora usamos o array de roles diretamente do objeto User
 
 // O componente RoleSection foi movido para um arquivo separado
 // e agora é importado no topo do arquivo
@@ -41,20 +30,17 @@ const ROLES_MAP_INVERSE = {
  * em uma única interface, mostrando estatísticas e ações relevantes para cada papel.
  */
 export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDashboardScreenProps) {
-  // Obter dados do usuário e função de atualização do contexto de autenticação
-  const { user, updateUser } = useAuth();
+  // Usar o hook unificado para gerenciar usuário e papéis
+  const { user, hasRole, setActiveRole: setActiveRoleContext, updateUser } = useUser();
 
-  // Usar o hook personalizado para gerenciar papéis de usuário
-  const { toggleUserRole, isLoading: isRoleLoading } = useUserRoles(user, updateUser);
+  // Usar o hook useUserRoles para gerenciar papéis do usuário
+  const { toggleUserRole } = useUserRoles(user, updateUser);
 
   // Usar o hook personalizado para gerenciar o estado do dashboard
   const { 
     state: { activeRole, isLoading, stats },
     setActiveRole,
     setLoading,
-    updateBuyerStats,
-    updateProviderStats,
-    updateAdvertiserStats
   } = useDashboardState({
     // Estado inicial personalizado
     activeRole: null,
@@ -82,13 +68,17 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
   useEffect(() => {
     // Definir o papel ativo com base no parâmetro da rota ou no primeiro papel disponível
     if (route.params?.initialRole) {
-      // Verifica se o papel especificado na rota é válido
-      const initialRole = route.params.initialRole as UserRole;
-      if (Object.keys(ROLES_MAP).includes(initialRole)) {
-        // Verifica se o usuário tem esse papel ativo
-        const roleProperty = ROLES_MAP[initialRole];
-        if (user && user[roleProperty]) {
+      // Verifica se o papel especificado na rota é um UserRole válido
+      const roleParam = route.params.initialRole;
+      // Verifica se o valor da string está entre os valores válidos de UserRole
+      const isValidRole = VALID_USER_ROLES.includes(roleParam as any);
+
+      if (isValidRole) {
+        // Agora é seguro fazer o cast para UserRole
+        const initialRole = roleParam as UserRole;
+        if (user?.roles?.includes(initialRole)) {
           setActiveRole(initialRole);
+          setActiveRoleContext(initialRole);
         }
       }
     } else if (user) {
@@ -96,22 +86,18 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
 
       // Se já existe um papel ativo, verifica se ele ainda é válido para o usuário atual
       if (activeRole) {
-        const activeRoleProperty = ROLES_MAP[activeRole as UserRole];
         // Se o papel ativo atual não é mais válido para o usuário, selecionar outro
-        if (!user[activeRoleProperty]) {
+        if (!user.roles?.includes(activeRole)) {
           setActiveRole(null); // Resetar o papel ativo
+          setActiveRoleContext(null);
         }
         // Se o papel ativo atual ainda é válido, não precisamos fazer nada
       }
 
       // Se não há papel ativo definido, seleciona o primeiro disponível
-      if (!activeRole) {
-        for (const [roleName, roleProperty] of Object.entries(ROLES_MAP)) {
-          if (user[roleProperty]) {
-            setActiveRole(roleName as UserRole);
-            break;
-          }
-        }
+      if (!activeRole && user?.roles && user.roles.length > 0) {
+        setActiveRole(user.roles[0]);
+        setActiveRoleContext(user.roles[0]);
       }
     }
 
@@ -129,14 +115,14 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
 
     // Função de limpeza para evitar vazamento de memória
     return () => clearTimeout(timer);
-  }, [user, route.params, activeRole, setActiveRole, setLoading]);
+  }, [user, route.params, setActiveRole, setActiveRoleContext, setLoading]);
 
   // Renderizar seção para o papel de comprador
   // Esta função cria e retorna o componente de UI para a seção de comprador,
   // exibindo estatísticas e ações relevantes para este papel
   const renderBuyerSection = useCallback(() => {
     // Se o usuário não tem o papel de comprador, não renderiza nada
-    if (!user?.isComprador) return null;
+    if (!user?.roles?.includes('comprador')) return null;
 
     // Verifica se esta seção está expandida/ativa no momento
     const isActive = activeRole === 'comprador';
@@ -172,14 +158,14 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="buyer-role-section"
       />
     );
-  }, [user?.isComprador, activeRole, isLoading, stats.buyer, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.buyer, navigation, setActiveRole]);
 
   // Renderizar seção para o papel de prestador
   // Esta função cria e retorna o componente de UI para a seção de prestador de serviços,
   // mostrando estatísticas sobre ofertas, solicitações e avaliações, além de ações disponíveis
   const renderProviderSection = useCallback(() => {
     // Se o usuário não tem o papel de prestador, não renderiza nada
-    if (!user?.isPrestador) return null;
+    if (!user?.roles?.includes('prestador')) return null;
 
     // Verifica se esta seção está expandida/ativa no momento
     const isActive = activeRole === 'prestador';
@@ -215,91 +201,19 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="provider-role-section"
       />
     );
-  }, [user?.isPrestador, activeRole, isLoading, stats.provider, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.provider, navigation, setActiveRole]);
 
   // A função toggleUserRole foi movida para o hook useUserRoles
   // e agora é importada no topo do arquivo
 
-  // Renderizar seção para gerenciar papéis do usuário
-  // Esta função cria e retorna o componente de UI que permite ao usuário
-  // ativar ou desativar seus diferentes papéis na plataforma (comprador, prestador, anunciante)
-  const renderRoleSwitchSection = useCallback(() => {
-    // Se não houver usuário logado, não renderiza nada
-    if (!user) return null;
-
-    // Lista de papéis disponíveis para o usuário (excluindo admin)
-    const availableRoles: UserRole[] = ['comprador', 'prestador', 'anunciante'];
-
-    return (
-      <View 
-        style={styles.roleSwitchSection}
-        accessibilityLabel="Gerenciar papéis"
-        accessibilityRole="none"
-      >
-        <Text style={styles.sectionTitle}>Gerenciar Papéis</Text>
-        <Text style={styles.roleSwitchDescription}>
-          Ative ou desative seus papéis na plataforma. Você deve ter pelo menos um papel ativo.
-        </Text>
-
-        <View 
-          style={styles.roleToggleContainer}
-          accessibilityLabel="Lista de papéis disponíveis"
-        >
-          {availableRoles.map((roleName) => {
-            const roleProperty = ROLES_MAP[roleName];
-            const isActive = user[roleProperty] === true;
-            const config = ROLE_CONFIG[roleName];
-            const roleTitle = roleName.charAt(0).toUpperCase() + roleName.slice(1);
-
-            return (
-              <TouchableOpacity 
-                key={roleName}
-                style={[
-                  styles.roleToggleButton, 
-                  isActive ? styles.roleToggleActive : styles.roleToggleInactive,
-                  { borderColor: config.color }
-                ]}
-                onPress={() => toggleUserRole(roleProperty, !isActive)}
-                accessibilityRole="switch"
-                accessibilityState={{ checked: isActive }}
-                accessibilityLabel={`${roleTitle} ${isActive ? 'ativo' : 'inativo'}`}
-                accessibilityHint={`Toque para ${isActive ? 'desativar' : 'ativar'} o papel de ${roleTitle}`}
-                testID={`role-toggle-${roleName}`}
-              >
-                <MaterialIcons 
-                  name={config.icon as any} 
-                  size={24} 
-                  color={isActive ? config.color : COLORS.textDisabled} 
-                  accessibilityElementsHidden={true}
-                  importantForAccessibility="no"
-                />
-                <Text style={[
-                  styles.roleToggleText, 
-                  { color: isActive ? config.color : COLORS.textDisabled }
-                ]}>
-                  {roleTitle}
-                </Text>
-                <MaterialIcons 
-                  name={isActive ? "check-circle" : "radio-button-unchecked"} 
-                  size={20} 
-                  color={isActive ? config.color : COLORS.textDisabled}
-                  accessibilityElementsHidden={true}
-                  importantForAccessibility="no"
-                />
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </View>
-    );
-  }, [user, toggleUserRole]);
+  // A seção para gerenciar papéis do usuário foi substituída pelo componente RoleManagement
 
   // Renderizar seção para o papel de anunciante
   // Esta função cria e retorna o componente de UI para a seção de anunciante,
   // mostrando estatísticas sobre treinamentos, visualizações e inscrições, além de ações disponíveis
   const renderAdvertiserSection = useCallback(() => {
     // Se o usuário não tem o papel de anunciante, não renderiza nada
-    if (!user?.isAnunciante) return null;
+    if (!user?.roles?.includes('anunciante')) return null;
 
     // Verifica se esta seção está expandida/ativa no momento
     const isActive = activeRole === 'anunciante';
@@ -335,28 +249,34 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="advertiser-role-section"
       />
     );
-  }, [user?.isAnunciante, activeRole, isLoading, stats.advertiser, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.advertiser, navigation, setActiveRole]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Olá, {user?.nome || 'Usuário'}</Text>
-        <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+      <View style={styles.topBar}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.welcomeText}>Olá, {user?.nome || 'Usuário'}</Text>
+          <Text style={styles.dateText}>{new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</Text>
+        </View>
+
+        {/* Botão para voltar à tela inicial - movido para o topo */}
+        <TouchableOpacity 
+          style={styles.homeButton}
+          onPress={() => navigation.navigate('Home')}>
+          <MaterialIcons name="home" size={18} color="white" />
+          <Text style={styles.homeButtonText}>Voltar para Início</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.summarySection}>
         <Text style={styles.sectionTitle}>Resumo da Conta</Text>
         <Text style={styles.summaryText}>
-          Você possui {[
-            user?.isComprador ? 'comprador' : '',
-            user?.isPrestador ? 'prestador' : '',
-            user?.isAnunciante ? 'anunciante' : ''
-          ].filter(Boolean).length} papéis ativos
+          Você possui {user?.roles?.length || 0} papéis ativos
         </Text>
       </View>
 
       {/* Seção para gerenciar papéis do usuário - permite ativar/desativar diferentes papéis */}
-      {renderRoleSwitchSection()}
+      <RoleManagement testID="role-management-section" />
 
       {/* Seções para cada papel do usuário - cada uma mostra estatísticas e ações específicas */}
       {/* Seção de comprador - mostra contratos pendentes, concluídos e avaliações */}
@@ -365,14 +285,6 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
       {renderProviderSection()}
       {/* Seção de anunciante - mostra treinamentos ativos, visualizações e inscrições */}
       {renderAdvertiserSection()}
-
-      {/* Botão para voltar à tela inicial - permite navegar de volta para a Home */}
-      <TouchableOpacity 
-        style={styles.homeButton}
-        onPress={() => navigation.navigate('Home')}>
-        <MaterialIcons name="home" size={20} color="white" />
-        <Text style={styles.homeButtonText}>Voltar para Início</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
@@ -386,76 +298,54 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: SPACING.md,
   },
-  header: {
-    marginBottom: SPACING.xl,
+  // Estilo para a barra superior que contém o cabeçalho e o botão de voltar
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  // Estilo para a parte esquerda do cabeçalho (nome e data)
+  headerLeft: {
+    flex: 1,
+    marginRight: SPACING.sm,
   },
   welcomeText: {
-    fontSize: TYPOGRAPHY.fontSize.xxl,
+    fontSize: TYPOGRAPHY.fontSize.xl, // Reduzido de xxl para xl
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: SPACING.xs,
   },
   dateText: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
+    fontSize: TYPOGRAPHY.fontSize.xs, // Reduzido de sm para xs
     color: COLORS.textSecondary,
   },
   summarySection: {
     ...COMMON_STYLES.card,
+    marginBottom: SPACING.md, // Adicionado para garantir espaçamento consistente
   },
   sectionTitle: {
-    fontSize: TYPOGRAPHY.fontSize.lg,
+    fontSize: TYPOGRAPHY.fontSize.md, // Reduzido de lg para md
     fontWeight: '700',
     color: COLORS.textPrimary,
     marginBottom: SPACING.sm,
   },
   summaryText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.sm, // Reduzido de md para sm
     color: COLORS.textSecondary,
   },
-  // Estilos para a seção de troca de papéis (gerenciamento de papéis)
-  roleSwitchSection: {
-    ...COMMON_STYLES.card,
-  },
-  roleSwitchDescription: {
-    fontSize: TYPOGRAPHY.fontSize.sm,
-    color: COLORS.textSecondary,
-    marginBottom: SPACING.md,
-  },
-  roleToggleContainer: {
-    flexDirection: 'column',
-    gap: SPACING.sm,
-  },
-  roleToggleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: SPACING.sm,
-    borderRadius: BORDER_RADIUS.sm,
-    borderWidth: 1,
-  },
-  roleToggleActive: {
-    backgroundColor: COLORS.background,
-  },
-  roleToggleInactive: {
-    backgroundColor: COLORS.surface,
-    borderColor: COLORS.divider,
-  },
-  roleToggleText: {
-    fontSize: TYPOGRAPHY.fontSize.md,
-    fontWeight: '500',
-    flex: 1,
-    marginLeft: SPACING.sm,
-  },
-  // Estilo para o botão de voltar para a tela inicial
+  // Estilo para o botão de voltar para a tela inicial (agora no topo)
   homeButton: {
     ...COMMON_STYLES.button.primary,
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: SPACING.lg,
+    alignItems: 'center',
+    paddingVertical: SPACING.xs, // Reduzido para um botão menor
+    paddingHorizontal: SPACING.sm, // Reduzido para um botão menor
   },
   homeButtonText: {
     color: COLORS.textInverted,
-    fontSize: TYPOGRAPHY.fontSize.md,
+    fontSize: TYPOGRAPHY.fontSize.sm, // Reduzido de md para sm
     fontWeight: '600',
     marginLeft: SPACING.xs,
   },

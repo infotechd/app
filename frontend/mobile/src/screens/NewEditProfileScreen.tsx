@@ -308,7 +308,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
     // Verifica se o usuário está autenticado
     if (!user?.token) {
       Alert.alert('Sessão expirada', 'Por favor, faça login novamente.');
-      navigation.replace('Login');
+      navigation.replace('Login', {});
       return;
     }
 
@@ -410,7 +410,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
         } else if (error.message.includes('401')) {
           errorMessage = 'Sua sessão expirou. Por favor, faça login novamente.';
           // Redirecionar para login após um breve atraso
-          setTimeout(() => navigation.replace('Login'), 2000);
+          setTimeout(() => navigation.replace('Login', {}), 2000);
         }
       }
 
@@ -699,7 +699,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
     // Verifica se o usuário está autenticado
     if (!user?.token) {
       Alert.alert('Sessão expirada', 'Por favor, faça login novamente.');
-      navigation.replace('Login');
+      navigation.replace('Login', {});
       return;
     }
 
@@ -791,7 +791,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
         } else if (error.message.includes('401')) {
           errorMessage = 'Sua sessão expirou. Por favor, faça login novamente.';
           // Redirecionar para login após um breve atraso
-          setTimeout(() => navigation.replace('Login'), 2000);
+          setTimeout(() => navigation.replace('Login', {}), 2000);
         }
       }
 

@@ -52,7 +52,7 @@ const userBaseSchema = z.object({
   // Utiliza enum definido no modelo User para limitar as opções válidas
   tipoUsuario: z.enum(Object.values(TipoUsuarioEnum) as [string, ...string[]], {
     errorMap: () => ({ message: 'Tipo de usuário inválido' })
-  }),
+  }).optional(),
 
   // Campos para os papéis do usuário
   isComprador: z.boolean().optional(),
@@ -90,46 +90,62 @@ const userBaseSchema = z.object({
 // Estende o esquema base e adiciona campo de senha obrigatório com validações de segurança
 export const createUserSchema = userBaseSchema.extend({
   // Campo para a senha do usuário
-  // Requer pelo menos 6 caracteres e deve conter maiúsculas, minúsculas e números
+  // Requer pelo menos 8 caracteres e deve conter maiúsculas, minúsculas, números e caracteres especiais
   senha: z.string()
-    .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-      message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
-    }),
+    .min(8, { message: 'Senha deve ter pelo menos 8 caracteres' })
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/, {
+      message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial (como !@#$%^&*)'
+    })
+    .refine(
+      (password) => {
+        // Verifica se a senha não contém sequências óbvias
+        const commonSequences = ['123456', 'abcdef', 'qwerty', 'password'];
+        return !commonSequences.some(seq => password.toLowerCase().includes(seq));
+      },
+      {
+        message: 'Senha não deve conter sequências óbvias como "123456" ou "password"'
+      }
+    ),
 });
 
 // Esquema para atualização de dados do usuário
-// Torna todos os campos do esquema base opcionais e adiciona validação de senha opcional
-export const updateUserSchema = z.union([
-  // Opção 1: Campos diretamente no objeto raiz
-  userBaseSchema
+// Padroniza o formato para sempre usar um objeto 'user' contendo os campos a serem atualizados
+// Isso simplifica a validação e evita confusão sobre o formato esperado
+export const updateUserSchema = z.object({
+  user: userBaseSchema
     .partial()
     .extend({
       // Campo opcional para atualização de senha
       // Mantém as mesmas regras de validação da criação quando fornecido
       senha: z.string()
-        .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
-        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-          message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
+        .min(8, { message: 'Senha deve ter pelo menos 8 caracteres' })
+        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*(),.?":{}|<>])/, {
+          message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula, um número e um caractere especial (como !@#$%^&*)'
         })
+        .refine(
+          (password) => {
+            // Verifica se a senha não contém sequências óbvias
+            const commonSequences = ['123456', 'abcdef', 'qwerty', 'password'];
+            return !commonSequences.some(seq => password.toLowerCase().includes(seq));
+          },
+          {
+            message: 'Senha não deve conter sequências óbvias como "123456" ou "password"'
+          }
+        )
         .optional(),
-    }),
 
-  // Opção 2: Campos dentro de um objeto 'user'
-  z.object({
-    user: userBaseSchema
-      .partial()
-      .extend({
-        // Campo opcional para atualização de senha
-        senha: z.string()
-          .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
-          .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-            message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
-          })
-          .optional(),
-      })
-  })
-]);
+      // Campos de ID - pelo menos um deles deve estar presente
+      id: z.string().optional(),
+      idUsuario: z.string().optional(),
+    })
+    .refine(
+      (data) => data.id !== undefined || data.idUsuario !== undefined,
+      {
+        message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
+        path: ["idUsuario"]
+      }
+    )
+});
 
 // Esquema para autenticação de usuário no sistema
 // Contém apenas os campos necessários para o login: email e senha

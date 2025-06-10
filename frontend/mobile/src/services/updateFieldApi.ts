@@ -55,8 +55,10 @@ const updateField = async (
 
   // Cria o objeto de dados do perfil com o campo atualizado
   const profileData: ProfileUpdateData = {
-    ...validUserId,
-    [fieldName]: fieldValue
+    user: {
+      ...validUserId,
+      [fieldName]: fieldValue
+    }
   };
 
   // Envia a solicitação para atualizar o perfil

@@ -32,15 +32,23 @@ export const userRoleSchema = tipoUsuarioEnumSchema;
  */
 export const userSchema = z.object({
   // Identificadores - pelo menos um deve estar presente
-  idUsuario: z.string().optional(),
-  id: z.string().optional(),
+  idUsuario: z.string().regex(/^[0-9a-fA-F]{24}$/, { 
+    message: 'ID de usuário deve ser um ObjectID válido (24 caracteres hexadecimais)' 
+  }).optional(),
+  id: z.string().regex(/^[0-9a-fA-F]{24}$/, { 
+    message: 'ID deve ser um ObjectID válido (24 caracteres hexadecimais)' 
+  }).optional(),
 
   // Campos obrigatórios
   nome: z.string().min(1, { message: 'Nome é obrigatório' }),
   email: z.string().email({ message: 'Email inválido' }),
   tipoUsuario: tipoUsuarioEnumSchema.optional(),
 
-  // Capacidades do usuário
+  // Papéis do usuário
+  roles: z.array(userRoleSchema).optional(),
+  activeRole: userRoleSchema.optional(),
+
+  // Capacidades do usuário (mantidas para compatibilidade)
   isComprador: z.boolean().optional(),
   isPrestador: z.boolean().optional(),
   isAnunciante: z.boolean().optional(),
@@ -91,10 +99,7 @@ export const loginCredentialsSchema = z.object({
       message: 'Por favor, insira um endereço de email válido' 
     }),
   senha: z.string()
-    .min(6, { message: 'Senha deve ter pelo menos 6 caracteres' })
-    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-      message: 'Senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número'
-    }),
+    .min(1, { message: 'Senha é obrigatória' }),
 });
 
 /**
@@ -145,6 +150,32 @@ export const registrationDataSchema = z.object({
 });
 
 /**
+ * Interface para o tipo de dados de atualização de perfil
+ * Esta interface define a estrutura dos dados de atualização de perfil
+ * e é usada para tipar o esquema Zod correspondente
+ */
+export interface ProfileUpdateData {
+  idUsuario?: string;
+  id?: string;
+  _id?: string;
+  nome?: string;
+  email?: string;
+  telefone?: string;
+  cpfCnpj?: string;
+  endereco?: string;
+  foto?: string;
+  dataNascimento?: string | Date;
+  genero?: 'Feminino' | 'Masculino' | 'Prefiro não dizer';
+  roles?: Array<z.infer<typeof userRoleSchema>>;
+  activeRole?: z.infer<typeof userRoleSchema>;
+  isComprador?: boolean;
+  isPrestador?: boolean;
+  isAnunciante?: boolean;
+  isAdmin?: boolean;
+  user?: Omit<ProfileUpdateData, 'user'>;
+}
+
+/**
  * Esquema Zod para dados de atualização de perfil
  * 
  * Este esquema valida os dados fornecidos durante o processo de atualização do perfil do usuário,
@@ -152,9 +183,17 @@ export const registrationDataSchema = z.object({
  * sejam válidos. Diferente do esquema de registro, a maioria dos campos aqui é opcional,
  * pois o usuário pode querer atualizar apenas parte de suas informações.
  */
-export const profileUpdateDataSchema = z.object({
-  idUsuario: z.string().optional(),
-  id: z.string().optional(),
+// Primeiro definimos o esquema base sem a propriedade user para evitar referência circular
+const profileUpdateBaseSchema = z.object({
+  idUsuario: z.string().regex(/^[0-9a-fA-F]{24}$/, { 
+    message: 'ID de usuário deve ser um ObjectID válido (24 caracteres hexadecimais)' 
+  }).optional(),
+  id: z.string().regex(/^[0-9a-fA-F]{24}$/, { 
+    message: 'ID deve ser um ObjectID válido (24 caracteres hexadecimais)' 
+  }).optional(),
+  _id: z.string().regex(/^[0-9a-fA-F]{24}$/, { 
+    message: 'ID deve ser um ObjectID válido (24 caracteres hexadecimais)' 
+  }).optional(),
   nome: z.string().min(1, { message: 'Nome é obrigatório' }).optional(),
   email: z.string().email({ message: 'Email inválido' }).optional(),
   telefone: z.string()
@@ -193,12 +232,39 @@ export const profileUpdateDataSchema = z.object({
     )
     .optional(),
   genero: z.enum(['Feminino', 'Masculino', 'Prefiro não dizer']).optional(),
-  // Capacidades do usuário
+  // Papéis do usuário
+  roles: z.array(userRoleSchema).optional(),
+  activeRole: userRoleSchema.optional(),
+
+  // Capacidades do usuário (mantidas para compatibilidade)
   isComprador: z.boolean().optional(),
   isPrestador: z.boolean().optional(),
   isAnunciante: z.boolean().optional(),
   isAdmin: z.boolean().optional(),
-}).refine(data => data.idUsuario || data.id, {
-  message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
+});
+
+// Agora definimos o esquema completo com a propriedade user
+export const profileUpdateDataSchema = profileUpdateBaseSchema.extend({
+  // Suporte para formato aninhado com objeto user
+  user: z.lazy(() => profileUpdateBaseSchema.extend({}).optional()),
+}).refine(data => {
+  // Verificar se há ID no objeto raiz
+  const rootHasId = data.idUsuario || data.id || data._id;
+
+  // Verificar se há ID no objeto user (se existir)
+  const userHasId = data.user && (data.user.idUsuario || data.user.id || data.user._id);
+
+  // Se estamos atualizando papéis, não exigir ID (solução alternativa)
+  const isRoleUpdate = data.roles || (data.user && data.user.roles) || 
+                       data.isComprador !== undefined || data.isPrestador !== undefined || 
+                       data.isAnunciante !== undefined || data.isAdmin !== undefined ||
+                       (data.user && (
+                         data.user.isComprador !== undefined || data.user.isPrestador !== undefined ||
+                         data.user.isAnunciante !== undefined || data.user.isAdmin !== undefined
+                       ));
+
+  return rootHasId || userHasId || isRoleUpdate;
+}, {
+  message: "Pelo menos um dos campos 'idUsuario', 'id' ou '_id' deve estar presente (exceto para atualizações de papel)",
   path: ["idUsuario"]
 });

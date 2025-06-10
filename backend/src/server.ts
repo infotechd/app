@@ -29,6 +29,8 @@ import agendaRoutes from './routes/agendaRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import errorMiddleware from './middlewares/errorMiddleware';
 import path from 'path';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
 
 
 // Importa o módulo para tratamento de erros assíncronos
@@ -109,9 +111,47 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 })();
 
 
-// 7. Configuração das rotas da API para os diferentes recursos da aplicação
+// 7. Configuração do Swagger para documentação da API
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customCss: '.swagger-ui .topbar { display: none }',
+  customSiteTitle: 'Super App API Documentation'
+}));
 
-// Endpoint de saúde para verificação de conectividade
+// Endpoint para acessar a especificação OpenAPI em formato JSON
+app.get('/api-docs.json', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.send(swaggerSpec);
+});
+
+// 8. Configuração das rotas da API para os diferentes recursos da aplicação
+
+/**
+ * @swagger
+ * /health:
+ *   get:
+ *     summary: Verifica o status da API
+ *     description: Endpoint de saúde para verificar se a API está funcionando corretamente.
+ *     tags: [Sistema]
+ *     responses:
+ *       200:
+ *         description: API está funcionando corretamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ *                   example: 2025-06-06T14:30:00.000Z
+ *                 message:
+ *                   type: string
+ *                   example: API server is running
+ */
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({ 
     status: 'ok', 
@@ -135,7 +175,7 @@ app.use('/api/treinamentos', treinamentoRoutes); // Rotas para gerenciamento de 
 app.use('/api/agenda', agendaRoutes); // Rotas para gerenciamento de agenda
 app.use('/api/upload', uploadRoutes); // Rotas para upload de arquivos
 
-// 8. Criação do servidor HTTP e configuração do Socket.IO para comunicação em tempo real
+// 9. Criação do servidor HTTP e configuração do Socket.IO para comunicação em tempo real
 const server = http.createServer(app); // Cria o servidor HTTP utilizando a aplicação Express
 
 const io = new Server(server, {
@@ -164,12 +204,12 @@ io.use((socket: Socket, next: (err?: Error) => void) => {
 initializeSocketIO(io);
 
 
-// 9. Configuração do middleware centralizado para tratamento de erros
+// 10. Configuração do middleware centralizado para tratamento de erros
 // Este middleware deve ser registrado após todas as rotas e antes da inicialização do servidor
 app.use(errorMiddleware);
 
 
-// 10. Inicialização do servidor com mecanismo de recuperação para porta em uso
+// 11. Inicialização do servidor com mecanismo de recuperação para porta em uso
 const startServer = (port: number) => {
   server.listen(port, () => {
     console.log(`Servidor backend rodando na porta ${port}`);
@@ -188,7 +228,7 @@ const startServer = (port: number) => {
 // Inicia o servidor na porta configurada
 startServer(parseInt(PORT, 10));
 
-// 11. Configuração para encerramento gracioso do servidor
+// 12. Configuração para encerramento gracioso do servidor
 process.on('SIGTERM', () => {
   console.log('Recebido SIGTERM. Encerrando servidor...');
   server.close(async () => { // Função assíncrona para permitir o uso de await

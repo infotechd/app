@@ -43,6 +43,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [isLoading, setIsLoading] = useState<boolean>(true); // Estado para controlar o carregamento inicial
   const [isTokenValid, setIsTokenValid] = useState<boolean>(false); // Estado para controlar a validade do token
 
+  // Removido a dependência do UserContext para evitar circular dependency
+
   // Função para verificar se o token é válido
   const checkTokenValidity = (token?: string): boolean => {
     if (!token || token.trim() === '') return false;
@@ -172,6 +174,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Cria um novo objeto de usuário com os dados atualizados
       const updatedUser = { ...user, ...userData };
+
+      // Garantir que pelo menos um dos campos de ID esteja presente
+      updatedUser.idUsuario = updatedUser.idUsuario || updatedUser.id || updatedUser._id;
 
       // Se o token foi atualizado, verifica sua validade
       if (userData.token) {

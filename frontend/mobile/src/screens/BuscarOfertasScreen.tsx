@@ -55,6 +55,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from "@/navigation/types";
 import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 
 // 2. Tipo das Props da Tela
 type BuscarOfertasScreenProps = NativeStackScreenProps<RootStackParamList, 'BuscarOfertas'>;
@@ -147,7 +148,9 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   }), []);
 
   // Acessa o contexto de autenticação
-  const { user, isTokenValid } = useAuth();
+  const { isTokenValid } = useAuth();
+  // Acessa o contexto de usuário
+  const { user } = useUser();
 
   // Variável para controlar se é a primeira renderização
   const [isInitialRender, setIsInitialRender] = useState<boolean>(true);
@@ -952,7 +955,24 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
 
   // Função para navegar para a tela de login
   const handleLoginPress = useCallback(() => {
-    navigation.navigate('Login');
+    try {
+      console.log('[BuscarOfertasScreen] Tentando navegar para a tela de Login');
+
+      // Verifica se a navegação está disponível
+      if (!navigation) {
+        console.error('[BuscarOfertasScreen] Erro: objeto de navegação não disponível');
+        Alert.alert('Erro', 'Não foi possível acessar a tela de login. Por favor, tente novamente.');
+        return;
+      }
+
+      // Tenta navegar para a tela de Login com parâmetro de retorno
+      navigation.navigate('Login', { returnTo: 'BuscarOfertas' });
+      console.log('[BuscarOfertasScreen] Navegação para Login iniciada com sucesso com parâmetro de retorno');
+    } catch (error) {
+      // Captura e loga qualquer erro que ocorra durante a navegação
+      console.error('[BuscarOfertasScreen] Erro ao navegar para a tela de Login:', error);
+      Alert.alert('Erro', 'Não foi possível acessar a tela de login. Por favor, tente novamente.');
+    }
   }, [navigation]);
 
   // Função para alternar o modo de alto contraste
@@ -1024,20 +1044,22 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
             Buscar Ofertas
           </Text>
 
-          {/* Botão de acessibilidade para alternar o modo de alto contraste */}
-          <TouchableOpacity
-            style={[
-              styles.accessibilityButton,
-              isHighContrastMode && styles.accessibilityButtonActive
-            ]}
-            onPress={toggleHighContrastMode}
-            accessibilityRole="switch"
-            accessibilityState={{ checked: isHighContrastMode }}
-            accessibilityLabel="Alternar modo de alto contraste"
-            accessibilityHint="Ativa ou desativa cores com maior contraste para melhor visualização"
-          >
-            <Text style={styles.accessibilityButtonIcon}>Aa</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {/* Botão de acessibilidade para alternar o modo de alto contraste */}
+            <TouchableOpacity
+              style={[
+                styles.accessibilityButton,
+                isHighContrastMode && styles.accessibilityButtonActive
+              ]}
+              onPress={toggleHighContrastMode}
+              accessibilityRole="switch"
+              accessibilityState={{ checked: isHighContrastMode }}
+              accessibilityLabel="Alternar modo de alto contraste"
+              accessibilityHint="Ativa ou desativa cores com maior contraste para melhor visualização"
+            >
+              <Text style={styles.accessibilityButtonIcon}>Aa</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Caixa de pesquisa e botão lado a lado */}

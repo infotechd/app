@@ -26,8 +26,9 @@ import { Contratacao} from './contratacao'; // Importa o tipo Contratacao
  * Esta interface define a estrutura de dados retornada após um login bem-sucedido
  */
 export interface LoginResponse {
-  user: User & { token: string }; // O objeto do usuário retornado com o token incluído
+  user: User & { token: string; refreshToken?: string }; // O objeto do usuário retornado com o token incluído
   token?: string;                 // O token JWT (opcional aqui porque será movido para dentro do user)
+  refreshToken?: string;          // O refresh token JWT (opcional, usado para renovar o token de acesso)
   message?: string;               // Mensagem opcional de sucesso
 }
 
@@ -84,6 +85,7 @@ export interface ApiErrorResponse {
 export interface ProfileUpdateData {
   idUsuario?: string;              // Identificador único do usuário
   id?: string;                     // Identificador alternativo que pode vir da API
+  _id?: string;                    // Identificador MongoDB que pode vir da API
   nome?: string;                   // Nome do usuário
   email?: string;                  // Email do usuário (Nota: É seguro permitir atualização de email? Depende das regras do backend)
   telefone?: string;               // Número de telefone do usuário
@@ -98,6 +100,8 @@ export interface ProfileUpdateData {
   isPrestador?: boolean;           // Flag de capacidade para prestador
   isAnunciante?: boolean;          // Flag de capacidade para anunciante
   isAdmin?: boolean;               // Flag para administrador
+  // Suporte para formato alternativo com objeto user aninhado
+  user?: Omit<ProfileUpdateData, 'user'>;  // Permite formato aninhado, evitando recursão infinita
   // Adicione outros campos atualizáveis conforme necessário
 }
 

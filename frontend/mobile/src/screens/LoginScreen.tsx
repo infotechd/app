@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, Alert, StyleSheet } from 'react-native';
 
-// 1. Importar o hook useAuth e a função da API (renomeada)
-// Importa o hook de autenticação do contexto e a função de login da API
+// 1. Importar os hooks de autenticação e usuário, e a função da API (renomeada)
+// Importa os hooks de autenticação e usuário do contexto e a função de login da API
 import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { login as apiLogin } from '../services/api';
 
 // Importar tipos de navegação e ParamList centralizados
@@ -21,16 +22,17 @@ type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login'>;
  * Coleta endereço eletrônico e senha, chama a API de 'login' e atualiza o AuthContext.
  * Esta tela é responsável pela autenticação do usuário no sistema.
  */
-export default function LoginScreen({ navigation }: LoginScreenProps) {
+export default function LoginScreen({ navigation, route }: LoginScreenProps) {
   // 5. Tipar o estado local
   // Estados para armazenar os dados do formulário de login
   const [email, setEmail] = useState<string>(''); // Estado para armazenar o email do usuário
   const [senha, setSenha] = useState<string>(''); // Estado para armazenar a senha do usuário
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false); // Estado para feedback de carregamento durante o processo de login
 
-  // 6. Obter a função de 'login' do contexto
-  // Extrai a função de login do contexto de autenticação para uso posterior
-  const { login: contextLogin } = useAuth();
+  // 6. Obter as funções de 'login' dos contextos
+  // Extrai as funções de login dos contextos de autenticação e usuário para uso posterior
+  const { login: authLogin } = useAuth();
+  const { login: userLogin } = useUser();
 
   // 7. Refatorar handleLogin
   // Função assíncrona que gerencia o processo de login
@@ -51,25 +53,14 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
     }
 
     // Verifica se o campo de senha está preenchido
-    if (!senha) {
+    // Nota: A validação completa de senha deve ser feita no registro, não no login
+    if (!senha || senha.trim() === '') {
       Alert.alert('Erro', 'A senha é obrigatória.');
       return;
     }
 
-    // Validar requisitos de senha
-    // Verifica se a senha tem o comprimento mínimo necessário
-    if (senha.length < 6) {
-      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres.');
-      return;
-    }
-
-    // Verificar se a senha contém pelo menos uma letra maiúscula, uma minúscula e um número
-    // Utiliza expressão regular para validar a complexidade da senha
-    const senhaRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/;
-    if (!senhaRegex.test(senha)) {
-      Alert.alert('Erro', 'A senha deve conter pelo menos uma letra maiúscula, uma minúscula e um número.');
-      return;
-    }
+    // Removida a validação de complexidade de senha para o login
+    // Isso permite que usuários com senhas mais simples possam fazer login
 
     setIsLoggingIn(true); // Ativa o indicador de carregamento para feedback visual ao usuário
     // Dentro da função handleLogin em LoginScreen.tsx
@@ -91,25 +82,45 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       console.log('[Login Mobile] Resposta da API recebida:', loginResponse);
 
       // Verifica se a resposta contém os dados necessários
-      // Validação inicial para garantir que a resposta da API contém todos os campos obrigatórios
-      if (!loginResponse || !loginResponse.user || !loginResponse.token) {
-        throw new Error('Resposta de login inválida: dados incompletos');
+      // Validação mais tolerante para lidar com diferentes formatos de resposta
+      console.log('[Login Mobile] Validando resposta da API:', JSON.stringify(loginResponse));
+
+      if (!loginResponse) {
+        console.error('[Login Mobile] Resposta vazia da API');
+        throw new Error('Resposta de login inválida: resposta vazia');
       }
 
-      // Verifica se o ID do usuário está presente na resposta
-      // O ID é essencial para identificar o usuário no sistema
-      if (!loginResponse.user.id) {
-        console.error('[Login Mobile] ID do usuário ausente na resposta:', loginResponse);
+      // Verifica se há um objeto de usuário na resposta
+      if (!loginResponse.user) {
+        console.error('[Login Mobile] Objeto de usuário ausente na resposta:', loginResponse);
+        // Não tenta mais usar a resposta como objeto de usuário, pois isso pode causar confusão
+        throw new Error('Dados do usuário não encontrados na resposta');
+      }
+
+      // Verifica se o token está presente
+      if (!loginResponse.token) {
+        console.warn('[Login Mobile] Token ausente na resposta principal, verificando alternativas');
+
+        // Verifica se o token está dentro do objeto user
+        if (loginResponse.user && loginResponse.user.token) {
+          console.log('[Login Mobile] Token encontrado dentro do objeto user');
+          loginResponse.token = loginResponse.user.token;
+        } else {
+          console.error('[Login Mobile] Token não encontrado em nenhum lugar da resposta');
+          throw new Error('Token de autenticação não encontrado na resposta');
+        }
+      }
+
+      // Verifica se o ID do usuário está presente em algum formato
+      if (!loginResponse.user.id && !loginResponse.user.idUsuario && !loginResponse.user._id) {
+        console.error('[Login Mobile] ID do usuário ausente em todos os formatos possíveis:', loginResponse.user);
         throw new Error('ID do usuário não encontrado na resposta');
       }
 
-      // Verifica se o token está presente e não é vazio
-      // O token é necessário para autenticar requisições futuras
-      if (!loginResponse.token || loginResponse.token.trim() === '') {
-        const errorMessage = 'Erro de validação: user.token: Required';
-        console.error('[Login Mobile] Token ausente ou vazio na resposta:', errorMessage);
-        Alert.alert('Erro no Login', errorMessage);
-        return; // Encerra a função sem prosseguir
+      // Se o ID estiver em um formato alternativo, normaliza para id
+      if (!loginResponse.user.id) {
+        loginResponse.user.id = loginResponse.user.idUsuario || loginResponse.user._id;
+        console.log('[Login Mobile] ID normalizado:', loginResponse.user.id);
       }
 
       // Prepara o objeto User para o contexto (ajuste conforme sua interface User no AuthContext)
@@ -119,9 +130,9 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
         // Garante que token esteja presente no objeto user e não seja vazio
         // O token será usado para autenticar requisições à API
         token: loginResponse.token,
-        // Garante que idUsuario esteja presente (o backend pode retornar id ou idUsuario)
+        // Garante que idUsuario esteja presente (o backend pode retornar id, idUsuario ou _id)
         // Compatibilidade com diferentes formatos de resposta da API
-        idUsuario: loginResponse.user.idUsuario || loginResponse.user.id || '',
+        idUsuario: loginResponse.user.idUsuario || loginResponse.user.id || loginResponse.user._id || '',
         // Garante que as flags de capacidade estejam presentes
         // Estas flags determinam as permissões e funcionalidades disponíveis para o usuário
         isComprador: loginResponse.user.isComprador ?? false,
@@ -145,7 +156,7 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
 
       // Valida se os campos obrigatórios estão presentes (verificação extra de segurança)
       // Verifica se o ID do usuário está presente em pelo menos um dos campos esperados
-      if (!userForContext.idUsuario && !userForContext.id) {
+      if (!userForContext.idUsuario && !userForContext.id && !userForContext._id) {
         const errorMessage = 'Erro de validação: user.idUsuario: Required';
         console.error('[Login Mobile] Validação falhou após construção do objeto de usuário:', errorMessage);
         Alert.alert('Erro no Login', errorMessage);
@@ -173,13 +184,33 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       // Confirmação de que todas as validações foram bem-sucedidas
       console.log('[Login Mobile] Objeto de usuário validado com sucesso, prosseguindo com login');
 
-      // Chama a função 'login' do AuthContext
-      // Atualiza o contexto de autenticação com os dados do usuário logado
-      await contextLogin(userForContext);
+      // Chama as funções de login dos contextos
+      // Atualiza os contextos de autenticação e usuário com os dados do usuário logado
+      await authLogin(userForContext);
+      await userLogin(userForContext);
 
-      // Confirmação de que o contexto foi atualizado e navegação para a tela inicial
-      console.log('[Login Mobile] Contexto atualizado. Navegando para Home...');
-      navigation.navigate('Home');
+      // Confirmação de que os contextos foram atualizados
+      console.log('[Login Mobile] Contextos atualizados. A navegação será gerenciada pelo AppNavigation.');
+
+      // Após login bem-sucedido, o usuário será redirecionado automaticamente
+      console.log('[Login Mobile] Login bem-sucedido, o redirecionamento será gerenciado pelo AppNavigation');
+
+      // Armazena o papel inicial no contexto do usuário com base nas capacidades
+      let initialRole = undefined;
+      if (userForContext.isPrestador) {
+        initialRole = 'prestador';
+      } else if (userForContext.isComprador) {
+        initialRole = 'comprador';
+      } else if (userForContext.isAnunciante) {
+        initialRole = 'anunciante';
+      }
+
+      // Não é necessário navegar explicitamente para o UnifiedDashboard
+      // O AppNavigation detectará a mudança no estado de autenticação e redirecionará automaticamente
+      // para a tela inicial definida para usuários autenticados
+
+      // Nota: Removemos a navegação explícita para UnifiedDashboard para corrigir o problema
+      // onde a navegação falhava porque o UnifiedDashboard só está disponível no stack autenticado
 
     } catch (error: any) { // Captura qualquer tipo de erro durante o processo de login
       console.error('--- ERRO DETALHADO NO LOGIN MOBILE ---');
@@ -225,9 +256,15 @@ export default function LoginScreen({ navigation }: LoginScreenProps) {
       let userMessage = 'Ocorreu um erro desconhecido. Verifique os logs.';
 
       if (error instanceof Error) {
+        // Verifica se é um erro de muitas tentativas de login
+        if (error.message.includes('Muitas tentativas de login') || 
+            error.message.includes('Too many login attempts')) {
+          userMessage = 'Muitas tentativas de login. Por favor, aguarde alguns minutos antes de tentar novamente.';
+          console.log('Erro de limite de tentativas de login detectado. Exibindo mensagem amigável para o usuário.');
+        }
         // Usa a mensagem do erro, mas trata casos específicos
         // Personaliza a mensagem de erro com base no tipo de problema encontrado
-        if (error.message.includes('ID do usuário não encontrado')) {
+        else if (error.message.includes('ID do usuário não encontrado')) {
           userMessage = 'Não foi possível obter seu ID de usuário. Por favor, tente novamente.';
         } else if (error.message.includes('dados incompletos')) {
           userMessage = 'A resposta do servidor está incompleta. Por favor, tente novamente mais tarde.';

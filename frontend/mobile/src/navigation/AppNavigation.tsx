@@ -6,7 +6,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 // 1. Importar Hook de Autenticação e Tipos de Navegação
-import { useAuth } from "@/context/AuthContext";
+import { useUser } from "@/context/UserContext";
 import { RootStackParamList } from './types';
 
 // 2. Importar Componentes das Telas
@@ -76,7 +76,7 @@ const LoadingIndicator = () => (
  */
 export default function AppNavigation() {
   // 4. Obter estado de autenticação (usuário logado?) e status de carregamento
-  const { user, isLoading } = useAuth();
+  const { user, isLoading } = useUser();
 
   // 5. Exibir indicador de carregamento enquanto o estado de autenticação é verificado
   if (isLoading) {
@@ -89,7 +89,7 @@ export default function AppNavigation() {
       {/* Configurações globais do Stack Navigator podem ser definidas aqui */}
       <Stack.Navigator
         id={undefined}  // O stack.navigator estava dando erro acrecentei isso aqui = id={undefined}
-        initialRouteName={user ? 'Home' : 'BuscarOfertas'} // Define a tela inicial baseada no login
+        initialRouteName={user ? 'UnifiedDashboard' : 'Login'} // Define a tela inicial baseada no login
         screenOptions={{
           headerShown: true,
           headerStyle: { backgroundColor: '#f8f8f8' },

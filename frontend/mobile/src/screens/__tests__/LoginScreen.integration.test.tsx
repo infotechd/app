@@ -36,63 +36,70 @@ describe('LoginScreen Integration Tests', () => {
   };
   const mockToken = 'mock-jwt-token';
   const mockLoginResponse = { user: mockUser, token: mockToken };
-  
+
   beforeEach(() => {
     // Clear all mocks before each test
     jest.clearAllMocks();
-    
+
     // Setup default mock implementations
     apiLogin.mockResolvedValue(mockLoginResponse);
   });
-  
+
   test('integrates with AuthContext on successful login', async () => {
+    // Mock the contextLogin function from useAuth
+    const mockContextLogin = jest.fn();
+    jest.spyOn(require('../../context/AuthContext'), 'useAuth').mockImplementation(() => ({
+      login: mockContextLogin
+    }));
+
     const { getByText, getByPlaceholderText } = render(
       <LoginScreenWithAuth navigation={mockNavigation} />
     );
-    
+
     // Fill the form
     fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
     fireEvent.changeText(getByPlaceholderText('Senha'), 'password123');
-    
+
     // Submit the form
     fireEvent.press(getByText('Entrar'));
-    
+
     // Wait for the async operations to complete
     await waitFor(() => {
       // Check if the API login function was called with the correct parameters
       expect(apiLogin).toHaveBeenCalledWith('test@example.com', 'password123');
-      
-      // Check if navigation to Home screen happened
-      expect(mockNavigation.navigate).toHaveBeenCalledWith('Home');
+
+      // Check if contextLogin was called with the user data
+      // We no longer expect direct navigation to UnifiedDashboard since that's handled by AppNavigation
+      expect(mockContextLogin).toHaveBeenCalled();
     });
   });
-  
+
   test('handles API errors correctly', async () => {
     // Setup API login to reject with an error
     const errorMessage = 'Invalid credentials';
     apiLogin.mockRejectedValueOnce(new Error(errorMessage));
-    
+
     const { getByText, getByPlaceholderText } = render(
       <LoginScreenWithAuth navigation={mockNavigation} />
     );
-    
+
     // Fill the form
     fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
     fireEvent.changeText(getByPlaceholderText('Senha'), 'wrong-password');
-    
+
     // Submit the form
     fireEvent.press(getByText('Entrar'));
-    
+
     // Wait for the async operations to complete
     await waitFor(() => {
       // Check if the alert was shown with the correct error message
       expect(Alert.alert).toHaveBeenCalledWith('Erro no Login', errorMessage);
-      
+
       // Check that navigation did not happen
       expect(mockNavigation.navigate).not.toHaveBeenCalled();
     });
   });
-  
+
   test('handles validation errors correctly', async () => {
     // Setup API login to return a response without idUsuario
     const incompleteUser = { 
@@ -103,18 +110,18 @@ describe('LoginScreen Integration Tests', () => {
     };
     const incompleteResponse = { user: incompleteUser, token: mockToken };
     apiLogin.mockResolvedValueOnce(incompleteResponse);
-    
+
     const { getByText, getByPlaceholderText } = render(
       <LoginScreenWithAuth navigation={mockNavigation} />
     );
-    
+
     // Fill the form
     fireEvent.changeText(getByPlaceholderText('Email'), 'test@example.com');
     fireEvent.changeText(getByPlaceholderText('Senha'), 'password123');
-    
+
     // Submit the form
     fireEvent.press(getByText('Entrar'));
-    
+
     // Wait for the async operations to complete
     await waitFor(() => {
       // Check if the alert was shown with the validation error message
@@ -122,7 +129,7 @@ describe('LoginScreen Integration Tests', () => {
         'Erro no Login', 
         'Erro de validação: user.idUsuario: Required'
       );
-      
+
       // Check that navigation did not happen
       expect(mockNavigation.navigate).not.toHaveBeenCalled();
     });

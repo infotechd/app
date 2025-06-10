@@ -1,4 +1,4 @@
-// src/integrations/backgroundCheck.ts
+ // src/integrations/backgroundCheck.ts
 
 /**
  * Módulo de integração com API externa de verificação de antecedentes.

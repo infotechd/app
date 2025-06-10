@@ -3,6 +3,7 @@
 import { Request, Response, NextFunction } from 'express';
 import mongoose from 'mongoose';
 import OfertaServico, { IOfertaServico, OfertaStatusEnum, IDisponibilidade } from '../models/OfertaServico'; // Importa modelo e interface/enum
+import { extractPaginationParams, paginatedQuery } from '../utils/paginationUtils'; // Importa utilitários de paginação
 // Import for TipoUsuarioEnum removed as it's no longer used
 
 // Interface que define a estrutura de dados para criação/atualização de ofertas
@@ -124,6 +125,7 @@ export const createOferta = async (req: Request, res: Response, next: NextFuncti
 
 /**
  * Lista todas as ofertas criadas pelo prestador logado (CU3).
+ * Implementa paginação padronizada para melhor performance e escalabilidade.
  */
 export const listOfertasByPrestador = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   // Verifica se o usuário está autenticado
@@ -135,36 +137,38 @@ export const listOfertasByPrestador = async (req: Request, res: Response, next: 
   // Com a unificação dos tipos de usuário, qualquer usuário autenticado pode listar suas ofertas
   // Não é mais necessário verificar o papel específico do usuário
   try {
-    // Extrai e processa os parâmetros de paginação da requisição
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    // Extrai e valida parâmetros de paginação usando o utilitário padronizado
+    const { page, limit } = extractPaginationParams(req, {
+      defaultLimit: 10,
+      maxLimit: 50
+    });
+
     const statusFilter = req.query.status as string | undefined;
 
     // Constrói a query para buscar ofertas do prestador logado
     const query: mongoose.FilterQuery<IOfertaServico> = { prestadorId: req.user.userId };
+
     // Adiciona filtro por status, se fornecido e válido
     if (statusFilter && Object.values(OfertaStatusEnum).includes(statusFilter as OfertaStatusEnum)) {
       query.status = statusFilter as OfertaStatusEnum;
     }
 
-    // Executa as consultas em paralelo para melhor performance
-    const [ofertas, total] = await Promise.all([
-      // Busca as ofertas com paginação e ordenação
-      OfertaServico.find(query)
-        .sort({ createdAt: -1 }) // Ordena por data de criação (mais recentes primeiro)
-        .skip(skip)
-        .limit(limit),
-      // Conta o total de ofertas para calcular a paginação
-      OfertaServico.countDocuments(query)
-    ]);
+    // Usa o utilitário de consulta paginada para obter resultados consistentes
+    const result = await paginatedQuery<IOfertaServico>(
+      OfertaServico,
+      query,
+      page,
+      limit,
+      {
+        sort: { createdAt: -1 } // Ordena por data de criação (mais recentes primeiro)
+      }
+    );
 
-    // Retorna os resultados formatados com informações de paginação
+    // Retorna os resultados formatados com informações de paginação padronizadas
     res.status(200).json({
-      offers: ofertas,
-      totalPages: Math.ceil(total / limit),
-      currentPage: page,
-      totalOffers: total
+      offers: result.data,
+      pagination: result.pagination,
+      totalOffers: result.pagination.totalItems
     });
 
   } catch (error) {
@@ -381,13 +385,17 @@ export const deleteOferta = async (req: Request, res: Response, next: NextFuncti
 
 /**
  * Busca/Lista ofertas públicas (status 'disponível') (CU4)
+ * Implementa paginação padronizada para melhor performance e escalabilidade.
  */
 export const searchPublicOfertas = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    // Extrai e processa os parâmetros de paginação e filtros da requisição
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const skip = (page - 1) * limit;
+    // Extrai e valida parâmetros de paginação usando o utilitário padronizado
+    const { page, limit } = extractPaginationParams(req, {
+      defaultLimit: 10,
+      maxLimit: 50
+    });
+
+    // Extrai outros parâmetros de filtro e ordenação
     const sort = (req.query.sort as string) || '-createdAt'; // Ordenação padrão: mais recentes primeiro
     const precoMax = req.query.precoMax ? Number(req.query.precoMax) : undefined;
     const textoPesquisa = req.query.textoPesquisa as string | undefined;
@@ -439,34 +447,39 @@ export const searchPublicOfertas = async (req: Request, res: Response, next: Nex
       }
     }
 
-    // Define opções para a consulta
-    const options = {
-      page: page,
-      limit: limit,
-      sort: sort,
-      populate: { path: 'prestadorId', select: 'nome foto avaliacaoMedia' }, // Inclui dados do prestador na resposta
-      select: '-disponibilidade.recorrenciaSemanal._id' // Exclui IDs internos desnecessários
-    };
+    // Converte string de ordenação para objeto de ordenação do MongoDB
+    const sortObj: Record<string, 1 | -1> = {};
+    if (sort) {
+      const sortFields = sort.split(',');
+      for (const field of sortFields) {
+        const isDesc = field.startsWith('-');
+        const fieldName = isDesc ? field.substring(1) : field;
+        sortObj[fieldName] = isDesc ? -1 : 1;
+      }
+    }
+    // Se nenhum campo de ordenação foi especificado, usa createdAt descendente
+    if (Object.keys(sortObj).length === 0) {
+      sortObj.createdAt = -1;
+    }
 
-    // Executa as consultas em paralelo para melhor performance
-    const [ofertas, total] = await Promise.all([
-      // Busca as ofertas com paginação, ordenação e população de dados relacionados
-      OfertaServico.find(query)
-        .sort(options.sort)
-        .skip(skip)
-        .limit(options.limit)
-        .select(options.select)
-        .populate(options.populate),
-      // Conta o total de ofertas para calcular a paginação
-      OfertaServico.countDocuments(query)
-    ]);
+    // Usa o utilitário de consulta paginada para obter resultados consistentes
+    const result = await paginatedQuery<IOfertaServico>(
+      OfertaServico,
+      query,
+      page,
+      limit,
+      {
+        sort: sortObj,
+        select: '-disponibilidade.recorrenciaSemanal._id', // Exclui IDs internos desnecessários
+        populate: { path: 'prestadorId', select: 'nome foto avaliacaoMedia' } // Inclui dados do prestador na resposta
+      }
+    );
 
-    // Retorna os resultados formatados com informações de paginação
+    // Retorna os resultados formatados com informações de paginação padronizadas
     res.status(200).json({
-      ofertas,
-      totalPages: Math.ceil(total / options.limit),
-      currentPage: options.page,
-      totalOfertas: total
+      ofertas: result.data,
+      pagination: result.pagination,
+      totalOfertas: result.pagination.totalItems
     });
 
   } catch (error) {

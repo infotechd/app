@@ -98,8 +98,8 @@ describe('LoginScreen', () => {
         token: mockToken,
       });
 
-      // Check if navigation to Home screen happened
-      expect(mockNavigation.navigate).toHaveBeenCalledWith('Home');
+      // Check if navigation to UnifiedDashboard screen happened
+      expect(mockNavigation.navigate).toHaveBeenCalledWith('UnifiedDashboard', { initialRole: 'comprador' });
     });
   });
 
@@ -164,8 +164,8 @@ describe('LoginScreen', () => {
 
     // Wait for the async operations to complete
     await waitFor(() => {
-      // Check that navigation to Home screen happened
-      expect(mockNavigation.navigate).toHaveBeenCalledWith('Home');
+      // Check that navigation to UnifiedDashboard screen happened
+      expect(mockNavigation.navigate).toHaveBeenCalledWith('UnifiedDashboard', { initialRole: 'comprador' });
     });
   });
 

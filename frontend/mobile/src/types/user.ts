@@ -59,8 +59,13 @@ export interface User {
   nome: string;     // Nome completo do usuário, usado para exibição e identificação
   email: string;    // Endereço de email do usuário, usado para login e comunicações
 
-  // Capacidades do usuário (substituindo o antigo campo tipoUsuario)
-  // Estas flags determinam quais funcionalidades o usuário pode acessar no sistema
+  // Papéis do usuário (substituindo as flags booleanas)
+  // Array de papéis que o usuário possui no sistema
+  roles?: UserRole[];  // Lista de papéis que o usuário possui (comprador, prestador, anunciante, admin)
+  activeRole?: UserRole; // Papel ativo atual do usuário
+
+  // Mantendo as flags booleanas para compatibilidade com código existente
+  // Estas serão derivadas do array de roles
   isComprador?: boolean;  // Indica se o usuário pode contratar serviços e fazer compras
   isPrestador?: boolean;  // Indica se o usuário pode oferecer serviços como prestador
   isAnunciante?: boolean; // Indica se o usuário pode criar anúncios e treinamentos
@@ -70,6 +75,7 @@ export interface User {
   // ou retornado junto com o usuário no login. Essencial para chamadas API autenticadas.
   // Marcado como opcional para permitir atualizações parciais do perfil
   token?: string;    // Token JWT ou similar usado para autenticação nas chamadas à API
+  refreshToken?: string; // Token de atualização usado para renovar o token de acesso quando expirado
 
   // Campos opcionais que podem ou não estar presentes dependendo do contexto
   // ou se o perfil foi completamente preenchido.

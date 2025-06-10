@@ -124,24 +124,28 @@ export const ROLE_CONFIG = {
     color: COLORS.primary,
     bgColor: COLORS.primaryLight,
     borderColor: COLORS.primary,
+    description: 'Acesse funcionalidades de compra',
   },
   prestador: {
     icon: 'build',
     color: COLORS.secondary,
     bgColor: COLORS.secondaryLight,
     borderColor: COLORS.secondary,
+    description: 'Ofereça seus serviços na plataforma',
   },
   anunciante: {
     icon: 'campaign',
     color: COLORS.warning,
     bgColor: COLORS.warningLight,
     borderColor: COLORS.warning,
+    description: 'Crie e gerencie seus anúncios',
   },
   admin: {
     icon: 'admin-panel-settings',
     color: COLORS.accent,
     bgColor: COLORS.accentLight,
     borderColor: COLORS.accent,
+    description: 'Acesse funções administrativas',
   },
 };
 

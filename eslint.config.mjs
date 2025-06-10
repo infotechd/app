@@ -71,7 +71,11 @@ export default [
     rules: {
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-unused-vars': ['warn', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_',
+      }],
       '@typescript-eslint/no-empty-function': 'warn',
       '@typescript-eslint/no-empty-interface': 'warn'
     }
@@ -87,7 +91,7 @@ export default [
     rules: {
       'react/jsx-uses-react': 'error',
       'react/jsx-uses-vars': 'error',
-      'react/react-in-jsx-scope': 'error',
+      'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'warn'
     },
     settings: {
@@ -129,7 +133,7 @@ export default [
   {
     files: ['**/*.{js,jsx,ts,tsx}'],
     rules: {
-      'prettier/prettier': 'warn', // Avisa sobre código que não segue as regras do Prettier
+      'prettier/prettier': 'off', // Temporariamente desativado enquanto o código é formatado gradualmente
     },
   },
 
@@ -143,14 +147,14 @@ export default [
         varsIgnorePattern: '^_', // Ignora também variáveis não usadas que começam com _
         caughtErrorsIgnorePattern: '^_', // Ignora erros capturados que começam com _
       }],
-      'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off', // Ex: Avisar sobre console em produção
+      'no-console': 'off', // Desativado para permitir console.log durante o desenvolvimento
       // Adicione outras regras customizadas aqui
     },
   },
 
   // 9. Override específico para o arquivo 'App'.tsx (ou seu ponto de entrada principal)
   {
-    files: ["./frontend/mobile/App.tsx"], // AJUSTE O CAMINHO se App.tsx estiver dentro de src/
+    files: ["frontend/mobile/App.tsx"], // Caminho corrigido sem ./ no início
     rules: {
       // Ajusta a regra @typescript-eslint/no-unused-vars especificamente para App.tsx
       // para ignorar a variável 'App' usada no export default.

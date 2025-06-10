@@ -84,7 +84,42 @@ import {
 } from '../types/relatorio';
 
 import axios from 'axios';
-import { API_URL } from "../config/api";
+import { API_URL, API_URLS } from "../config/api";
+
+/**
+ * Tenta fazer uma requisição usando URLs alternativas da API
+ * @param originalUrl - A URL original que falhou
+ * @param options - As opções da requisição
+ * @returns Promise que é resolvida com a resposta ou null se todas as tentativas falharem
+ */
+async function tryAlternativeUrls(originalUrl: string, options: RequestInit): Promise<Response | null> {
+  // Extrai o caminho relativo da URL original
+  const originalUrlObj = new URL(originalUrl);
+  const pathWithQuery = originalUrlObj.pathname + originalUrlObj.search;
+
+  // Filtra a URL atual para não tentar novamente
+  const currentBaseUrl = originalUrl.replace(pathWithQuery, '');
+  const alternativeUrls = API_URLS.filter(url => url !== currentBaseUrl);
+
+  console.log(`[FETCH] Tentando ${alternativeUrls.length} URLs alternativas para ${pathWithQuery}`);
+
+  // Tenta cada URL alternativa
+  for (const baseUrl of alternativeUrls) {
+    const alternativeUrl = `${baseUrl}${pathWithQuery}`;
+    console.log(`[FETCH] Tentando URL alternativa: ${alternativeUrl}`);
+
+    try {
+      const response = await fetch(alternativeUrl, options);
+      console.log(`[FETCH] Resposta da URL alternativa: status ${response.status}`);
+      return response;
+    } catch (error) {
+      console.error(`[FETCH] Falha na URL alternativa ${alternativeUrl}:`, error);
+    }
+  }
+
+  console.error('[FETCH] Todas as URLs alternativas falharam');
+  return null;
+}
 
 // Define RequestInit interface if not available
 interface RequestInit {
@@ -132,6 +167,7 @@ interface ApiRequestOptions {
   token?: string;
   retries?: number;
   delay?: number;
+  cache?: CacheOptions;
 }
 
 /**
@@ -150,98 +186,96 @@ const isTestEnvironment = (): boolean => {
   return process.env.NODE_ENV === 'test';
 };
 
+// Cache para o status de conectividade
+interface ConnectivityCache {
+  isConnected: boolean;
+  timestamp: number;
+  expiresIn: number; // Tempo de expiração em ms
+}
+
+// Variável para armazenar o cache de conectividade
+let connectivityCache: ConnectivityCache | null = null;
+
+// Tempo de expiração do cache de conectividade (10 segundos)
+const CONNECTIVITY_CACHE_TTL = 10000;
+
 /**
- * Verifica a conectividade de rede
- * @returns Promise que é resolvida se a conectividade estiver disponível
+ * Verifica a conectividade de rede com cache para evitar verificações repetidas
+ * @returns Promise que é resolvida com true se a conectividade estiver disponível, false caso contrário
+ * @throws Não lança exceções, apenas retorna false em caso de falha
  */
 const checkConnectivity = async (): Promise<boolean> => {
-  console.log('[CONNECTIVITY] Iniciando verificação de conectividade de rede');
-
+  // Verifica se estamos em ambiente de teste
   if (isTestEnvironment()) {
-    console.log('[CONNECTIVITY] Ambiente de teste detectado, pulando verificação');
     return true; // Pula a verificação de conectividade em ambiente de teste
   }
 
-  // Lista de URLs para verificar conectividade (em ordem de prioridade)
+  // Verifica se temos um cache válido
+  const now = Date.now();
+  if (connectivityCache && now - connectivityCache.timestamp < connectivityCache.expiresIn) {
+    console.log('[CONNECTIVITY] Usando resultado em cache:', 
+      connectivityCache.isConnected ? 'Conectado' : 'Desconectado');
+    return connectivityCache.isConnected;
+  }
+
+  console.log('[CONNECTIVITY] Verificando conectividade de rede...');
+
+  // Lista de URLs para verificar conectividade, em ordem de prioridade
   const connectivityCheckUrls = [
-    'https://www.google.com',
+    // Primeiro tenta o próprio backend da aplicação
+    API_URL,
+    // Depois tenta serviços públicos confiáveis
     'https://www.cloudflare.com',
-    'https://www.amazon.com'
+    'https://www.google.com',
+    'https://www.microsoft.com'
   ];
 
-  console.log('[CONNECTIVITY] Verificando conectividade com sites externos...');
-  console.log('[CONNECTIVITY] URLs a serem testadas:', connectivityCheckUrls);
+  // Timeout aumentado para redes mais lentas
+  const timeout = 5000;
 
-  // Tenta cada URL até encontrar uma que funcione
+  // Tenta cada URL até encontrar uma que responda
   for (const url of connectivityCheckUrls) {
-    console.log(`[CONNECTIVITY] Tentando conectar a ${url}...`);
     try {
-      const startTime = Date.now();
-      await axios.head(url, { 
-        timeout: 5000,
-        // Não seguir redirecionamentos para economizar tempo/dados
+      console.log(`[CONNECTIVITY] Tentando verificar conectividade com: ${url}`);
+
+      const response = await axios.head(url, {
+        timeout,
         maxRedirects: 0,
-        // Cabeçalhos mínimos
-        headers: { 'Accept': '*/*' }
+        headers: { 'Accept': '*/*' },
+        // Ignora erros de certificado em desenvolvimento
+        validateStatus: (status) => status >= 200 && status < 600
       });
-      const endTime = Date.now();
-      const responseTime = endTime - startTime;
 
-      console.log(`[CONNECTIVITY] ✓ Conectividade confirmada via ${url} (${responseTime}ms)`);
+      // Se chegou aqui, a conexão está funcionando
+      const isConnected = response.status >= 200 && response.status < 600;
 
-      // Agora vamos verificar se conseguimos acessar nossa própria API
-      try {
-        console.log(`[CONNECTIVITY] Verificando acesso à API em ${API_URL}...`);
-        const apiStartTime = Date.now();
-        // Faz uma requisição simples para a API apenas para verificar conectividade
-        const apiResponse = await fetch(`${API_URL}/health`, { 
-          method: 'GET',
-          headers: { 'Accept': 'application/json' },
-          // Timeout curto para não bloquear por muito tempo
-          signal: AbortSignal.timeout(3000)
-        });
-        const apiEndTime = Date.now();
-        const apiResponseTime = apiEndTime - apiStartTime;
+      if (isConnected) {
+        console.log(`[CONNECTIVITY] ✓ Conectividade confirmada via ${url}`);
 
-        if (apiResponse.ok) {
-          console.log(`[CONNECTIVITY] ✓ API acessível (${apiResponseTime}ms, status: ${apiResponse.status})`);
-        } else {
-          console.warn(`[CONNECTIVITY] ⚠ API retornou status ${apiResponse.status} (${apiResponseTime}ms)`);
-        }
-      } catch (apiError: unknown) {
-        if (apiError instanceof Error) {
-          console.warn('[CONNECTIVITY] ⚠ Não foi possível acessar a API:', apiError.message);
-        } else {
-          console.warn('[CONNECTIVITY] ⚠ Não foi possível acessar a API:', apiError);
-        }
-        console.log('[CONNECTIVITY] Isso pode indicar um problema com a conexão à API, mas a internet está funcionando');
+        // Armazena o resultado no cache
+        connectivityCache = {
+          isConnected: true,
+          timestamp: now,
+          expiresIn: CONNECTIVITY_CACHE_TTL
+        };
+
+        return true;
       }
-
-      return true;
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.warn(`[CONNECTIVITY] ✗ Falha ao verificar conectividade via ${url}:`, error.message);
-      } else {
-        console.warn(`[CONNECTIVITY] ✗ Falha ao verificar conectividade via ${url}:`, error);
-      }
-
-      // Verificações seguras para propriedades específicas
-      if (error && typeof error === 'object') {
-        if ('code' in error && error.code) {
-          console.warn(`[CONNECTIVITY] Código de erro: ${error.code}`);
-        }
-
-        if ('response' in error && error.response && typeof error.response === 'object' && 'status' in error.response) {
-          console.warn(`[CONNECTIVITY] Resposta recebida com status: ${error.response.status}`);
-        }
-      }
-      // Continua para a próxima URL
+    } catch (error) {
+      console.warn(`[CONNECTIVITY] Falha ao verificar conectividade com ${url}:`, error);
+      // Continua tentando com a próxima URL
     }
   }
 
-  // Se chegou aqui, todas as verificações falharam
-  console.error('[CONNECTIVITY] ✗ Falha na verificação de conectividade em todas as URLs testadas');
-  console.error('[CONNECTIVITY] Dispositivo parece estar offline ou com conectividade muito limitada');
+  // Se chegou aqui, todas as tentativas falharam
+  console.warn('[CONNECTIVITY] ✗ Todas as verificações de conectividade falharam');
+
+  // Armazena o resultado negativo no cache (com tempo de expiração menor)
+  connectivityCache = {
+    isConnected: false,
+    timestamp: now,
+    expiresIn: CONNECTIVITY_CACHE_TTL / 2 // Expira mais rápido para tentar novamente
+  };
 
   return false;
 };
@@ -322,32 +356,64 @@ const handleApiError = async (response: Response): Promise<never> => {
 
   const errorMessage = errorData?.message || `Erro na API: ${response.status} ${response.statusText}`;
   const errorCode = errorData?.errorCode;
+  const statusCode = response.status;
+
+  // Importa o módulo de tratamento de erros
+  const { ErrorType, createAppError } = require('@/utils/errorHandling');
+
+  // Determina o tipo de erro com base no código de status
+  let errorType = ErrorType.UNKNOWN_ERROR;
+
+  switch (statusCode) {
+    case 400:
+      errorType = ErrorType.VALIDATION_ERROR;
+      break;
+    case 401:
+      errorType = ErrorType.AUTH_TOKEN_EXPIRED;
+      break;
+    case 403:
+      errorType = ErrorType.AUTH_FORBIDDEN;
+      break;
+    case 404:
+      errorType = ErrorType.DATA_NOT_FOUND;
+      break;
+    case 409:
+      errorType = ErrorType.DATA_CONFLICT;
+      break;
+    case 500:
+    case 502:
+    case 503:
+    case 504:
+      errorType = ErrorType.SERVER_ERROR;
+      break;
+  }
 
   // Verifica se é um erro de token inválido ou expirado
-  if (
-    response.status === 401 && 
-    (errorMessage.includes('Token inválido') || 
-     errorMessage.includes('Token expirado') || 
-     errorMessage.includes('não autorizado'))
-  ) {
+  if (statusCode === 401) {
     console.error('Token inválido ou expirado. Redirecionando para login...');
 
-    // Importa AsyncStorage diretamente para evitar dependência circular
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    // Importa o módulo de armazenamento seguro
+    const { clearAllAuthData } = require('@/utils/secureStorage');
 
-    // Remove os dados do usuário do AsyncStorage
+    // Remove os dados do usuário do armazenamento seguro
     try {
-      AsyncStorage.removeItem('appUser');
+      clearAllAuthData();
       console.log('Usuário deslogado devido a token expirado');
-
-      // Notifica o usuário sobre o token expirado
-      // Não podemos usar Alert diretamente aqui devido à estrutura do código
-      // O erro será capturado e tratado pelo componente que fez a chamada
     } catch (storageError) {
       console.error('Erro ao remover dados do usuário:', storageError);
     }
   }
 
+  // Cria um erro da aplicação
+  const appError = createAppError(
+    errorType,
+    errorMessage,
+    new Error(`API Error: ${statusCode}`),
+    statusCode,
+    errorCode
+  );
+
+  // Lança o erro como ApiError para compatibilidade com código existente
   throw new ApiError(errorMessage, errorCode);
 };
 
@@ -368,25 +434,8 @@ async function fetchWithRetry(
 
   let lastError: Error | null = null;
 
-  // Verifica a conectividade de rede antes de fazer a requisição
-  try {
-    console.log('[FETCH] Verificando conectividade de rede...');
-    const isConnected = await checkConnectivity();
-    if (!isConnected) {
-      console.error('[FETCH] Sem conectividade de rede antes da requisição');
-      throw new Error('Erro ao conectar com o servidor. Verifique sua conexão com a internet e tente novamente.');
-    }
-    console.log('[FETCH] Conectividade de rede confirmada');
-  } catch (error) {
-    console.error('[FETCH] Erro de conectividade antes da requisição:', error);
-    // Se for um erro de conectividade, lança o erro imediatamente
-    if (error instanceof Error && error.message.includes('Erro ao conectar com o servidor')) {
-      throw error;
-    }
-    // Para outros erros, continua tentando a requisição
-    console.log('[FETCH] Continuando com a requisição apesar do erro de verificação de conectividade');
-  }
-
+  // Tenta fazer a requisição diretamente sem verificar conectividade primeiro
+  // Isso evita falsos negativos na verificação de conectividade
   for (let attempt = 0; attempt <= retries; attempt++) {
     console.log(`[FETCH] Tentativa ${attempt + 1}/${retries + 1} para ${url}`);
 
@@ -423,12 +472,14 @@ async function fetchWithRetry(
           const isConnected = await checkConnectivity();
           console.log(`[FETCH] Verificação de conectividade: ${isConnected ? 'Conectado' : 'Desconectado'}`);
 
-          if (!isConnected) {
-            console.error('[FETCH] Sem conectividade de rede confirmada durante a tentativa de retry');
-            // Se não há conectividade, não faz sentido continuar tentando
-            if (attempt === retries - 1) { // Na penúltima tentativa
-              console.error('[FETCH] Desistindo devido à falta de conectividade');
-              throw new Error('Erro ao conectar com o servidor. Verifique sua conexão com a internet e tente novamente.');
+          // Se não há conectividade e estamos na última tentativa, tenta URLs alternativas
+          if (!isConnected && attempt === retries) {
+            console.log('[FETCH] Tentando URLs alternativas...');
+            // Tenta URLs alternativas da API
+            const alternativeResponse = await tryAlternativeUrls(url, options);
+            if (alternativeResponse) {
+              console.log('[FETCH] Resposta recebida de URL alternativa');
+              return alternativeResponse;
             }
           }
         } catch (connectivityError) {
@@ -464,14 +515,80 @@ async function fetchWithRetry(
   throw lastError || new Error('Erro desconhecido em fetchWithRetry');
 }
 
+// Interface para as opções de cache
+interface CacheOptions {
+  enabled: boolean;       // Se o cache está habilitado para esta requisição
+  ttl: number;            // Tempo de vida do cache em milissegundos
+  key?: string;           // Chave personalizada para o cache (opcional)
+}
+
+// Interface para um item do cache
+interface CacheItem<T> {
+  data: T;                // Dados armazenados
+  timestamp: number;      // Timestamp de quando o item foi armazenado
+  expiresIn: number;      // Tempo de expiração em milissegundos
+}
+
+// Cache em memória para respostas da API
+const apiCache: Map<string, CacheItem<any>> = new Map();
+
+// Tempo de vida padrão do cache (2 minutos)
+const DEFAULT_CACHE_TTL = 2 * 60 * 1000;
+
 /**
- * Faz uma requisição à API
+ * Gera uma chave de cache para uma requisição
+ * @param endpoint - O endpoint da API
+ * @param options - As opções da requisição
+ * @returns A chave de cache
+ */
+function generateCacheKey(endpoint: string, options: ApiRequestOptions): string {
+  // Se uma chave personalizada foi fornecida, usa ela
+  if (options.cache?.key) {
+    return options.cache.key;
+  }
+
+  // Para requisições GET, a chave é o endpoint + query params
+  if (options.method === 'GET') {
+    return endpoint;
+  }
+
+  // Para outras requisições, inclui o método e o corpo (se presente)
+  let key = `${options.method}:${endpoint}`;
+  if (options.body) {
+    key += `:${JSON.stringify(options.body)}`;
+  }
+  return key;
+}
+
+/**
+ * Limpa o cache para um endpoint específico ou todos os endpoints
+ * @param endpoint - O endpoint para limpar o cache (opcional)
+ */
+export function clearApiCache(endpoint?: string): void {
+  if (endpoint) {
+    // Remove apenas as entradas que começam com o endpoint
+    for (const key of apiCache.keys()) {
+      if (key.startsWith(endpoint)) {
+        apiCache.delete(key);
+      }
+    }
+    console.log(`[CACHE] Cache limpo para endpoint: ${endpoint}`);
+  } else {
+    // Limpa todo o cache
+    apiCache.clear();
+    console.log('[CACHE] Cache completamente limpo');
+  }
+}
+
+/**
+ * Faz uma requisição à API, tentando múltiplas URLs base se necessário
  * @param endpoint - O endpoint da API
  * @param options - As opções da requisição
  * @returns Promise que é resolvida com os dados da resposta
  */
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
-  const url = buildUrl(`${API_URL}${endpoint}`);
+  // Configura opções padrão
+  const method = options.method || 'GET';
 
   // Prepara os cabeçalhos
   const headers: Record<string, string> = {
@@ -491,7 +608,7 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
 
   // Prepara opções da requisição
   const fetchOptions: RequestInit = {
-    method: options.method,
+    method,
     headers,
   };
 
@@ -500,31 +617,169 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
     fetchOptions.body = JSON.stringify(options.body);
   }
 
-  // Faz a requisição
-  const response = await fetchWithRetry(
-    url, 
-    fetchOptions, 
-    options.retries || 3, 
-    options.delay || 1000
-  );
+  // Verifica se o cache está habilitado para esta requisição
+  const shouldUseCache = options.cache?.enabled !== false && method === 'GET';
 
-  // Trata respostas de erro
-  if (!response.ok) {
-    return handleApiError(response);
+  if (shouldUseCache) {
+    // Gera a chave de cache
+    const cacheKey = generateCacheKey(endpoint, options);
+
+    // Verifica se temos um cache válido
+    const cachedItem = apiCache.get(cacheKey);
+    const now = Date.now();
+
+    if (cachedItem && now - cachedItem.timestamp < cachedItem.expiresIn) {
+      console.log(`[CACHE] Usando dados em cache para: ${endpoint}`);
+      return cachedItem.data as T;
+    }
   }
 
-  // Analisa e retorna a resposta
-  return parseResponse<T>(response);
+  // Tenta cada URL base até que uma funcione
+  let lastError: Error | null = null;
+
+  // Primeiro, tenta a URL principal (para compatibilidade com código existente)
+  try {
+    const url = buildUrl(`${API_URL}${endpoint}`);
+    console.log(`[API] Tentando URL principal: ${url}`);
+
+    const response = await fetchWithRetry(
+      url, 
+      fetchOptions, 
+      options.retries || 2, // Reduz o número de tentativas por URL para tentar mais URLs
+      options.delay || 1000
+    );
+
+    // Se a resposta for bem-sucedida, retorna os dados
+    if (response.ok) {
+      const data = await parseResponse<T>(response);
+
+      // Armazena no cache se for uma requisição GET e o cache estiver habilitado
+      if (shouldUseCache) {
+        const cacheKey = generateCacheKey(endpoint, options);
+        const ttl = options.cache?.ttl || DEFAULT_CACHE_TTL;
+
+        apiCache.set(cacheKey, {
+          data,
+          timestamp: Date.now(),
+          expiresIn: ttl
+        });
+
+        console.log(`[CACHE] Dados armazenados em cache para: ${endpoint} (TTL: ${ttl}ms)`);
+      }
+
+      return data;
+    }
+
+    // Se a resposta não for bem-sucedida, trata o erro
+    return handleApiError(response);
+  } catch (error) {
+    console.warn(`[API] Falha ao usar URL principal: ${error instanceof Error ? error.message : String(error)}`);
+    lastError = error instanceof Error ? error : new Error(String(error));
+
+    // Continua para tentar URLs alternativas
+  }
+
+  // Se a URL principal falhar, tenta as URLs alternativas
+  for (let i = 1; i < API_URLS.length; i++) {
+    const baseUrl = API_URLS[i];
+    if (!baseUrl) continue;
+
+    try {
+      const url = buildUrl(`${baseUrl}${endpoint}`);
+      console.log(`[API] Tentando URL alternativa (${i}): ${url}`);
+
+      const response = await fetchWithRetry(
+        url, 
+        fetchOptions, 
+        options.retries || 1, // Apenas uma tentativa por URL alternativa
+        options.delay || 500  // Delay menor para URLs alternativas
+      );
+
+      // Se a resposta for bem-sucedida, retorna os dados
+      if (response.ok) {
+        console.log(`[API] URL alternativa ${baseUrl} funcionou!`);
+        const data = await parseResponse<T>(response);
+
+        // Armazena no cache se for uma requisição GET e o cache estiver habilitado
+        if (shouldUseCache) {
+          const cacheKey = generateCacheKey(endpoint, options);
+          const ttl = options.cache?.ttl || DEFAULT_CACHE_TTL;
+
+          apiCache.set(cacheKey, {
+            data,
+            timestamp: Date.now(),
+            expiresIn: ttl
+          });
+
+          console.log(`[CACHE] Dados armazenados em cache para: ${endpoint} (TTL: ${ttl}ms)`);
+        }
+
+        return data;
+      }
+
+      // Se a resposta não for bem-sucedida, trata o erro
+      return handleApiError(response);
+    } catch (error) {
+      console.warn(`[API] Falha ao usar URL alternativa ${baseUrl}: ${error instanceof Error ? error.message : String(error)}`);
+      lastError = error instanceof Error ? error : new Error(String(error));
+
+      // Continua para a próxima URL
+    }
+  }
+
+  // Se todas as URLs falharem, lança o último erro
+  throw lastError || new Error('Todas as URLs da API falharam');
 }
 // --- Funções da API ---
 
 /**
- * Realiza a chamada de API para autenticar o usuário.
- * @param email - O email do usuário.
- * @param senha - A senha do usuário.
- * @returns Uma Promise que resolve com os dados do usuário e token em caso de sucesso.
- * @throws Lança um erro com a mensagem do backend em caso de falha na autenticação ou erro de rede.
+ * Renova o token de acesso usando um refresh token
+ * @param refreshToken O refresh token para obter um novo token de acesso
+ * @returns Uma Promise que resolve com o novo token de acesso
+ * @throws Lança um erro em caso de falha na renovação do token
  */
+export const refreshUserToken = async (refreshToken: string): Promise<string> => {
+  try {
+    console.log('=== INICIANDO RENOVAÇÃO DE TOKEN ===');
+
+    // Verificar conectividade, mas não bloquear a renovação se falhar
+    try {
+      const isConnected = await checkConnectivity();
+      if (!isConnected) {
+        console.warn('Aviso: Verificação de conectividade falhou, mas tentaremos renovar o token mesmo assim');
+      }
+    } catch (connectivityError) {
+      console.warn('Erro ao verificar conectividade:', 
+        connectivityError instanceof Error ? connectivityError.message : String(connectivityError));
+      console.warn('Tentando prosseguir com a renovação mesmo assim...');
+    }
+
+    console.log('Enviando requisição de renovação de token...');
+
+    const response = await apiRequest<{ token: string }>('/auth/refresh-token', {
+      method: 'POST',
+      body: { refreshToken },
+      retries: 3,
+      delay: 1000
+    });
+
+    if (!response || !response.token) {
+      throw new Error('Resposta de renovação de token inválida');
+    }
+
+    console.log('✓ Token renovado com sucesso!');
+    return response.token;
+  } catch (error) {
+    console.error('=== ERRO NA RENOVAÇÃO DE TOKEN ===', error);
+
+    if (error instanceof Error) {
+      throw error;
+    } else {
+      throw new Error('Erro desconhecido na renovação de token');
+    }
+  }
+};
+
 export const login = async (email: string, senha: string): Promise<LoginResponse> => {
   try {
     console.log('=== INICIANDO TENTATIVA DE LOGIN ===');
@@ -533,8 +788,17 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
     // Validar credenciais de login com Zod
     const credentials = validateWithZod(loginCredentialsSchema, { email, senha });
 
-    // Verificar conectividade
-    await checkConnectivity();
+    // Verificar conectividade, mas não bloquear o login se falhar
+    try {
+      const isConnected = await checkConnectivity();
+      if (!isConnected) {
+        console.warn('Aviso: Verificação de conectividade falhou, mas tentaremos o login mesmo assim');
+      }
+    } catch (connectivityError) {
+      console.warn('Erro ao verificar conectividade:', 
+        connectivityError instanceof Error ? connectivityError.message : String(connectivityError));
+      console.warn('Tentando prosseguir com o login mesmo assim...');
+    }
 
     console.log('Enviando requisição de login...');
 
@@ -552,22 +816,71 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
       response.user.token = response.token;
     }
 
-    // Garante que as propriedades de capacidade do usuário estejam presentes
-    // Isso é necessário porque o backend pode estar enviando dados incompletos
-    // mas o frontend espera as flags booleanas
+    // Adiciona o refresh token ao objeto user se disponível
+    if (response.refreshToken && response.user) {
+      response.user.refreshToken = response.refreshToken;
+    }
+
+    // Normaliza os dados do usuário na resposta para garantir consistência
+    // Isso resolve problemas de inconsistência entre roles e flags booleanas
     if (response.user) {
-      // Se as propriedades não existirem, define valores padrão
-      if (response.user.isComprador === undefined) {
+      // Importa as funções de conversão do módulo de permissões
+      const { booleanPropsToRoles, rolesToBooleanProps } = require('@/utils/permissions');
+
+      // Estratégia de normalização:
+      // 1. Se temos roles, derivamos as flags booleanas a partir delas
+      // 2. Se não temos roles, mas temos flags booleanas, derivamos roles a partir delas
+      // 3. Se não temos nenhum dos dois, definimos valores padrão
+
+      if (response.user.roles && Array.isArray(response.user.roles) && response.user.roles.length > 0) {
+        // Caso 1: Temos roles, derivamos as flags booleanas
+        console.log('Normalizando dados de login: Derivando flags booleanas a partir de roles');
+        const booleanProps = rolesToBooleanProps(response.user.roles);
+
+        // Atualiza as flags booleanas
+        response.user.isComprador = booleanProps.isComprador;
+        response.user.isPrestador = booleanProps.isPrestador;
+        response.user.isAnunciante = booleanProps.isAnunciante;
+        response.user.isAdmin = booleanProps.isAdmin;
+      } 
+      else if (
+        response.user.isComprador !== undefined || 
+        response.user.isPrestador !== undefined || 
+        response.user.isAnunciante !== undefined || 
+        response.user.isAdmin !== undefined
+      ) {
+        // Caso 2: Temos flags booleanas, derivamos roles
+        console.log('Normalizando dados de login: Derivando roles a partir de flags booleanas');
+
+        // Garante que todas as flags booleanas estejam definidas
+        response.user.isComprador = response.user.isComprador === true;
+        response.user.isPrestador = response.user.isPrestador === true;
+        response.user.isAnunciante = response.user.isAnunciante === true;
+        response.user.isAdmin = response.user.isAdmin === true;
+
+        // Deriva roles a partir das flags booleanas
+        response.user.roles = booleanPropsToRoles({
+          isComprador: response.user.isComprador,
+          isPrestador: response.user.isPrestador,
+          isAnunciante: response.user.isAnunciante,
+          isAdmin: response.user.isAdmin
+        });
+      } 
+      else {
+        // Caso 3: Não temos nenhum dos dois, definimos valores padrão
+        console.log('Normalizando dados de login: Definindo valores padrão para roles e flags booleanas');
         response.user.isComprador = false;
-      }
-      if (response.user.isPrestador === undefined) {
         response.user.isPrestador = false;
-      }
-      if (response.user.isAnunciante === undefined) {
         response.user.isAnunciante = false;
-      }
-      if (response.user.isAdmin === undefined) {
         response.user.isAdmin = false;
+        response.user.roles = [];
+      }
+
+      // Garante que o ID esteja presente em ambos os formatos
+      if (response.user.id && !response.user.idUsuario) {
+        response.user.idUsuario = response.user.id;
+      } else if (response.user.idUsuario && !response.user.id) {
+        response.user.id = response.user.idUsuario;
       }
     }
 
@@ -601,8 +914,17 @@ export const register = async (userData: RegistrationData): Promise<Registration
     // Validar dados de registro com Zod
     const validatedUserData = validateWithZod(registrationDataSchema, userData);
 
-    // Verificar conectividade
-    await checkConnectivity();
+    // Verificar conectividade, mas não bloquear o registro se falhar
+    try {
+      const isConnected = await checkConnectivity();
+      if (!isConnected) {
+        console.warn('Aviso: Verificação de conectividade falhou, mas tentaremos o registro mesmo assim');
+      }
+    } catch (connectivityError) {
+      console.warn('Erro ao verificar conectividade:', 
+        connectivityError instanceof Error ? connectivityError.message : String(connectivityError));
+      console.warn('Tentando prosseguir com o registro mesmo assim...');
+    }
 
     const response = await apiRequest<RegistrationResponse>('/auth/register', {
       method: 'POST',
@@ -700,19 +1022,43 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
 
     // Validar dados do perfil com Zod
     console.log('Dados do perfil recebidos para atualização:', JSON.stringify(profileData, null, 2));
-    const validatedProfileData = validateWithZod(profileUpdateDataSchema, profileData);
+
+    // Verificar se os dados já estão no formato esperado (com objeto 'user')
+    let formattedProfileData: any;
+    if (profileData.user) {
+      // Já está no formato correto
+      formattedProfileData = profileData;
+    } else {
+      // Converter para o formato padronizado com objeto 'user'
+      formattedProfileData = {
+        user: {
+          ...profileData,
+          // Garantir que pelo menos um campo de ID esteja presente
+          // Extrair ID do objeto user se existir, ou do objeto raiz
+          idUsuario: profileData.idUsuario || profileData.id || profileData._id || ''
+        }
+      };
+    }
+
+    // Garantir que o objeto user tenha pelo menos um campo de ID
+    if (formattedProfileData.user && !formattedProfileData.user.idUsuario && !formattedProfileData.user.id && !formattedProfileData.user._id) {
+      console.warn('Nenhum ID encontrado no objeto user (idUsuario, id ou _id). Isso pode causar erros de validação.');
+    }
+
+    console.log('Dados do perfil formatados:', JSON.stringify(formattedProfileData, null, 2));
+    const validatedProfileData = validateWithZod(profileUpdateDataSchema, formattedProfileData) as ProfileUpdateData;
     console.log('Dados do perfil validados:', JSON.stringify(validatedProfileData, null, 2));
 
     // Verificar se o email está sendo alterado - isso não deve ser permitido aqui
     // Use a função requestEmailChange para alterar o email com verificação de segurança
-    if (validatedProfileData.email) {
+    if (validatedProfileData.user && validatedProfileData.user.email) {
       console.warn('Tentativa de atualizar email através da função updateProfile. Use requestEmailChange para isso.');
-      delete validatedProfileData.email;
+      delete validatedProfileData.user.email;
     }
 
     // Verificar se a foto está sendo atualizada
-    if (validatedProfileData.foto) {
-      console.log('URL da foto a ser atualizada:', validatedProfileData.foto);
+    if (validatedProfileData.user && validatedProfileData.user.foto) {
+      console.log('URL da foto a ser atualizada:', validatedProfileData.user.foto);
     } else {
       console.warn('Nenhuma URL de foto fornecida para atualização');
     }
@@ -723,22 +1069,77 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
       body: validatedProfileData
     });
 
-    // Garante que as propriedades de capacidade do usuário estejam presentes na resposta
-    // Isso é necessário porque o backend pode estar enviando dados incompletos
+    // Normaliza os dados do usuário na resposta para garantir consistência
+    // Isso resolve problemas de inconsistência entre roles e flags booleanas
     if (response.user) {
-      // Se as propriedades não existirem, define valores padrão
-      if (response.user.isComprador === undefined) {
+      // Importa as funções de conversão do módulo de permissões
+      const { booleanPropsToRoles, rolesToBooleanProps } = require('@/utils/permissions');
+
+      // Estratégia de normalização:
+      // 1. Se temos roles, derivamos as flags booleanas a partir delas
+      // 2. Se não temos roles, mas temos flags booleanas, derivamos roles a partir delas
+      // 3. Se não temos nenhum dos dois, definimos valores padrão
+
+      if (response.user.roles && Array.isArray(response.user.roles) && response.user.roles.length > 0) {
+        // Caso 1: Temos roles, derivamos as flags booleanas
+        console.log('Normalizando dados: Derivando flags booleanas a partir de roles');
+        const booleanProps = rolesToBooleanProps(response.user.roles);
+
+        // Atualiza as flags booleanas
+        response.user.isComprador = booleanProps.isComprador;
+        response.user.isPrestador = booleanProps.isPrestador;
+        response.user.isAnunciante = booleanProps.isAnunciante;
+        response.user.isAdmin = booleanProps.isAdmin;
+      } 
+      else if (
+        response.user.isComprador !== undefined || 
+        response.user.isPrestador !== undefined || 
+        response.user.isAnunciante !== undefined || 
+        response.user.isAdmin !== undefined
+      ) {
+        // Caso 2: Temos flags booleanas, derivamos roles
+        console.log('Normalizando dados: Derivando roles a partir de flags booleanas');
+
+        // Garante que todas as flags booleanas estejam definidas
+        response.user.isComprador = response.user.isComprador === true;
+        response.user.isPrestador = response.user.isPrestador === true;
+        response.user.isAnunciante = response.user.isAnunciante === true;
+        response.user.isAdmin = response.user.isAdmin === true;
+
+        // Deriva roles a partir das flags booleanas
+        response.user.roles = booleanPropsToRoles({
+          isComprador: response.user.isComprador,
+          isPrestador: response.user.isPrestador,
+          isAnunciante: response.user.isAnunciante,
+          isAdmin: response.user.isAdmin
+        });
+      } 
+      else {
+        // Caso 3: Não temos nenhum dos dois, definimos valores padrão
+        console.log('Normalizando dados: Definindo valores padrão para roles e flags booleanas');
         response.user.isComprador = false;
-      }
-      if (response.user.isPrestador === undefined) {
         response.user.isPrestador = false;
-      }
-      if (response.user.isAnunciante === undefined) {
         response.user.isAnunciante = false;
-      }
-      if (response.user.isAdmin === undefined) {
         response.user.isAdmin = false;
+        response.user.roles = [];
       }
+
+      // Garante que o ID esteja presente em ambos os formatos
+      if (response.user.id && !response.user.idUsuario) {
+        response.user.idUsuario = response.user.id;
+      } else if (response.user.idUsuario && !response.user.id) {
+        response.user.id = response.user.idUsuario;
+      }
+
+      console.log('Dados normalizados:', {
+        id: response.user.id,
+        idUsuario: response.user.idUsuario,
+        roles: response.user.roles,
+        isComprador: response.user.isComprador,
+        isPrestador: response.user.isPrestador,
+        isAnunciante: response.user.isAnunciante,
+        isAdmin: response.user.isAdmin
+      });
     }
 
     // Validar resposta com Zod

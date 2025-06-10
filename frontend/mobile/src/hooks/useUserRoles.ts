@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Alert } from 'react-native';
-import { User } from '@/types/user';
+import { User, UserRole } from '@/types/user';
 import { updateProfile } from '@/services/api';
+import { rolesToBooleanProps, booleanPropsToRoles } from '@/utils/permissions';
 
 /**
  * Custom hook para gerenciar papéis de usuário
@@ -63,20 +64,54 @@ export function useUserRoles(user: User | null, updateUser: (userData: Partial<U
         throw new Error("ID do usuário não encontrado. Por favor, faça login novamente.");
       }
 
+      // Converter as flags booleanas atuais para array de roles
+      const currentRoles = user.roles || booleanPropsToRoles({
+        isComprador: user.isComprador,
+        isPrestador: user.isPrestador,
+        isAnunciante: user.isAnunciante,
+        isAdmin: user.isAdmin
+      });
+
+      // Mapear a propriedade booleana para o nome do papel
+      const roleMap: Record<string, UserRole> = {
+        'isComprador': 'comprador',
+        'isPrestador': 'prestador',
+        'isAnunciante': 'anunciante',
+        'isAdmin': 'admin'
+      };
+
+      const userRole = roleMap[role];
+
+      // Atualizar o array de roles
+      let updatedRoles: UserRole[];
+      if (newValue && !currentRoles.includes(userRole)) {
+        // Adicionar o papel se ele não existir e o novo valor for true
+        updatedRoles = [...currentRoles, userRole];
+      } else if (!newValue) {
+        // Remover o papel se o novo valor for false
+        updatedRoles = currentRoles.filter(r => r !== userRole);
+      } else {
+        // Manter os papéis inalterados se o papel já existir e o novo valor for true
+        updatedRoles = [...currentRoles];
+      }
+
+      // Converter o array de roles atualizado para flags booleanas
+      const booleanProps = rolesToBooleanProps(updatedRoles);
+
       // Criar uma cópia do usuário atual para modificação
       const userUpdate = {
-        // Incluir apenas os campos necessários
-        idUsuario: user.idUsuario,
-        id: user.id,
-        nome: user.nome,
-        email: user.email,
-        // Atualizar o papel específico
-        [role]: newValue,
-        // Manter os outros papéis inalterados
-        ...(role !== 'isComprador' && { isComprador: user.isComprador }),
-        ...(role !== 'isPrestador' && { isPrestador: user.isPrestador }),
-        ...(role !== 'isAnunciante' && { isAnunciante: user.isAnunciante }),
-        ...(role !== 'isAdmin' && { isAdmin: user.isAdmin })
+        user: {
+          // Incluir apenas os campos necessários
+          idUsuario: user.idUsuario,
+          id: user.id,
+          _id: user._id,
+          nome: user.nome,
+          email: user.email,
+          // Incluir o array de roles atualizado
+          roles: updatedRoles,
+          // Incluir as flags booleanas atualizadas
+          ...booleanProps
+        }
       };
 
       // Enviar o objeto userUpdate diretamente para o backend
@@ -92,12 +127,32 @@ export function useUserRoles(user: User | null, updateUser: (userData: Partial<U
           ...response.user,
           token: response.token 
         };
+
+        // Garantir que o objeto tenha tanto o array de roles quanto as flags booleanas sincronizadas
+        if (updatedUserData.roles && !updatedUserData.isComprador && !updatedUserData.isPrestador && 
+            !updatedUserData.isAnunciante && !updatedUserData.isAdmin) {
+          // Se temos roles mas não temos as flags booleanas, derivar as flags dos roles
+          const derivedBooleanProps = rolesToBooleanProps(updatedUserData.roles);
+          updatedUserData = {
+            ...updatedUserData,
+            ...derivedBooleanProps
+          };
+        } else if (!updatedUserData.roles && (updatedUserData.isComprador || updatedUserData.isPrestador || 
+                  updatedUserData.isAnunciante || updatedUserData.isAdmin)) {
+          // Se temos as flags booleanas mas não temos o array de roles, derivar os roles das flags
+          updatedUserData.roles = booleanPropsToRoles({
+            isComprador: updatedUserData.isComprador,
+            isPrestador: updatedUserData.isPrestador,
+            isAnunciante: updatedUserData.isAnunciante,
+            isAdmin: updatedUserData.isAdmin
+          });
+        }
       } else {
-        // Fallback: criar um objeto com todos os dados do usuário atual
-        // e atualizar apenas o papel específico que foi alterado
+        // Fallback: usar o objeto de atualização que já criamos, que contém tanto
+        // o array de roles quanto as flags booleanas sincronizadas
         updatedUserData = { 
           ...user,
-          [role]: newValue 
+          ...userUpdate
         };
 
         // Garantir que o token seja mantido
@@ -106,11 +161,21 @@ export function useUserRoles(user: User | null, updateUser: (userData: Partial<U
         }
       }
 
-      // Garantir que todos os papéis estejam definidos explicitamente
-      if (updatedUserData.isComprador === undefined) updatedUserData.isComprador = user.isComprador || false;
-      if (updatedUserData.isPrestador === undefined) updatedUserData.isPrestador = user.isPrestador || false;
-      if (updatedUserData.isAnunciante === undefined) updatedUserData.isAnunciante = user.isAnunciante || false;
-      if (updatedUserData.isAdmin === undefined) updatedUserData.isAdmin = user.isAdmin || false;
+      // Garantir que todos os papéis estejam definidos explicitamente e sincronizados
+      if (!updatedUserData.roles) {
+        updatedUserData.roles = booleanPropsToRoles({
+          isComprador: updatedUserData.isComprador,
+          isPrestador: updatedUserData.isPrestador,
+          isAnunciante: updatedUserData.isAnunciante,
+          isAdmin: updatedUserData.isAdmin
+        });
+      }
+
+      const syncedBooleanProps = rolesToBooleanProps(updatedUserData.roles);
+      updatedUserData = {
+        ...updatedUserData,
+        ...syncedBooleanProps
+      };
 
       // Atualizar o usuário no contexto
       await updateUser(updatedUserData);
