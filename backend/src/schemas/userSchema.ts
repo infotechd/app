@@ -5,6 +5,16 @@ import { TipoUsuarioEnum } from '../models/User';
 // Verifica se o email segue o padrão nome@dominio.extensão
 const emailRegex = /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/;
 
+// Schema específico para atualização de papéis do usuário
+// Usado como fonte única da verdade para a definição dos tipos de dados
+export const updateUserRolesSchema = z.object({
+  roles: z.array(z.enum(['comprador', 'prestador', 'anunciante', 'admin']))
+    .min(1, { message: "O usuário deve ter pelo menos um papel." }),
+});
+
+// Tipo TypeScript inferido a partir do schema para uso no frontend
+export type UpdateUserRolesPayload = z.infer<typeof updateUserRolesSchema>;
+
 // Expressão regular para validação de telefone brasileiro
 // Aceita formatos como (11)12345-6789 ou 11123456789
 const telefoneRegex = /^(?:\(\d{2}\)\s?)?\d{5}-?\d{4}$|^\d{11}$/;
@@ -48,11 +58,9 @@ const userBaseSchema = z.object({
       { message: 'CPF deve ter 11 dígitos e CNPJ deve ter 14 dígitos' }
     ),
 
-  // Campo para o tipo de usuário
-  // Utiliza enum definido no modelo User para limitar as opções válidas
-  tipoUsuario: z.enum(Object.values(TipoUsuarioEnum) as [string, ...string[]], {
-    errorMap: () => ({ message: 'Tipo de usuário inválido' })
-  }).optional(),
+  // Campo para indicar se o usuário é administrador
+  // Utiliza o enum TipoUsuarioEnum para compatibilidade com o modelo User
+  isAdmin: z.boolean().optional(),
 
   // Campos para os papéis do usuário
   isComprador: z.boolean().optional(),
@@ -134,17 +142,10 @@ export const updateUserSchema = z.object({
         )
         .optional(),
 
-      // Campos de ID - pelo menos um deles deve estar presente
+      // Campos de ID - opcionais, pois o ID do usuário já é obtido do token JWT
       id: z.string().optional(),
       idUsuario: z.string().optional(),
     })
-    .refine(
-      (data) => data.id !== undefined || data.idUsuario !== undefined,
-      {
-        message: "Pelo menos um dos campos 'idUsuario' ou 'id' deve estar presente",
-        path: ["idUsuario"]
-      }
-    )
 });
 
 // Esquema para autenticação de usuário no sistema

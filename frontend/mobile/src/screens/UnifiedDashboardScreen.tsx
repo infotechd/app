@@ -64,7 +64,7 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
     }
   });
 
-  // Configurar o papel ativo inicial e carregar dados
+  // Configurar o papel ativo inicial com base nos parâmetros da rota
   useEffect(() => {
     // Definir o papel ativo com base no parâmetro da rota ou no primeiro papel disponível
     if (route.params?.initialRole) {
@@ -76,31 +76,34 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
       if (isValidRole) {
         // Agora é seguro fazer o cast para UserRole
         const initialRole = roleParam as UserRole;
-        if (user?.roles?.includes(initialRole)) {
+        if (user?.roles?.includes(initialRole) && activeRole !== initialRole) {
           setActiveRole(initialRole);
           setActiveRoleContext(initialRole);
         }
       }
-    } else if (user) {
-      // Se não houver papel especificado na rota, seleciona o primeiro papel disponível
-
-      // Se já existe um papel ativo, verifica se ele ainda é válido para o usuário atual
-      if (activeRole) {
-        // Se o papel ativo atual não é mais válido para o usuário, selecionar outro
-        if (!user.roles?.includes(activeRole)) {
-          setActiveRole(null); // Resetar o papel ativo
-          setActiveRoleContext(null);
-        }
-        // Se o papel ativo atual ainda é válido, não precisamos fazer nada
-      }
-
-      // Se não há papel ativo definido, seleciona o primeiro disponível
-      if (!activeRole && user?.roles && user.roles.length > 0) {
+    } else if (user && !activeRole) {
+      // Se não houver papel especificado na rota e não há papel ativo definido,
+      // seleciona o primeiro papel disponível
+      if (user?.roles && user.roles.length > 0) {
         setActiveRole(user.roles[0]);
         setActiveRoleContext(user.roles[0]);
       }
     }
+  }, [user, route.params, activeRole, setActiveRole, setActiveRoleContext]);
 
+  // Verificar se o papel ativo ainda é válido quando o usuário muda
+  useEffect(() => {
+    if (user && activeRole) {
+      // Se o papel ativo atual não é mais válido para o usuário, selecionar outro
+      if (!user.roles?.includes(activeRole)) {
+        setActiveRole(null);
+        setActiveRoleContext(undefined);
+      }
+    }
+  }, [user, activeRole, setActiveRole, setActiveRoleContext]);
+
+  // Carregar dados do dashboard
+  useEffect(() => {
     // Simular carregamento de dados da API
     // Em um ambiente de produção, aqui seriam feitas chamadas reais para obter os dados
     const timer = setTimeout(() => {
@@ -115,7 +118,7 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
 
     // Função de limpeza para evitar vazamento de memória
     return () => clearTimeout(timer);
-  }, [user, route.params, setActiveRole, setActiveRoleContext, setLoading]);
+  }, []);
 
   // Renderizar seção para o papel de comprador
   // Esta função cria e retorna o componente de UI para a seção de comprador,
@@ -158,7 +161,7 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="buyer-role-section"
       />
     );
-  }, [user?.roles, activeRole, isLoading, stats.buyer, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.buyer, navigation]);
 
   // Renderizar seção para o papel de prestador
   // Esta função cria e retorna o componente de UI para a seção de prestador de serviços,
@@ -201,7 +204,7 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="provider-role-section"
       />
     );
-  }, [user?.roles, activeRole, isLoading, stats.provider, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.provider, navigation]);
 
   // A função toggleUserRole foi movida para o hook useUserRoles
   // e agora é importada no topo do arquivo
@@ -249,7 +252,7 @@ export default function UnifiedDashboardScreen({ navigation, route }: UnifiedDas
         testID="advertiser-role-section"
       />
     );
-  }, [user?.roles, activeRole, isLoading, stats.advertiser, navigation, setActiveRole]);
+  }, [user?.roles, activeRole, isLoading, stats.advertiser, navigation]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>

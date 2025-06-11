@@ -243,28 +243,40 @@ const profileUpdateBaseSchema = z.object({
   isAdmin: z.boolean().optional(),
 });
 
-// Agora definimos o esquema completo com a propriedade user
-export const profileUpdateDataSchema = profileUpdateBaseSchema.extend({
-  // Suporte para formato aninhado com objeto user
-  user: z.lazy(() => profileUpdateBaseSchema.extend({}).optional()),
-}).refine(data => {
-  // Verificar se há ID no objeto raiz
-  const rootHasId = data.idUsuario || data.id || data._id;
+// Agora definimos o esquema completo com a propriedade user obrigatória
+export const profileUpdateDataSchema = z.object({
+  // Objeto user obrigatório para compatibilidade com o backend
+  user: profileUpdateBaseSchema.extend({})
+    .refine(data => {
+      // Verificar se há ID no objeto user
+      const userHasId = data.idUsuario || data.id || data._id;
 
-  // Verificar se há ID no objeto user (se existir)
-  const userHasId = data.user && (data.user.idUsuario || data.user.id || data.user._id);
+      // Se estamos atualizando papéis, não exigir ID (solução alternativa)
+      const isRoleUpdate = data.roles || 
+                         data.isComprador !== undefined || data.isPrestador !== undefined || 
+                         data.isAnunciante !== undefined || data.isAdmin !== undefined;
 
-  // Se estamos atualizando papéis, não exigir ID (solução alternativa)
-  const isRoleUpdate = data.roles || (data.user && data.user.roles) || 
-                       data.isComprador !== undefined || data.isPrestador !== undefined || 
-                       data.isAnunciante !== undefined || data.isAdmin !== undefined ||
-                       (data.user && (
-                         data.user.isComprador !== undefined || data.user.isPrestador !== undefined ||
-                         data.user.isAnunciante !== undefined || data.user.isAdmin !== undefined
-                       ));
-
-  return rootHasId || userHasId || isRoleUpdate;
-}, {
-  message: "Pelo menos um dos campos 'idUsuario', 'id' ou '_id' deve estar presente (exceto para atualizações de papel)",
-  path: ["idUsuario"]
+      return userHasId || isRoleUpdate;
+    }, {
+      message: "Pelo menos um dos campos 'idUsuario', 'id' ou '_id' deve estar presente no objeto user (exceto para atualizações de papel)",
+      path: ["idUsuario"]
+    })
 });
+
+/**
+ * Esquema específico para atualização de papéis do usuário
+ * 
+ * Este esquema é a fonte única da verdade para a definição dos tipos de dados
+ * relacionados à atualização de papéis, tanto no frontend quanto no backend.
+ * Ele garante que o usuário tenha pelo menos um papel ativo.
+ */
+export const updateUserRolesSchema = z.object({
+  roles: z.array(userRoleSchema)
+    .min(1, { message: "O usuário deve ter pelo menos um papel." }),
+});
+
+/**
+ * Tipo TypeScript inferido a partir do schema para uso no frontend
+ * Garante tipagem forte de ponta a ponta
+ */
+export type UpdateUserRolesPayload = z.infer<typeof updateUserRolesSchema>;

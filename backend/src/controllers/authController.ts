@@ -103,12 +103,12 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     );
 
     // Configura o cookie com o token JWT e opções de segurança
-    // Usa sameSite: 'none' para permitir requisições cross-site (importante para apps mobile)
-    // e secure: false em desenvolvimento para permitir HTTP
+    // Usa sameSite: 'lax' para permitir requisições cross-site em contextos seguros
+    // e secure: true em produção para exigir HTTPS
     res.cookie('token', token, {
       httpOnly: true, // Impede acesso via JavaScript
       secure: process.env.NODE_ENV === 'production', // HTTPS apenas em produção
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'none', // Mais permissivo em desenvolvimento
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax', // Mais seguro que 'none', mesmo em desenvolvimento
       maxAge: 60 * 60 * 1000 // Tempo de vida do cookie: 1 hora em milissegundos
     });
 
@@ -180,7 +180,8 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
   console.log('ID do usuário autenticado:', userId);
 
   // Define os tipos para os campos que podem ser atualizados
-  type UpdatableUserFields = Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha' | 'isComprador' | 'isPrestador' | 'isAnunciante'>;
+  // Removidos os campos de papéis (isComprador, isPrestador, isAnunciante) que agora são gerenciados pela rota dedicada /profile/roles
+  type UpdatableUserFields = Pick<IUser, 'nome' | 'telefone' | 'endereco' | 'foto' | 'senha'>;
   type UpdatableFieldKey = keyof UpdatableUserFields;
 
   const allowedUpdates: Partial<UpdatableUserFields> = {}; // Objeto para armazenar campos permitidos
@@ -205,7 +206,8 @@ export const editProfile = async (req: Request, res: Response, next: NextFunctio
   }
 
   // Filtra apenas os campos permitidos do corpo da requisição
-  const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha', 'isComprador', 'isPrestador', 'isAnunciante'];
+  // Removidos os campos de papéis que agora são gerenciados pela rota dedicada /profile/roles
+  const updatableFields: UpdatableFieldKey[] = ['nome', 'telefone', 'endereco', 'foto', 'senha'];
   console.log('Campos atualizáveis:', updatableFields);
 
   // Verifica se o objeto user está presente no corpo da requisição
@@ -523,6 +525,59 @@ export const refreshToken = async (req: Request, res: Response, next: NextFuncti
     });
 
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Atualiza os papéis do usuário
+ * Rota dedicada para gerenciar os papéis do usuário, separada da edição geral de perfil
+ */
+export const updateUserRoles = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    // Obtém o ID do usuário do token JWT (decodificado pelo authMiddleware)
+    // A propriedade correta é userId conforme definido na interface DecodedUserToken
+    const userId = (req.user as any)?.userId;
+
+    if (!userId) {
+      res.status(401).json({ message: 'ID do usuário não encontrado no token.' });
+      return;
+    }
+
+    const { roles } = req.body; // Payload já validado pelo Zod
+
+    // Lógica de conversão dos papéis para as flags booleanas
+    const booleanProps = {
+      isComprador: roles.includes('comprador'),
+      isPrestador: roles.includes('prestador'),
+      isAnunciante: roles.includes('anunciante'),
+    };
+
+    // Busca o usuário antes de atualizar para verificar se ele existe
+    const user = await User.findById(userId);
+
+    if (!user) {
+      res.status(404).json({ message: 'Usuário não encontrado.' });
+      return;
+    }
+
+    // Atualiza o usuário com os novos papéis e as flags booleanas
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: { roles, ...booleanProps } },
+      { new: true }
+    ).select('-senha');
+
+    // Verifica se a atualização foi bem-sucedida
+    if (!updatedUser) {
+      res.status(500).json({ message: 'Erro ao atualizar papéis do usuário.' });
+      return;
+    }
+
+    // Retorna o usuário atualizado
+    res.status(200).json({ message: 'Papéis atualizados com sucesso.', user: updatedUser });
+  } catch (error) {
+    console.error('Erro ao atualizar papéis do usuário:', error);
     next(error);
   }
 };

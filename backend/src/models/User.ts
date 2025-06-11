@@ -125,9 +125,67 @@ const UserSchema: Schema<IUser, IUserModel> = new mongoose.Schema(
             return false;
           }
 
-          return true;
+          // Validação específica para CPF
+          if (numeroLimpo.length === 11) {
+            // Algoritmo de validação de CPF
+            let soma = 0;
+            let resto;
+
+            // Primeiro dígito verificador
+            for (let i = 1; i <= 9; i++) {
+              soma = soma + parseInt(numeroLimpo.substring(i-1, i)) * (11 - i);
+            }
+            resto = (soma * 10) % 11;
+            if (resto === 10 || resto === 11) resto = 0;
+            if (resto !== parseInt(numeroLimpo.substring(9, 10))) return false;
+
+            // Segundo dígito verificador
+            soma = 0;
+            for (let i = 1; i <= 10; i++) {
+              soma = soma + parseInt(numeroLimpo.substring(i-1, i)) * (12 - i);
+            }
+            resto = (soma * 10) % 11;
+            if (resto === 10 || resto === 11) resto = 0;
+            if (resto !== parseInt(numeroLimpo.substring(10, 11))) return false;
+
+            return true;
+          }
+
+          // Validação específica para CNPJ
+          if (numeroLimpo.length === 14) {
+            // Algoritmo de validação de CNPJ
+            let tamanho = numeroLimpo.length - 2;
+            let numeros = numeroLimpo.substring(0, tamanho);
+            const digitos = numeroLimpo.substring(tamanho);
+            let soma = 0;
+            let pos = tamanho - 7;
+
+            // Primeiro dígito verificador
+            for (let i = tamanho; i >= 1; i--) {
+              soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+              if (pos < 2) pos = 9;
+            }
+            let resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+            if (resultado !== parseInt(digitos.charAt(0))) return false;
+
+            // Segundo dígito verificador
+            tamanho = tamanho + 1;
+            numeros = numeroLimpo.substring(0, tamanho);
+            soma = 0;
+            pos = tamanho - 7;
+            for (let i = tamanho; i >= 1; i--) {
+              soma += parseInt(numeros.charAt(tamanho - i)) * pos--;
+              if (pos < 2) pos = 9;
+            }
+            resultado = soma % 11 < 2 ? 0 : 11 - soma % 11;
+            if (resultado !== parseInt(digitos.charAt(1))) return false;
+
+            return true;
+          }
+
+          return false; // Não deveria chegar aqui, mas por segurança retorna falso
         },
-        message: 'CPF deve ter 11 dígitos e CNPJ deve ter 14 dígitos. Não pode conter todos os dígitos iguais.'
+        message: 'CPF/CNPJ inválido. Verifique se o número está correto.'
       }
     },
     isAdmin: {
@@ -197,10 +255,24 @@ UserSchema.pre<HydratedDocument<IUser>>('save', async function(next: (err?: Call
       // Formata o número no padrão (XX) XXXXX-XXXX se tiver a quantidade correta de dígitos
       if (numeroLimpo.length === 11) {
         this.telefone = `(${numeroLimpo.substring(0, 2)}) ${numeroLimpo.substring(2, 7)}-${numeroLimpo.substring(7)}`;
+      } else if (numeroLimpo.length > 0) {
+        // Se o número não tem 11 dígitos mas não está vazio, registra um aviso
+        logger.warn("Telefone com formato inesperado:", { 
+          telefone: this.telefone, 
+          numeroLimpo, 
+          userId: this._id 
+        });
       }
     } catch (error: any) {
-      logger.error("Erro ao normalizar telefone:", { error: error.message, stack: error.stack });
-      // Continua o processo mesmo com erro de formatação
+      logger.error("Erro ao normalizar telefone:", { 
+        error: error.message, 
+        stack: error.stack,
+        telefone: this.telefone,
+        userId: this._id
+      });
+
+      // Não permite continuar com um telefone mal formatado
+      return next(new Error(`Erro ao formatar telefone: ${error.message}`));
     }
   }
 
@@ -236,8 +308,16 @@ UserSchema.methods.comparePassword = async function(candidatePassword: string): 
     // Compara a senha fornecida com o hash armazenado usando bcrypt
     return await bcrypt.compare(candidatePassword, this.senha);
   } catch (error: any) {
-    logger.error("Erro ao comparar senhas:", { error: error.message, stack: error.stack });
-    return false; // Retorna falso em caso de falha na comparação
+    // Registra o erro detalhado no log
+    logger.error("Erro ao comparar senhas:", { 
+      error: error.message, 
+      stack: error.stack,
+      userId: this._id
+    });
+
+    // Lança o erro para que seja tratado adequadamente nas camadas superiores
+    // Isso permite que o sistema identifique e resolva problemas reais em vez de silenciá-los
+    throw new Error(`Erro ao verificar senha: ${error.message}`);
   }
 };
 

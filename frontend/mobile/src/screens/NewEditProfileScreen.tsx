@@ -249,19 +249,28 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
   // Esta memoização garante que os valores padrão só sejam recalculados quando os dados do usuário mudarem
   // Isso melhora a performance evitando renderizações desnecessárias
   const defaultValues = useMemo(() => ({
-    nome: user?.nome || '',
-    telefone: user?.telefone || '',
-    endereco: user?.endereco || '',
-    foto: user?.foto || '',
-    dataNascimento: user?.dataNascimento ? new Date(user.dataNascimento) : undefined,
-    genero: user?.genero || 'Prefiro não dizer',
+    user: {
+      nome: user?.nome || '',
+      telefone: user?.telefone || '',
+      endereco: user?.endereco || '',
+      foto: user?.foto || '',
+      dataNascimento: user?.dataNascimento ? new Date(user.dataNascimento) : undefined,
+      genero: user?.genero || 'Prefiro não dizer',
+      // Adicionar pelo menos um campo de ID para satisfazer a validação
+      ...(user?.idUsuario && { idUsuario: user.idUsuario }),
+      ...(user?.id && { id: user.id }),
+      ...(user?._id && { _id: user._id })
+    }
   }), [
     user?.nome,
     user?.telefone,
     user?.endereco,
     user?.foto,
     user?.dataNascimento,
-    user?.genero
+    user?.genero,
+    user?.idUsuario,
+    user?.id,
+    user?._id
   ]);
 
   // Configuração do formulário com react-hook-form e validação Zod
@@ -580,7 +589,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
     }
 
     // Atualiza o valor no formulário
-    setValue('dataNascimento', selectedDate, { 
+    setValue('user.dataNascimento', selectedDate, { 
       shouldDirty: true, 
       shouldValidate: true,
       shouldTouch: true
@@ -667,7 +676,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
           // Anuncia a seleção para leitores de tela
           AccessibilityInfo.announceForAccessibility(`Selecionado: ${title}`);
 
-          setValue('genero', value as 'Feminino' | 'Masculino' | 'Prefiro não dizer', { 
+          setValue('user.genero', value as 'Feminino' | 'Masculino' | 'Prefiro não dizer', { 
             shouldDirty: true, 
             shouldValidate: true,
             shouldTouch: true
@@ -837,7 +846,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
           }
 
           // Atualizar o valor do formulário
-          setValue('foto', imageUrl, { 
+          setValue('user.foto', imageUrl, { 
             shouldDirty: true, 
             shouldValidate: true,
             shouldTouch: true
@@ -860,7 +869,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
 
     return (
       <ProfileField
-        name="nome"
+        name="user.nome"
         control={control}
         label="Nome"
         placeholder="Nome"
@@ -924,7 +933,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
 
     return (
       <ProfileField
-        name="telefone"
+        name="user.telefone"
         control={control}
         label="Telefone"
         placeholder="Telefone"
@@ -952,7 +961,7 @@ export default function NewEditProfileScreen({ navigation }: EditProfileScreenPr
 
     return (
       <ProfileField
-        name="endereco"
+        name="user.endereco"
         control={control}
         label="Endereço"
         placeholder="Endereço"

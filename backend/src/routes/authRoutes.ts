@@ -8,9 +8,10 @@ import * as authController from '../controllers/authController';
 // Importa o middleware de autenticação para proteger rotas
 import authMiddleware from '../middlewares/authMiddleware';
 // Importa os middlewares de validação usando Zod para validar dados de entrada
-import { validateCreateUser, validateLogin, validateUpdateUser } from '../middlewares/zodValidationMiddleware';
+import { validateCreateUser, validateLogin, validateUpdateUser, validateUpdateUserRoles } from '../middlewares/zodValidationMiddleware';
 // Middleware de autorização para admin (comentado para uso futuro)
 // import { isAdmin } from '../middlewares/authorizationMiddleware';
+
 
 // Configuração do limitador de requisições para login
 const loginLimiter = rateLimit({
@@ -70,6 +71,15 @@ router.get('/profile', authMiddleware, authController.getProfile);
 // Rota para editar perfil do usuário logado (Caso de Uso 17)
 // Requer autenticação prévia e validação de dados
 router.put('/profile', authMiddleware, validateUpdateUser, authController.editProfile);
+
+// Rota dedicada para atualização de papéis
+router.put(
+  '/profile/roles',
+  authMiddleware, // Garante que o usuário está autenticado
+  validateUpdateUserRoles, // Valida o payload
+  authController.updateUserRoles, // Chama o novo controlador
+
+);
 
 // Rota para excluir conta do usuário logado (Caso de Uso 12)
 // Requer autenticação prévia

@@ -38,8 +38,9 @@ import {
 import { loginResponseSchema, registrationResponseSchema, updateProfileResponseSchema, 
   deleteAccountResponseSchema, fetchOffersResponseSchema, offerMutationResponseSchema,
   contratacaoResponseSchema, fetchContratacoesResponseSchema } from '../schemas/api.schema';
-import { loginCredentialsSchema, registrationDataSchema, profileUpdateDataSchema } from '../schemas/user.schema';
+import { loginCredentialsSchema, registrationDataSchema, profileUpdateDataSchema, updateUserRolesSchema, UpdateUserRolesPayload } from '../schemas/user.schema';
 import { userSchema } from '../types/userSchema';
+import { User } from '../types/user';
 import { offerDataSchema, fetchOffersParamsSchema } from '../schemas/offer.schema';
 import { contratacaoDataSchema, fetchContratacoesParamsSchema } from '../schemas/contratacao.schema';
 import { validateWithZod, validateWithZodSafe, validateWithZodResult } from '../utils/validation';
@@ -1023,27 +1024,50 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
     // Validar dados do perfil com Zod
     console.log('Dados do perfil recebidos para atualização:', JSON.stringify(profileData, null, 2));
 
-    // Verificar se os dados já estão no formato esperado (com objeto 'user')
+    // Sempre garantir que os dados estejam no formato esperado pelo backend (com objeto 'user')
     let formattedProfileData: any;
+
+    // Verificar se temos algum ID válido disponível
+    const userId = 
+      (profileData.user?.idUsuario || profileData.user?.id || profileData.user?._id || 
+       profileData.idUsuario || profileData.id || profileData._id);
+
+    // Se não temos nenhum ID válido, lançar erro imediatamente
+    if (!userId) {
+      throw new Error('Erro de validação: user.idUsuario: Pelo menos um dos campos \'idUsuario\' ou \'id\' deve estar presente');
+    }
+
     if (profileData.user) {
-      // Já está no formato correto
-      formattedProfileData = profileData;
+      // Já está no formato correto, mas vamos garantir que tenha um ID
+      formattedProfileData = {
+        user: {
+          ...profileData.user,
+          // Garantir que pelo menos um campo de ID esteja presente no objeto user com valor válido
+          idUsuario: userId,
+          id: userId,
+          _id: userId
+        }
+      };
     } else {
       // Converter para o formato padronizado com objeto 'user'
       formattedProfileData = {
         user: {
           ...profileData,
-          // Garantir que pelo menos um campo de ID esteja presente
-          // Extrair ID do objeto user se existir, ou do objeto raiz
-          idUsuario: profileData.idUsuario || profileData.id || profileData._id || ''
+          // Garantir que pelo menos um campo de ID esteja presente com valor válido
+          idUsuario: userId,
+          id: userId,
+          _id: userId
         }
       };
     }
 
-    // Garantir que o objeto user tenha pelo menos um campo de ID
-    if (formattedProfileData.user && !formattedProfileData.user.idUsuario && !formattedProfileData.user.id && !formattedProfileData.user._id) {
-      console.warn('Nenhum ID encontrado no objeto user (idUsuario, id ou _id). Isso pode causar erros de validação.');
-    }
+    // A verificação de ID já foi feita anteriormente, então não precisamos verificar novamente aqui.
+    // Apenas registramos os dados formatados para depuração.
+    console.log('Objeto user formatado com IDs:', {
+      idUsuario: formattedProfileData.user.idUsuario,
+      id: formattedProfileData.user.id,
+      _id: formattedProfileData.user._id
+    });
 
     console.log('Dados do perfil formatados:', JSON.stringify(formattedProfileData, null, 2));
     const validatedProfileData = validateWithZod(profileUpdateDataSchema, formattedProfileData) as ProfileUpdateData;
@@ -1171,6 +1195,28 @@ export const updateProfile = async (token: string, profileData: ProfileUpdateDat
     }
   }
 };
+
+/**
+ * Atualiza os papéis do usuário autenticado.
+ * @param payload - Um objeto contendo o array de papéis a serem atualizados.
+ * @returns Uma Promise que resolve com a mensagem de sucesso e o usuário atualizado.
+ * @throws Lança um erro em caso de falha.
+ */
+
+export const updateUserRoles = async (payload: UpdateUserRolesPayload): Promise<{ message: string; user: User }> => {
+  try {
+    const data = await apiRequest<{ message: string; user: User }>('/auth/profile/roles', {
+      method: 'PUT',
+      body: payload
+    });
+    return data;
+  } catch (error) {
+    console.error('Erro ao atualizar papéis do usuário:', error);
+    throw error;
+  }
+};
+
+
 
 /**
  * Interface para os dados necessários para solicitar uma alteração de email

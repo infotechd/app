@@ -97,7 +97,7 @@ export const validate = (schema: ZodType<any, any, any>, source: 'body' | 'query
 
 // Importação dos schemas de validação específicos para cada entidade do sistema
 // Estes schemas definem as regras de validação para diferentes operações
-import { createUserSchema, updateUserSchema, loginUserSchema } from '../schemas/userSchema';
+import { createUserSchema, updateUserSchema, loginUserSchema, updateUserRolesSchema } from '../schemas/userSchema';
 import { createAnuncioSchema, updateAnuncioSchema } from '../schemas/anuncioSchema';
 import { createAvaliacaoSchema, updateAvaliacaoSchema } from '../schemas/avaliacaoSchema';
 
@@ -106,6 +106,7 @@ import { createAvaliacaoSchema, updateAvaliacaoSchema } from '../schemas/avaliac
 export const validateCreateUser = validate(createUserSchema);
 export const validateUpdateUser = validate(updateUserSchema);
 export const validateLogin = validate(loginUserSchema);
+export const validateUpdateUserRoles = validate(updateUserRolesSchema);
 
 // Validadores pré-configurados para operações relacionadas a Anúncios
 // Estes middlewares validam os dados de criação e atualização de anúncios

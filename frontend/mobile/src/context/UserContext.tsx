@@ -1,7 +1,7 @@
 import React, { createContext, useReducer, useContext, useEffect, useCallback, ReactNode } from 'react';
 import { Alert } from 'react-native';
 import { User, UserRole } from '@/types/user';
-import { updateProfile, refreshUserToken } from '@/services/api';
+import { updateProfile, refreshUserToken, updateUserRoles } from '@/services/api';
 import { booleanPropsToRoles, rolesToBooleanProps } from '@/utils/permissions';
 import { 
   saveToken, 
@@ -27,7 +27,7 @@ type UserAction =
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_TOKEN_VALID'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'SET_ACTIVE_ROLE'; payload: UserRole | null }
+  | { type: 'SET_ACTIVE_ROLE'; payload: UserRole | undefined }
   | { type: 'ADD_ROLE'; payload: UserRole }
   | { type: 'REMOVE_ROLE'; payload: UserRole };
 
@@ -48,7 +48,7 @@ const userReducer = (state: UserState, action: UserAction): UserState => {
         ...state, 
         user: { 
           ...state.user, 
-          activeRole: action.payload === null ? undefined : action.payload 
+          activeRole: action.payload 
         } 
       };
     case 'ADD_ROLE':
@@ -116,11 +116,9 @@ interface UserContextType {
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => Promise<void>;
   refreshToken: () => Promise<boolean>;
-  setActiveRole: (role: UserRole | null) => void;
-  addRole: (role: UserRole) => Promise<boolean>;
-  removeRole: (role: UserRole) => Promise<boolean>;
+  setActiveRole: (role: UserRole | undefined) => void;
   hasRole: (role: UserRole) => boolean;
-  updateRoles: (newRoles: UserRole[]) => Promise<boolean>;
+  handleUpdateRoles: (newRoles: UserRole[]) => Promise<void>;
 }
 
 // Cria o contexto
@@ -270,10 +268,10 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
         });
       }
 
-      // Garantir que o usuário tenha pelo menos um ID
+      // Verificação estrita de ID: o usuário deve ter um ID válido do backend
       if (!userData.idUsuario && !userData.id && !userData._id) {
-        console.warn('UserContext: Usuário sem ID detectado, gerando ID temporário');
-        userData.idUsuario = `temp_${Date.now().toString()}`;
+        console.error("UserContext: API de login retornou um usuário sem ID.", userData);
+        throw new Error('Falha na autenticação: dados do usuário incompletos recebidos do servidor.');
       }
 
       // Atualiza os estados
@@ -409,7 +407,7 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
   };
 
   // Função para definir o papel ativo
-  const setActiveRole = useCallback((role: UserRole | null) => {
+  const setActiveRole = useCallback((role: UserRole | undefined) => {
     dispatch({ type: 'SET_ACTIVE_ROLE', payload: role });
   }, []);
 
@@ -432,222 +430,53 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     }
   }, [state.user]);
 
-  // Função para adicionar um papel ao usuário
-  const addRole = async (role: UserRole): Promise<boolean> => {
+  // Função para atualizar papéis do usuário
+  const handleUpdateRoles = async (newRoles: UserRole[]): Promise<void> => {
+    dispatch({ type: 'SET_LOADING', payload: true });
     try {
-      if (!state.user) {
-        throw new Error('Nenhum usuário logado para adicionar papel');
+      // Verifica se há pelo menos um papel selecionado
+      if (!newRoles || newRoles.length === 0) {
+        Alert.alert('Erro', 'Você deve selecionar pelo menos um papel.');
+        return;
       }
 
-      // Se o usuário já tem esse papel, não faz nada
-      if (hasRole(role)) {
-        return true;
+      // Prepara o payload para a API
+      const payload = { roles: newRoles };
+
+      // Chama a API para atualizar os papéis
+      const { user: updatedUser } = await updateUserRoles(payload);
+
+      if (!updatedUser) {
+        throw new Error('A API retornou um usuário nulo ou indefinido');
       }
 
-      // Adiciona o papel ao array de papéis
-      const newRoles = [...(state.user.roles || []), role];
+      // Garante que o usuário tenha o array de roles
+      if (!updatedUser.roles) {
+        updatedUser.roles = newRoles;
+      }
 
       // Atualiza também as flags booleanas para compatibilidade
-      const booleanProps = rolesToBooleanProps(newRoles);
+      const booleanProps = rolesToBooleanProps(updatedUser.roles);
+      Object.assign(updatedUser, booleanProps);
 
-      // Verificar se o usuário tem pelo menos um campo de ID
-      if (!state.user.idUsuario && !state.user.id && !state.user._id) {
-        console.warn("UserContext: Usuário sem ID detectado, gerando ID temporário");
-        // Gerar um ID temporário em vez de falhar
-        state.user.idUsuario = `temp_${Date.now().toString()}`;
+      // Se o papel ativo não estiver mais na lista de papéis, redefine-o
+      if (state.user?.activeRole && !updatedUser.roles.includes(state.user.activeRole)) {
+        updatedUser.activeRole = updatedUser.roles[0] || undefined;
       }
 
-      // Cria o objeto de atualização
-      const userUpdate = {
-        user: {
-          ...state.user,
-          roles: newRoles,
-          ...booleanProps,
-          // Garantir que pelo menos um dos campos de ID esteja presente
-          idUsuario: state.user.idUsuario || state.user.id || state.user._id || `temp_${Date.now().toString()}`
-        }
-      };
+      // Atualiza o estado com a resposta da API
+      dispatch({ type: 'SET_USER', payload: updatedUser });
 
-      // Atualiza o perfil no backend
-      const response = await updateProfile(state.user.token || '', userUpdate);
+      // Salva os dados atualizados no armazenamento seguro
+      await saveUserData(updatedUser);
 
-      // Atualiza o estado local
-      dispatch({ type: 'ADD_ROLE', payload: role });
-
-      // Se o backend retornou dados atualizados, usamos eles
-      if (response && response.user && response.token) {
-        await updateUser({ 
-          ...response.user,
-          token: response.token 
-        });
-      }
-
-      return true;
-    } catch (error) {
-      console.error("UserContext: Erro ao adicionar papel:", error);
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-
-      if (errorMessage.includes('Token inválido') || 
-          errorMessage.includes('Token expirado') || 
-          errorMessage.includes('não autorizado')) {
-        Alert.alert(
-          "Sessão expirada",
-          "Sua sessão expirou. Por favor, faça login novamente."
-        );
-      } else {
-        Alert.alert("Erro", "Não foi possível adicionar o papel. Tente novamente.");
-      }
-
-      return false;
-    }
-  };
-
-  // Função para remover um papel do usuário
-  const removeRole = async (role: UserRole): Promise<boolean> => {
-    try {
-      if (!state.user) {
-        throw new Error('Nenhum usuário logado para remover papel');
-      }
-
-      // Se o usuário não tem esse papel, não faz nada
-      if (!hasRole(role)) {
-        return true;
-      }
-
-      // Verifica se é o último papel
-      const currentRoles = state.user.roles || booleanPropsToRoles({
-        isComprador: state.user.isComprador,
-        isPrestador: state.user.isPrestador,
-        isAnunciante: state.user.isAnunciante,
-        isAdmin: state.user.isAdmin
-      });
-
-      if (currentRoles.length === 1 && currentRoles.includes(role)) {
-        Alert.alert(
-          "Ação não permitida",
-          "Você deve ter pelo menos um papel ativo. Ative outro papel antes de desativar este.",
-          [{ text: "OK" }]
-        );
-        return false;
-      }
-
-      // Remove o papel do array de papéis
-      const updatedRoles = currentRoles.filter(r => r !== role);
-
-      // Atualiza também as flags booleanas para compatibilidade
-      const booleanProps = rolesToBooleanProps(updatedRoles);
-
-      // Verificar se o usuário tem pelo menos um campo de ID
-      if (!state.user.idUsuario && !state.user.id && !state.user._id) {
-        console.warn("UserContext: Usuário sem ID detectado, gerando ID temporário");
-        // Gerar um ID temporário em vez de falhar
-        state.user.idUsuario = `temp_${Date.now().toString()}`;
-      }
-
-      // Cria o objeto de atualização
-      const userUpdate = {
-        user: {
-          ...state.user,
-          roles: updatedRoles,
-          ...booleanProps,
-          // Garantir que pelo menos um dos campos de ID esteja presente
-          idUsuario: state.user.idUsuario || state.user.id || state.user._id || `temp_${Date.now().toString()}`
-        }
-      };
-
-      // Atualiza o perfil no backend
-      const response = await updateProfile(state.user.token || '', userUpdate);
-
-      // Atualiza o estado local
-      dispatch({ type: 'REMOVE_ROLE', payload: role });
-
-      // Se o backend retornou dados atualizados, usamos eles
-      if (response && response.user && response.token) {
-        await updateUser({ 
-          ...response.user,
-          token: response.token 
-        });
-      }
-
-      return true;
-    } catch (error) {
-      console.error("UserContext: Erro ao remover papel:", error);
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-
-      if (errorMessage.includes('Token inválido') || 
-          errorMessage.includes('Token expirado') || 
-          errorMessage.includes('não autorizado')) {
-        Alert.alert(
-          "Sessão expirada",
-          "Sua sessão expirou. Por favor, faça login novamente."
-        );
-      } else {
-        Alert.alert("Erro", "Não foi possível remover o papel. Tente novamente.");
-      }
-
-      return false;
-    }
-  };
-
-  // Função para atualizar papéis do usuário diretamente
-  const updateRoles = async (newRoles: UserRole[]): Promise<boolean> => {
-    try {
-      if (!state.user) {
-        throw new Error('Nenhum usuário logado para atualizar papéis');
-      }
-
-      // Atualiza as flags booleanas para compatibilidade
-      const booleanProps = rolesToBooleanProps(newRoles);
-
-      // Verificar se o usuário tem pelo menos um campo de ID
-      if (!state.user.idUsuario && !state.user.id && !state.user._id) {
-        console.warn("UserContext: Usuário sem ID detectado, gerando ID temporário");
-        // Gerar um ID temporário em vez de falhar
-        state.user.idUsuario = `temp_${Date.now().toString()}`;
-      }
-
-      // Cria o objeto de atualização
-      const userUpdate = {
-        user: {
-          ...state.user,
-          roles: newRoles,
-          ...booleanProps,
-          // Garantir que pelo menos um dos campos de ID esteja presente
-          idUsuario: state.user.idUsuario || state.user.id || state.user._id || `temp_${Date.now().toString()}`
-        }
-      };
-
-      // Atualiza o perfil no backend
-      const response = await updateProfile(state.user.token || '', userUpdate);
-
-      // Se o backend retornou dados atualizados, usamos eles
-      if (response && response.user && response.token) {
-        await updateUser({ 
-          ...response.user,
-          token: response.token 
-        });
-      } else {
-        // Caso contrário, atualizamos apenas o estado local
-        const updatedUser = {
-          ...state.user,
-          roles: newRoles,
-          ...booleanProps
-        };
-        dispatch({ type: 'SET_USER', payload: updatedUser });
-      }
-
-      return true;
+      // Não exibimos o alerta de sucesso aqui, pois o componente RoleManagement já o faz
     } catch (error) {
       console.error("UserContext: Erro ao atualizar papéis:", error);
-
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      dispatch({ type: 'SET_ERROR', payload: errorMessage });
-
-      return false;
+      Alert.alert('Erro', 'Não foi possível atualizar seus papéis. Por favor, tente novamente.');
+      throw error; // Propaga o erro para a UI, se necessário
+    } finally {
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
 
@@ -662,10 +491,8 @@ export const UserProvider: React.FC<UserProviderProps> = ({ children }) => {
     updateUser,
     refreshToken,
     setActiveRole,
-    addRole,
-    removeRole,
     hasRole,
-    updateRoles
+    handleUpdateRoles
   };
 
   return (

@@ -40,29 +40,46 @@ export function useUserRoles(user: User | null, updateUser: (userData: Partial<U
     role: keyof Pick<User, 'isComprador' | 'isPrestador' | 'isAnunciante' | 'isAdmin'>, 
     newValue: boolean
   ): Promise<{ success: boolean; updatedUser?: Partial<User> }> => {
-    if (!user) return { success: false };
-
-    // Verificar se o usuário está tentando desativar seu único papel ativo
-    const activeRolesCount = getActiveRolesCount();
-
-    // Se o usuário tem apenas um papel ativo e está tentando desativá-lo, mostra um alerta
-    if (activeRolesCount === 1 && user[role] === true && newValue === false) {
-      Alert.alert(
-        "Ação não permitida",
-        "Você deve ter pelo menos um papel ativo. Ative outro papel antes de desativar este.",
-        [{ text: "OK" }]
-      );
+    if (!user) {
+      console.error("toggleUserRole: Nenhum usuário logado");
       return { success: false };
     }
+
+    // Mapear a propriedade booleana para o nome do papel
+    const roleMap: Record<string, UserRole> = {
+      'isComprador': 'comprador',
+      'isPrestador': 'prestador',
+      'isAnunciante': 'anunciante',
+      'isAdmin': 'admin'
+    };
+
+    const userRole = roleMap[role];
+    console.log(`toggleUserRole: Alternando papel ${userRole} para ${newValue ? 'ativo' : 'inativo'}`);
 
     setIsLoading(true);
 
     try {
-      // Garantir que pelo menos um dos campos de ID esteja presente
-      const userId = user.idUsuario || user.id || user._id;
-      if (!userId) {
-        throw new Error("ID do usuário não encontrado. Por favor, faça login novamente.");
+      // Verificar se o usuário está tentando desativar seu único papel ativo
+      if (!newValue) {
+        const activeRolesCount = getActiveRolesCount();
+        console.log(`toggleUserRole: Contagem de papéis ativos: ${activeRolesCount}`);
+
+        // Se o usuário tem apenas um papel ativo e está tentando desativá-lo, mostra um alerta
+        if (activeRolesCount === 1 && user[role] === true) {
+          console.warn("toggleUserRole: Tentativa de desativar o único papel ativo");
+          Alert.alert(
+            "Ação não permitida",
+            "Você deve ter pelo menos um papel ativo. Ative outro papel antes de desativar este.",
+            [{ text: "OK" }]
+          );
+          setIsLoading(false);
+          return { success: false };
+        }
       }
+
+      // Obter as funções addRole e removeRole do contexto do usuário
+      // Precisamos importar essas funções de alguma forma
+      // Como não podemos modificar os parâmetros da função, vamos usar uma abordagem alternativa
 
       // Converter as flags booleanas atuais para array de roles
       const currentRoles = user.roles || booleanPropsToRoles({
@@ -72,118 +89,64 @@ export function useUserRoles(user: User | null, updateUser: (userData: Partial<U
         isAdmin: user.isAdmin
       });
 
-      // Mapear a propriedade booleana para o nome do papel
-      const roleMap: Record<string, UserRole> = {
-        'isComprador': 'comprador',
-        'isPrestador': 'prestador',
-        'isAnunciante': 'anunciante',
-        'isAdmin': 'admin'
-      };
+      let success: boolean;
 
-      const userRole = roleMap[role];
+      if (newValue) {
+        // Adicionar papel se não existir
+        if (!currentRoles.includes(userRole)) {
+          console.log(`toggleUserRole: Adicionando papel ${userRole}`);
 
-      // Atualizar o array de roles
-      let updatedRoles: UserRole[];
-      if (newValue && !currentRoles.includes(userRole)) {
-        // Adicionar o papel se ele não existir e o novo valor for true
-        updatedRoles = [...currentRoles, userRole];
-      } else if (!newValue) {
-        // Remover o papel se o novo valor for false
-        updatedRoles = currentRoles.filter(r => r !== userRole);
-      } else {
-        // Manter os papéis inalterados se o papel já existir e o novo valor for true
-        updatedRoles = [...currentRoles];
-      }
+          // Atualizar o usuário com o novo papel
+          const updatedRoles = [...currentRoles, userRole];
+          const booleanProps = rolesToBooleanProps(updatedRoles);
 
-      // Converter o array de roles atualizado para flags booleanas
-      const booleanProps = rolesToBooleanProps(updatedRoles);
-
-      // Criar uma cópia do usuário atual para modificação
-      const userUpdate = {
-        user: {
-          // Incluir apenas os campos necessários
-          idUsuario: user.idUsuario,
-          id: user.id,
-          _id: user._id,
-          nome: user.nome,
-          email: user.email,
-          // Incluir o array de roles atualizado
-          roles: updatedRoles,
-          // Incluir as flags booleanas atualizadas
-          ...booleanProps
-        }
-      };
-
-      // Enviar o objeto userUpdate diretamente para o backend
-      const response = await updateProfile(user.token || '', userUpdate);
-
-      // Criar um objeto com os dados atualizados do usuário
-      let updatedUserData: Partial<User> = {};
-
-      // Se a atualização no backend for bem-sucedida e retornar um novo token e dados do usuário
-      if (response && response.user && response.token) {
-        // Usar os dados completos retornados pelo servidor
-        updatedUserData = { 
-          ...response.user,
-          token: response.token 
-        };
-
-        // Garantir que o objeto tenha tanto o array de roles quanto as flags booleanas sincronizadas
-        if (updatedUserData.roles && !updatedUserData.isComprador && !updatedUserData.isPrestador && 
-            !updatedUserData.isAnunciante && !updatedUserData.isAdmin) {
-          // Se temos roles mas não temos as flags booleanas, derivar as flags dos roles
-          const derivedBooleanProps = rolesToBooleanProps(updatedUserData.roles);
-          updatedUserData = {
-            ...updatedUserData,
-            ...derivedBooleanProps
-          };
-        } else if (!updatedUserData.roles && (updatedUserData.isComprador || updatedUserData.isPrestador || 
-                  updatedUserData.isAnunciante || updatedUserData.isAdmin)) {
-          // Se temos as flags booleanas mas não temos o array de roles, derivar os roles das flags
-          updatedUserData.roles = booleanPropsToRoles({
-            isComprador: updatedUserData.isComprador,
-            isPrestador: updatedUserData.isPrestador,
-            isAnunciante: updatedUserData.isAnunciante,
-            isAdmin: updatedUserData.isAdmin
+          await updateUser({ 
+            roles: updatedRoles,
+            ...booleanProps
           });
+
+          success = true;
+        } else {
+          console.log(`toggleUserRole: Papel ${userRole} já existe, nenhuma ação necessária`);
+          success = true;
         }
       } else {
-        // Fallback: usar o objeto de atualização que já criamos, que contém tanto
-        // o array de roles quanto as flags booleanas sincronizadas
-        updatedUserData = { 
-          ...user,
-          ...userUpdate
-        };
+        // Remover papel se existir
+        if (currentRoles.includes(userRole)) {
+          console.log(`toggleUserRole: Removendo papel ${userRole}`);
 
-        // Garantir que o token seja mantido
-        if (user.token) {
-          updatedUserData.token = user.token;
+          // Atualizar o usuário sem o papel
+          const updatedRoles = currentRoles.filter(r => r !== userRole);
+          const booleanProps = rolesToBooleanProps(updatedRoles);
+
+          await updateUser({ 
+            roles: updatedRoles,
+            ...booleanProps
+          });
+
+          success = true;
+        } else {
+          console.log(`toggleUserRole: Papel ${userRole} não existe, nenhuma ação necessária`);
+          success = true;
         }
       }
 
-      // Garantir que todos os papéis estejam definidos explicitamente e sincronizados
-      if (!updatedUserData.roles) {
-        updatedUserData.roles = booleanPropsToRoles({
-          isComprador: updatedUserData.isComprador,
-          isPrestador: updatedUserData.isPrestador,
-          isAnunciante: updatedUserData.isAnunciante,
-          isAdmin: updatedUserData.isAdmin
-        });
+      if (success) {
+        console.log(`toggleUserRole: Papel ${userRole} ${newValue ? 'adicionado' : 'removido'} com sucesso`);
+
+        // Não mostrar alerta aqui, pois a UI já reflete a mudança
+        // Alert.alert("Sucesso", "Papel atualizado com sucesso!");
+
+        // Retorna o sucesso e não inclui o usuário, pois o contexto já foi atualizado
+        return { 
+          success: true
+        };
+      } else {
+        console.error(`toggleUserRole: Falha ao ${newValue ? 'adicionar' : 'remover'} papel ${userRole}`);
+        return { success: false };
       }
-
-      const syncedBooleanProps = rolesToBooleanProps(updatedUserData.roles);
-      updatedUserData = {
-        ...updatedUserData,
-        ...syncedBooleanProps
-      };
-
-      // Atualizar o usuário no contexto
-      await updateUser(updatedUserData);
-
-      Alert.alert("Sucesso", "Papel atualizado com sucesso!");
-      return { success: true, updatedUser: updatedUserData };
     } catch (error) {
-      console.error("Erro ao atualizar papel:", error);
+      console.error("toggleUserRole: Erro ao atualizar papel:", error);
 
       // Verifica se é um erro de token inválido ou expirado
       const errorMessage = error instanceof Error ? error.message : String(error);
