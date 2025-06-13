@@ -89,7 +89,7 @@ export default function AppNavigation() {
       {/* Configurações globais do Stack Navigator podem ser definidas aqui */}
       <Stack.Navigator
         id={undefined}  // O stack.navigator estava dando erro acrecentei isso aqui = id={undefined}
-        initialRouteName={user ? 'UnifiedDashboard' : 'Login'} // Define a tela inicial baseada no login
+        initialRouteName={user ? "Home" : "BuscarOfertas"} // Define a tela inicial com base no estado de autenticação
         screenOptions={{
           headerShown: true,
           headerStyle: { backgroundColor: '#f8f8f8' },
@@ -101,6 +101,7 @@ export default function AppNavigation() {
           // --- Telas para Usuários Autenticados ---
           // O usuário está logado, mostrar telas privadas/principais
           <>
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Home" component={HomeScreen} options={{ title: 'Início' }}/>
             <Stack.Screen name="UnifiedDashboard" component={UnifiedDashboardScreen} options={{ title: 'Meu Painel' }} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} options={{ title: 'Editar Perfil' }} />

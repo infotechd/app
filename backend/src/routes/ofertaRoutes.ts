@@ -4,6 +4,8 @@ import { Router } from 'express';
 // Importa os controladores de oferta e middleware de autenticação
 import  * as ofertaController from '../controllers/ofertaController';
 import authMiddleware from '../middlewares/authMiddleware';
+import { validate } from '../middlewares/zodValidationMiddleware';
+import { searchPublicOfertasSchema } from '../schemas/ofertaSchema';
 // Middlewares de autorização que podem ser implementados futuramente
 // import { isPrestador } from '../middlewares/authorizationMiddleware';
 // import { isOfertaOwner } from '../middlewares/authorizationMiddleware';
@@ -221,7 +223,7 @@ const router: Router = Router();
  *       500:
  *         description: Erro interno do servidor
  */
-router.get('/search', /* authMiddleware (opcional), */ ofertaController.searchPublicOfertas);
+router.get('/search', validate({ query: searchPublicOfertasSchema }), ofertaController.searchPublicOfertas);
 
 /**
  * @swagger

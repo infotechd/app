@@ -276,6 +276,7 @@ export interface ParametrosBuscaOfertas {
   cidade?: string; // Cidade para filtrar por localização
   status?: StatusOferta; // Status da oferta (ex: buscar apenas ofertas 'pronta')
   prestadorId?: string; // ID do prestador para buscar ofertas de um prestador específico
+  tipoPrestador?: string; // Tipo de prestador para filtrar ofertas
 
   // Campos para ordenação dos resultados
   ordenarPor?: 'preco' | 'dataCriacao' | 'avaliacao'; // Campo usado para ordenação

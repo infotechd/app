@@ -108,7 +108,7 @@ export default function RegistrationScreen({ navigation }: RegistrationScreenPro
       // Exibe mensagem de sucesso ao usuário
       Alert.alert('Sucesso', response.message);
       // Redireciona para a tela de login após o cadastro bem-sucedido
-      navigation.navigate({ name: 'Login', params: {} }); // Redireciona para a tela de login
+      navigation.navigate('Login', {}); // Redireciona para a tela de login
 
     } catch (error) {
       // Trata o erro lançado pela função da API (apiRegister)

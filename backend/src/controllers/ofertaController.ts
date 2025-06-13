@@ -1,9 +1,10 @@
 // Controlador de Ofertas de Serviço
 
 import { Request, Response, NextFunction } from 'express';
-import mongoose from 'mongoose';
+import mongoose, { FilterQuery } from 'mongoose';
 import OfertaServico, { IOfertaServico, OfertaStatusEnum, IDisponibilidade } from '../models/OfertaServico'; // Importa modelo e interface/enum
 import { extractPaginationParams, paginatedQuery } from '../utils/paginationUtils'; // Importa utilitários de paginação
+import User, { IUser } from '../models/User'; // Importa modelo de usuário para filtro por tipo de prestador
 // Import for TipoUsuarioEnum removed as it's no longer used
 
 // Interface que define a estrutura de dados para criação/atualização de ofertas
@@ -399,15 +400,51 @@ export const searchPublicOfertas = async (req: Request, res: Response, next: Nex
     const sort = (req.query.sort as string) || '-createdAt'; // Ordenação padrão: mais recentes primeiro
     const precoMax = req.query.precoMax ? Number(req.query.precoMax) : undefined;
     const textoPesquisa = req.query.textoPesquisa as string | undefined;
+    const tipoPrestador = req.query.tipoPrestador as string | undefined;
 
     // Extrai filtros de categoria e localização
     const categorias = req.query.categorias as string | string[] | undefined;
     const estado = req.query.estado as string | undefined;
     const cidade = req.query.cidade as string | undefined;
 
+    const prestadorIdFilter: FilterQuery<IOfertaServico> = {};
+
+    if (tipoPrestador) {
+        // 1. Monta a query para o modelo User com os campos corretos
+        const userQuery: FilterQuery<IUser> = {
+            isPrestador: true, // Garante que estamos buscando apenas usuários com o perfil de prestador
+        };
+
+        // 2. Adiciona o critério de CPF ou CNPJ usando Expressão Regular (Regex)
+        if (tipoPrestador === 'pessoa_fisica') {
+            // Busca por strings que contenham EXATAMENTE 11 dígitos
+            userQuery.cpfCnpj = /^\d{11}$/;
+        } else if (tipoPrestador === 'pessoa_juridica') {
+            // Busca por strings que contenham EXATAMENTE 14 dígitos
+            userQuery.cpfCnpj = /^\d{14}$/;
+        }
+
+        // 3. Executa a busca pelos IDs dos prestadores
+        const prestadorIds = await User.find(userQuery, '_id').lean();
+
+        // 4. Se nenhum prestador for encontrado, encerra a busca e retorna um array vazio.
+        if (prestadorIds.length === 0) {
+            res.status(200).json({
+                ofertas: [],
+                pagination: { totalItems: 0, totalPages: 0, currentPage: 1, limit: 10 },
+                totalOfertas: 0
+            });
+            return;
+        }
+
+        // 5. Adiciona o filtro de IDs à query principal de ofertas.
+        prestadorIdFilter.prestadorId = { $in: prestadorIds.map(p => p._id) };
+    }
+
     // Constrói a query base para buscar apenas ofertas disponíveis
-    const query: mongoose.FilterQuery<IOfertaServico> = {
-      status: OfertaStatusEnum.DISPONIVEL
+    const query: FilterQuery<IOfertaServico> = {
+      status: OfertaStatusEnum.DISPONIVEL,
+      ...prestadorIdFilter, // Mescla o novo filtro aqui
     };
 
     // Aplica filtro de preço máximo, se fornecido

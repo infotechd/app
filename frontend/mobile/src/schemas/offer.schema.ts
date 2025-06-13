@@ -105,6 +105,7 @@ export const fetchOffersParamsSchema = z.object({
   categorias: z.array(z.string()).optional(),
   status: offerStatusSchema.optional(),
   prestadorId: z.string().optional(),
+  tipoPrestador: z.enum(['pessoa_fisica', 'pessoa_juridica']).optional(),
   sortBy: z.enum(['preco', 'dataCriacao', 'avaliacao']).optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   page: z.number().positive().optional(),

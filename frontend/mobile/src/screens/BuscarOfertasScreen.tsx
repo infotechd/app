@@ -74,6 +74,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   // 3. Tipar Estados
   const [textoPesquisa, setTextoPesquisa] = useState<string>('');
   const [precoMax, setPrecoMax] = useState<string>(''); // Input é string
+  const [filtroTipo, setFiltroTipo] = useState<'pessoa_fisica' | 'pessoa_juridica' | null>(null);
   const [ofertas, setOfertas] = useState<Offer[]>([]);
   const [loading, setLoading] = useState<boolean>(false); // Inicia como false, busca é manual
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +114,8 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
   const filterAnimations = useRef({
     categorias: new Animated.Value(0),
     localizacao: new Animated.Value(0),
-    preco: new Animated.Value(0)
+    preco: new Animated.Value(0),
+    tipoPrestador: new Animated.Value(0)
   }).current;
 
   // Mapeamento de estados para suas respectivas capitais
@@ -360,6 +362,11 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
       }
     }
 
+    // Adiciona filtro de tipo de prestador se houver
+    if (filtroTipo) {
+      params.tipoPrestador = filtroTipo;
+    }
+
     try {
       // Log dos parâmetros de busca para debug
       console.log('Parâmetros de busca:', JSON.stringify(params));
@@ -421,7 +428,7 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     } finally {
       setLoading(false);
     }
-  }, [textoPesquisa, precoMax, categorias, localizacao, user, isTokenValid, isScreenReaderEnabled, saveRecentSearch, saveRecentFilter]); // Depende dos filtros e do estado de autenticação
+  }, [textoPesquisa, precoMax, categorias, localizacao, filtroTipo, user, isTokenValid, isScreenReaderEnabled, saveRecentSearch, saveRecentFilter]); // Depende dos filtros e do estado de autenticação
 
   // Função para converter preço em indicador visual ($ a $$$$)
   const getPriceIndicator = useCallback((price: number): string => {
@@ -965,9 +972,9 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
         return;
       }
 
-      // Tenta navegar para a tela de Login com parâmetro de retorno
-      navigation.navigate('Login', { returnTo: 'BuscarOfertas' });
-      console.log('[BuscarOfertasScreen] Navegação para Login iniciada com sucesso com parâmetro de retorno');
+      // Tenta navegar para a tela de Login sem parâmetro de retorno para seguir o fluxo padrão
+      navigation.navigate('Login', {});
+      console.log('[BuscarOfertasScreen] Navegação para Login iniciada com sucesso');
     } catch (error) {
       // Captura e loga qualquer erro que ocorra durante a navegação
       console.error('[BuscarOfertasScreen] Erro ao navegar para a tela de Login:', error);
@@ -1005,6 +1012,16 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, isTokenValid]); // Dependências: estado de autenticação
+
+  // Efeito para buscar ofertas quando o filtro de tipo de prestador mudar
+  useEffect(() => {
+    // Só executa a busca se não for a primeira renderização
+    if (!isInitialRender) {
+      console.log('Executando busca devido a mudança no filtro de tipo de prestador:', filtroTipo);
+      handleSearch();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtroTipo, isInitialRender]);
 
   return (
     <View style={styles.screenContainer}>
@@ -1363,6 +1380,47 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
               Preço {precoMax.trim() !== '' ? `(R$ ${precoMax})` : ''}
             </Text>
           </TouchableOpacity>
+
+          {/* Tab de Tipo de Prestador */}
+          <TouchableOpacity
+            style={[
+              styles.filterTab,
+              { 
+                backgroundColor: expandedFilter === 'tipoPrestador' 
+                  ? isHighContrastMode ? '#e0f0ff' : '#e6f7ff'
+                  : colors.background,
+                borderRightColor: colors.border,
+                borderBottomColor: expandedFilter === 'tipoPrestador' ? colors.primary : 'transparent',
+              }
+            ]}
+            onPress={() => toggleFilterExpand('tipoPrestador')}
+            disabled={loading}
+            accessibilityLabel="Filtro de tipo de prestador"
+            accessibilityHint={expandedFilter === 'tipoPrestador' 
+              ? "Toque para fechar o filtro de tipo de prestador" 
+              : "Toque para abrir o filtro de tipo de prestador"}
+            accessibilityRole="tab"
+            accessibilityState={{ 
+              expanded: expandedFilter === 'tipoPrestador',
+              disabled: loading,
+              selected: filtroTipo !== null
+            }}
+          >
+            <Text style={[
+              styles.filterTabText,
+              { 
+                color: expandedFilter === 'tipoPrestador' 
+                  ? colors.primary 
+                  : filtroTipo !== null 
+                    ? colors.success 
+                    : colors.textSecondary,
+                fontSize: getAdjustedFontSize(13),
+                fontWeight: expandedFilter === 'tipoPrestador' || filtroTipo !== null ? 'bold' : 'normal'
+              }
+            ]}>
+              Tipo Prestador {filtroTipo ? (filtroTipo === 'pessoa_fisica' ? '(PF)' : '(PJ)') : ''}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Conteúdo expandido dos filtros */}
@@ -1472,6 +1530,75 @@ export default function BuscarOfertasScreen({ navigation }: BuscarOfertasScreenP
               style={styles.expandedFilterInput}
               editable={!loading}
             />
+          </View>
+        </Animated.View>
+
+        {/* Filtro de Tipo de Prestador */}
+        <Animated.View style={[
+          styles.expandedFilterContent,
+          {
+            maxHeight: filterAnimations.tipoPrestador.interpolate({
+              inputRange: [0, 1],
+              outputRange: [0, 150]
+            }),
+            opacity: filterAnimations.tipoPrestador,
+            overflow: 'hidden',
+          }
+        ]}>
+          <View style={styles.expandedFilterInner}>
+            <Text style={styles.expandedFilterLabel}>Tipo de Prestador:</Text>
+            <View style={styles.expandedFilterButtonRow}>
+              <TouchableOpacity
+                style={[
+                  styles.expandedFilterButton, 
+                  styles.expandedFilterButtonThird,
+                  filtroTipo === null && { backgroundColor: colors.success }
+                ]}
+                onPress={() => setFiltroTipo(null)}
+                disabled={loading}
+              >
+                <Text style={[
+                  styles.expandedFilterButtonText,
+                  filtroTipo === null && { color: '#fff' }
+                ]}>
+                  Todos
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.expandedFilterButton, 
+                  styles.expandedFilterButtonThird,
+                  filtroTipo === 'pessoa_fisica' && { backgroundColor: colors.success }
+                ]}
+                onPress={() => setFiltroTipo('pessoa_fisica')}
+                disabled={loading}
+              >
+                <Text style={[
+                  styles.expandedFilterButtonText,
+                  filtroTipo === 'pessoa_fisica' && { color: '#fff' }
+                ]}>
+                  Pessoa Física
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.expandedFilterButton, 
+                  styles.expandedFilterButtonThird,
+                  filtroTipo === 'pessoa_juridica' && { backgroundColor: colors.success }
+                ]}
+                onPress={() => setFiltroTipo('pessoa_juridica')}
+                disabled={loading}
+              >
+                <Text style={[
+                  styles.expandedFilterButtonText,
+                  filtroTipo === 'pessoa_juridica' && { color: '#fff' }
+                ]}>
+                  Pessoa Jurídica
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </Animated.View>
 
@@ -1915,6 +2042,9 @@ const styles = StyleSheet.create({
   },
   expandedFilterButtonHalf: {
     flex: 0.48, // Ligeiramente menor que 0.5 para ter um pequeno espaço entre os botões
+  },
+  expandedFilterButtonThird: {
+    flex: 0.31, // Ligeiramente menor que 0.33 para ter um pequeno espaço entre os botões
   },
   selectedCategoriesScroll: {
     flexDirection: 'row',

@@ -205,12 +205,25 @@ export default function LoginScreen({ navigation, route }: LoginScreenProps) {
         initialRole = 'anunciante';
       }
 
-      // Não é necessário navegar explicitamente para o UnifiedDashboard
-      // O AppNavigation detectará a mudança no estado de autenticação e redirecionará automaticamente
-      // para a tela inicial definida para usuários autenticados
+      // Verificar se há um parâmetro returnTo na rota
+      const returnTo = route.params?.returnTo;
 
-      // Nota: Removemos a navegação explícita para UnifiedDashboard para corrigir o problema
-      // onde a navegação falhava porque o UnifiedDashboard só está disponível no stack autenticado
+      if (returnTo) {
+        console.log(`[Login Mobile] Retornando para a tela ${returnTo} após login bem-sucedido`);
+        // Use type assertion to tell TypeScript that we know what we're doing
+        navigation.navigate({
+          name: returnTo,
+          params: {},
+        } as never);
+      } else {
+        // Navegar explicitamente para a tela de Onboarding após o login bem-sucedido
+        // Isso garante que o usuário veja a tela de boas-vindas antes de usar o app
+        console.log('[Login Mobile] Navegando para a tela de Onboarding após login bem-sucedido');
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Onboarding' }],
+        });
+      }
 
     } catch (error: any) { // Captura qualquer tipo de erro durante o processo de login
       console.error('--- ERRO DETALHADO NO LOGIN MOBILE ---');

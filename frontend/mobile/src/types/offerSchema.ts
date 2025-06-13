@@ -188,6 +188,7 @@ export const parametrosBuscaOfertasSchema = z.object({
   cidade: z.string().optional(),
   status: statusOfertaSchema.optional(),
   prestadorId: z.string().optional(),
+  tipoPrestador: z.string().optional(),
   ordenarPor: z.enum(['preco', 'dataCriacao', 'avaliacao']).optional(),
   ordemClassificacao: z.enum(['asc', 'desc']).optional(),
   pagina: z.number().optional(),

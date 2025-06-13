@@ -77,20 +77,14 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
       });
       setCurrentIndex(currentIndex + 1);
     } else {
-      // Se estiver no último slide, navega para a tela de login
-      navigation.navigate({
-        name: 'Login',
-        params: {}
-      });
+      // Se estiver no último slide, navega para a tela Home
+      navigation.navigate('Home');
     }
   };
 
-  // Função para pular o onboarding e ir direto para o login
+  // Função para pular o onboarding e ir direto para a tela Home
   const skipOnboarding = () => {
-    navigation.navigate({
-      name: 'Login',
-      params: {}
-    });
+    navigation.navigate('Home');
   };
 
   // Renderiza cada slide do onboarding com ícone, título e descrição

@@ -2,6 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { AnyZodObject, ZodError, ZodType } from 'zod';
 import logger from '../config/logger';
 
+// Interface para definir a estrutura do objeto de validação
+interface ValidationSchemas {
+  body?: ZodType<any, any, any>;
+  query?: ZodType<any, any, any>;
+  params?: ZodType<any, any, any>;
+}
+
 /**
  * Middleware para validação de dados usando Zod
  * Este middleware valida os dados recebidos nas requisições HTTP utilizando schemas do Zod.
@@ -10,7 +17,7 @@ import logger from '../config/logger';
  * @param schema - Schema Zod para validação dos dados
  * @param source - Fonte dos dados a serem validados (body, query, params)
  */
-export const validate = (schema: ZodType<any, any, any>, source: 'body' | 'query' | 'params' = 'body') => {
+export const validateSource = (schema: ZodType<any, any, any>, source: 'body' | 'query' | 'params' = 'body') => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Log detalhado da estrutura dos dados recebidos antes da validação
@@ -100,28 +107,104 @@ export const validate = (schema: ZodType<any, any, any>, source: 'body' | 'query
 import { createUserSchema, updateUserSchema, loginUserSchema, updateUserRolesSchema } from '../schemas/userSchema';
 import { createAnuncioSchema, updateAnuncioSchema } from '../schemas/anuncioSchema';
 import { createAvaliacaoSchema, updateAvaliacaoSchema } from '../schemas/avaliacaoSchema';
+import { searchPublicOfertasSchema } from '../schemas/ofertaSchema';
 
 // Validadores pré-configurados para operações relacionadas a Usuários
 // Estes middlewares podem ser usados diretamente nas rotas para validar dados de usuários
-export const validateCreateUser = validate(createUserSchema);
-export const validateUpdateUser = validate(updateUserSchema);
-export const validateLogin = validate(loginUserSchema);
-export const validateUpdateUserRoles = validate(updateUserRolesSchema);
+export const validateCreateUser = validateSource(createUserSchema);
+export const validateUpdateUser = validateSource(updateUserSchema);
+export const validateLogin = validateSource(loginUserSchema);
+export const validateUpdateUserRoles = validateSource(updateUserRolesSchema);
 
 // Validadores pré-configurados para operações relacionadas a Anúncios
 // Estes middlewares validam os dados de criação e atualização de anúncios
-export const validateCreateAnuncio = validate(createAnuncioSchema);
-export const validateUpdateAnuncio = validate(updateAnuncioSchema);
+export const validateCreateAnuncio = validateSource(createAnuncioSchema);
+export const validateUpdateAnuncio = validateSource(updateAnuncioSchema);
 
 // Validadores pré-configurados para operações relacionadas a Avaliações
 // Estes middlewares garantem que os dados de avaliações estejam no formato correto
-export const validateCreateAvaliacao = validate(createAvaliacaoSchema);
-export const validateUpdateAvaliacao = validate(updateAvaliacaoSchema);
+export const validateCreateAvaliacao = validateSource(createAvaliacaoSchema);
+export const validateUpdateAvaliacao = validateSource(updateAvaliacaoSchema);
 
 // Função auxiliar que cria um middleware para validar parâmetros de rota (como IDs)
 // Útil para validar identificadores e outros parâmetros passados na URL
-export const validateParams = (schema: ZodType<any, any, any>) => validate(schema, 'params');
+export const validateParams = (schema: ZodType<any, any, any>) => validateSource(schema, 'params');
 
 // Função auxiliar que cria um middleware para validar parâmetros de consulta (query strings)
 // Útil para validar filtros, opções de paginação e ordenação em requisições GET
-export const validateQuery = (schema: ZodType<any, any, any>) => validate(schema, 'query');
+export const validateQuery = (schema: ZodType<any, any, any>) => validateSource(schema, 'query');
+
+// Validador pré-configurado para busca de ofertas públicas
+export const validateSearchPublicOfertas = validateQuery(searchPublicOfertasSchema);
+
+/**
+ * Middleware para validação de múltiplos dados usando Zod
+ * Este middleware permite validar simultaneamente body, query e params
+ * usando schemas Zod específicos para cada um.
+ * 
+ * @param schemas - Objeto contendo os schemas para body, query e/ou params
+ */
+export const validate = (schemas: ValidationSchemas) => {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      // Valida cada parte da requisição de acordo com os schemas fornecidos
+      if (schemas.body) {
+        logger.debug(`[VALIDAÇÃO] Validando body:`, {
+          path: req.path,
+          method: req.method,
+          data: JSON.stringify(req.body, null, 2)
+        });
+        req.body = await schemas.body.parseAsync(req.body);
+      }
+
+      if (schemas.query) {
+        logger.debug(`[VALIDAÇÃO] Validando query:`, {
+          path: req.path,
+          method: req.method,
+          data: JSON.stringify(req.query, null, 2)
+        });
+        req.query = await schemas.query.parseAsync(req.query);
+      }
+
+      if (schemas.params) {
+        logger.debug(`[VALIDAÇÃO] Validando params:`, {
+          path: req.path,
+          method: req.method,
+          data: JSON.stringify(req.params, null, 2)
+        });
+        req.params = await schemas.params.parseAsync(req.params);
+      }
+
+      next();
+    } catch (error) {
+      // Tratamento de erros de validação
+      if (error instanceof ZodError) {
+        logger.error('=== ERRO DE VALIDAÇÃO ZOD DETALHADO ===', {
+          path: req.path,
+          method: req.method,
+          errors: error.errors,
+          formattedIssues: error.format(),
+          zodErrorMessage: error.message
+        });
+
+        const formattedErrors = error.errors.map(err => ({
+          path: err.path.join('.'),
+          message: err.message,
+          code: err.code
+        }));
+
+        return res.status(400).json({
+          status: 'error',
+          message: 'Erro de validação',
+          errors: formattedErrors
+        });
+      }
+
+      logger.error('Erro inesperado na validação:', { error });
+      return res.status(500).json({
+        status: 'error',
+        message: 'Erro interno do servidor durante validação'
+      });
+    }
+  };
+};
